@@ -1,5 +1,6 @@
 ---
 import "../styles/tailwind.css";
+import { UserMenu } from "../components/UserMenu";
 
 interface Props {
   title: string;
@@ -32,18 +33,8 @@ const metaDescription = description ?? "QuickCut - Collaborative video review";
           <a href="/dashboard" class="text-lg font-bold text-text-primary">
             QuickCut
           </a>
-          <div class="ml-auto flex items-center gap-4">
-            <span class="text-sm text-text-secondary">
-              {user.displayName}
-            </span>
-            <form method="POST" action="/api/auth/logout">
-              <button
-                type="submit"
-                class="text-sm text-text-tertiary transition-colors duration-150 hover:text-text-primary"
-              >
-                Logout
-              </button>
-            </form>
+          <div class="ml-auto flex items-center">
+            <UserMenu client:load displayName={user.displayName} email={user.email} />
           </div>
         </header>
       )

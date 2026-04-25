@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { StatusDropdown, type ReviewStatus } from "./StatusDropdown";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 interface ShareLink {
   id: string;
@@ -21,8 +22,13 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
   const [copied, setCopied] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [confirmRevokeOpen, setConfirmRevokeOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   const shareUrl = shareLink ? `${appUrl}/s/${shareLink.token}` : null;
 
@@ -51,6 +57,45 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
+  // Close header overflow menu on outside click
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        moreMenuRef.current &&
+        !moreMenuRef.current.contains(e.target as Node)
+      ) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [moreMenuOpen]);
+
+  const requestDeleteVideo = () => {
+    setMoreMenuOpen(false);
+    setConfirmDeleteOpen(true);
+  };
+
+  const confirmDeleteVideo = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
+      if (res.ok) {
+        window.location.href = "/dashboard";
+        return;
+      }
+      const data = (await res.json().catch(() => null)) as
+        | { error?: string }
+        | null;
+      alert(data?.error || "Failed to delete video");
+    } catch {
+      alert("Failed to delete video");
+    }
+    setDeleting(false);
+    setConfirmDeleteOpen(false);
+  };
+
   const createOrRegenerate = async () => {
     setLoading(true);
     setMenuOpen(false);
@@ -66,13 +111,14 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
     setLoading(false);
   };
 
-  const revokeLink = async () => {
+  const requestRevokeLink = () => {
     if (!shareLink) return;
-    if (!confirm("Revoke this share link? Anyone with the link will lose access.")) {
-      return;
-    }
-    setLoading(true);
     setMenuOpen(false);
+    setConfirmRevokeOpen(true);
+  };
+
+  const confirmRevokeLink = async () => {
+    setLoading(true);
     try {
       const res = await fetch(`/api/share/manage/${videoId}`, { method: "DELETE" });
       if (res.ok) {
@@ -82,6 +128,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
       // ignore
     }
     setLoading(false);
+    setConfirmRevokeOpen(false);
   };
 
   const copyToClipboard = async () => {
@@ -104,6 +151,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
   };
 
   return (
+    <>
     <div className="mb-6 flex items-center justify-between gap-2">
       <a
         href="/dashboard"
@@ -121,6 +169,40 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
 
       <div className="ml-auto flex items-center gap-2">
         <StatusDropdown videoId={videoId} initialStatus={reviewStatus} />
+
+        <div className="relative" ref={moreMenuRef}>
+          <button
+            onClick={() => setMoreMenuOpen((o) => !o)}
+            disabled={deleting}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary disabled:opacity-50"
+            aria-label="More options"
+            aria-haspopup="menu"
+            aria-expanded={moreMenuOpen}
+          >
+            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
+            </svg>
+          </button>
+
+          {moreMenuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 z-30 mt-2 w-44 overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg"
+            >
+              <button
+                role="menuitem"
+                onClick={requestDeleteVideo}
+                disabled={deleting}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-accent-danger transition-colors hover:bg-bg-tertiary disabled:opacity-50"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                </svg>
+                Delete video
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="relative" ref={popoverRef}>
           <button
@@ -221,7 +303,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
                         </button>
                         <button
                           role="menuitem"
-                          onClick={revokeLink}
+                          onClick={requestRevokeLink}
                           disabled={loading}
                           className="block w-full px-3 py-2 text-left text-xs text-accent-danger transition-colors hover:bg-bg-tertiary disabled:opacity-50"
                         >
@@ -238,5 +320,28 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
         </div>
       </div>
     </div>
+
+    <ConfirmDialog
+      isOpen={confirmDeleteOpen}
+      title="Delete this video?"
+      description="This action cannot be undone. The video and all its comments and share links will be permanently deleted."
+      confirmLabel="Delete video"
+      variant="danger"
+      loading={deleting}
+      onConfirm={confirmDeleteVideo}
+      onCancel={() => setConfirmDeleteOpen(false)}
+    />
+
+    <ConfirmDialog
+      isOpen={confirmRevokeOpen}
+      title="Revoke share link?"
+      description="Anyone with the link will lose access. You can generate a new link any time."
+      confirmLabel="Revoke link"
+      variant="danger"
+      loading={loading}
+      onConfirm={confirmRevokeLink}
+      onCancel={() => setConfirmRevokeOpen(false)}
+    />
+    </>
   );
 }
