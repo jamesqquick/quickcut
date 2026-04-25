@@ -76,7 +76,13 @@ export function InlineEditor({
   };
 
   if (!isOwner) {
-    return <Tag className={className}>{value || placeholder}</Tag>;
+    const readOnlyDescStyles =
+      field === "description" ? "w-full min-h-[2.5rem] whitespace-pre-wrap" : "";
+    return (
+      <Tag className={`${readOnlyDescStyles} ${className}`}>
+        {value || placeholder}
+      </Tag>
+    );
   }
 
   if (isEditing) {
@@ -110,10 +116,13 @@ export function InlineEditor({
     );
   }
 
+  const descriptionStyles =
+    field === "description" ? "w-full min-h-[2.5rem] whitespace-pre-wrap" : "";
+
   return (
     <Tag
       onClick={() => setIsEditing(true)}
-      className={`cursor-pointer rounded-lg px-3 py-1 transition-colors hover:bg-bg-tertiary ${className} ${!value ? "text-text-tertiary italic" : ""}`}
+      className={`cursor-pointer rounded-lg px-3 py-1 transition-colors hover:bg-bg-tertiary ${descriptionStyles} ${className} ${!value ? "text-text-tertiary italic" : ""}`}
       title="Click to edit"
     >
       {value || placeholder}
