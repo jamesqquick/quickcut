@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CommentTimeline } from "./CommentTimeline";
 import { CommentThread } from "./CommentThread";
+import { InlineEditor } from "./InlineEditor";
 
 interface Comment {
   id: string;
@@ -26,6 +27,11 @@ interface VideoDetailViewProps {
   initialComments: Comment[];
   currentUserId: string;
   currentUserName: string;
+  title: string;
+  description: string;
+  isOwner: boolean;
+  uploadDate: string;
+  fileName: string | null;
 }
 
 // Wait for the Stream SDK to be available on window. Resolves when found,
@@ -49,6 +55,44 @@ function waitForStream(timeoutMs = 5000): Promise<NonNullable<Window["Stream"]>>
   });
 }
 
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatDuration(seconds: number | null): string {
+  if (!seconds) return "";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    processing: "bg-accent-warning/15 text-accent-warning",
+    ready: "bg-accent-secondary/15 text-accent-secondary",
+    failed: "bg-accent-danger/15 text-accent-danger",
+  };
+  const labels: Record<string, string> = {
+    processing: "Processing",
+    ready: "Ready",
+    failed: "Failed",
+  };
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status] || ""}`}
+    >
+      {status === "processing" && (
+        <span className="mr-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-accent-warning" />
+      )}
+      {labels[status] || status}
+    </span>
+  );
+}
+
 export function VideoDetailView({
   videoId,
   streamVideoId,
@@ -57,6 +101,11 @@ export function VideoDetailView({
   initialComments,
   currentUserId,
   currentUserName,
+  title,
+  description,
+  isOwner,
+  uploadDate,
+  fileName,
 }: VideoDetailViewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const playerRef = useRef<StreamPlayer | null>(null);
@@ -218,7 +267,7 @@ export function VideoDetailView({
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
-      {/* Left Column: Player + Timeline */}
+      {/* Left Column: Player + Timeline + Metadata */}
       <div className="space-y-6">
         {renderPlayer()}
 
@@ -231,6 +280,40 @@ export function VideoDetailView({
             onCommentClick={handleCommentClick}
           />
         )}
+
+        {/* Metadata: upload date, duration, filename */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-tertiary">
+          <span>Uploaded {formatDate(uploadDate)}</span>
+          {videoDuration > 0 && <span>{formatDuration(videoDuration)}</span>}
+          {fileName && (
+            <span className="block w-full truncate sm:w-auto sm:max-w-[260px]">
+              {fileName}
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <div className="flex flex-wrap items-center gap-3">
+          <InlineEditor
+            value={title}
+            field="title"
+            videoId={videoId}
+            isOwner={isOwner}
+            as="h1"
+            className="min-w-0 break-words text-xl font-bold text-text-primary sm:text-2xl"
+          />
+          {processingStatus !== "ready" && <StatusBadge status={processingStatus} />}
+        </div>
+
+        {/* Description */}
+        <InlineEditor
+          value={description}
+          field="description"
+          videoId={videoId}
+          isOwner={isOwner}
+          placeholder="Add a description..."
+          className="break-words text-sm text-text-secondary"
+        />
       </div>
 
       {/* Right Column: Comments */}
