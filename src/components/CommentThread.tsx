@@ -81,6 +81,7 @@ export function CommentThread({
   const [error, setError] = useState("");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Viewer[]>([]);
+  const [presenceLoading, setPresenceLoading] = useState(!!liveEnabled);
   const lastFetchRef = useRef<string>(new Date().toISOString());
   const threadRef = useRef<HTMLDivElement>(null);
   const commentRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -149,6 +150,7 @@ export function CommentThread({
         },
         onPresence: (incomingViewers) => {
           setViewers(incomingViewers);
+          setPresenceLoading(false);
         },
       },
     );
@@ -156,6 +158,7 @@ export function CommentThread({
     return () => {
       conn.disconnect();
       setViewers([]);
+      setPresenceLoading(false);
     };
   }, [liveEnabled, videoId, shareToken, anonymousName, currentUserName, currentUserId]);
 
@@ -361,7 +364,7 @@ export function CommentThread({
   return (
     <div className="flex h-full flex-col">
       {/* Presence bar */}
-      {liveEnabled && <PresenceBar viewers={viewers} />}
+      {liveEnabled && <PresenceBar viewers={viewers} loading={presenceLoading} />}
 
       {/* Filter tabs */}
       <div className="flex border-b border-border-default">

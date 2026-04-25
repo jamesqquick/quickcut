@@ -2,6 +2,7 @@ import type { Viewer } from "../lib/realtime";
 
 interface PresenceBarProps {
   viewers: Viewer[];
+  loading?: boolean;
 }
 
 const MAX_VISIBLE = 4;
@@ -16,7 +17,20 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export function PresenceBar({ viewers }: PresenceBarProps) {
+function PresenceBarSkeleton() {
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 border-b border-border-default animate-pulse">
+      <div className="flex -space-x-2">
+        <div className="h-7 w-7 rounded-full border-2 border-bg-secondary bg-bg-tertiary" />
+        <div className="h-7 w-7 rounded-full border-2 border-bg-secondary bg-bg-tertiary" />
+      </div>
+      <div className="h-3 w-16 rounded bg-bg-tertiary" />
+    </div>
+  );
+}
+
+export function PresenceBar({ viewers, loading }: PresenceBarProps) {
+  if (loading) return <PresenceBarSkeleton />;
   if (viewers.length === 0) return null;
 
   const visible = viewers.slice(0, MAX_VISIBLE);
