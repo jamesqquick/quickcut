@@ -1,12 +1,14 @@
-import type { BroadcastComment } from "../durable-objects/VideoRoom";
+import type { BroadcastComment, Viewer } from "../durable-objects/VideoRoom";
 
-interface ServerMessage {
-	type: "comment.new";
-	comment: BroadcastComment;
-}
+export type { Viewer } from "../durable-objects/VideoRoom";
+
+type ServerMessage =
+	| { type: "comment.new"; comment: BroadcastComment }
+	| { type: "presence.sync"; viewers: Viewer[] };
 
 export interface VideoRoomHandlers {
 	onComment?: (comment: BroadcastComment) => void;
+	onPresence?: (viewers: Viewer[]) => void;
 }
 
 export interface VideoRoomConnection {
@@ -16,6 +18,10 @@ export interface VideoRoomConnection {
 interface ConnectOptions {
 	/** Share-link token, if connecting as an anonymous viewer. */
 	shareToken?: string;
+	/** Viewer display name, used for presence indicators. */
+	viewerName?: string;
+	/** Viewer user ID (authenticated users only). */
+	viewerUserId?: string;
 }
 
 /**
@@ -38,6 +44,12 @@ export function connectVideoRoom(
 		const url = new URL(`${proto}//${window.location.host}/api/videos/${videoId}/live`);
 		if (options.shareToken) {
 			url.searchParams.set("t", options.shareToken);
+		}
+		if (options.viewerName) {
+			url.searchParams.set("viewer_name", options.viewerName);
+		}
+		if (options.viewerUserId) {
+			url.searchParams.set("viewer_id", options.viewerUserId);
 		}
 		return url.toString();
 	};
@@ -65,6 +77,8 @@ export function connectVideoRoom(
 			}
 			if (parsed.type === "comment.new") {
 				handlers.onComment?.(parsed.comment);
+			} else if (parsed.type === "presence.sync") {
+				handlers.onPresence?.(parsed.viewers);
 			}
 		});
 

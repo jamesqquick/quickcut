@@ -20,10 +20,20 @@ export interface BroadcastComment {
 	displayName: string;
 }
 
-interface ServerMessage {
-	type: "comment.new";
-	comment: BroadcastComment;
+/** A viewer currently connected to the room. */
+export interface Viewer {
+	name: string;
+	userId: string | null;
 }
+
+/** Attachment stored on each hibernatable WebSocket. */
+interface SocketMeta {
+	viewer: Viewer;
+}
+
+type ServerMessage =
+	| { type: "comment.new"; comment: BroadcastComment }
+	| { type: "presence.sync"; viewers: Viewer[] };
 
 /**
  * VideoRoom coordinates real-time updates for a single video review session.
@@ -39,13 +49,19 @@ export class VideoRoom extends DurableObject<Env> {
 	/**
 	 * Handle the WebSocket upgrade. The route handler forwards the upgrade
 	 * Request to the DO, which accepts the socket and registers it for
-	 * hibernation.
+	 * hibernation. Viewer identity is passed via query params by the API route.
 	 */
 	async fetch(request: Request): Promise<Response> {
 		const upgradeHeader = request.headers.get("Upgrade");
 		if (upgradeHeader?.toLowerCase() !== "websocket") {
 			return new Response("Expected WebSocket upgrade", { status: 426 });
 		}
+
+		const url = new URL(request.url);
+		const viewer: Viewer = {
+			name: url.searchParams.get("viewer_name") || "Anonymous",
+			userId: url.searchParams.get("viewer_id") || null,
+		};
 
 		const pair = new WebSocketPair();
 		const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
@@ -54,10 +70,57 @@ export class VideoRoom extends DurableObject<Env> {
 		// the DO on incoming messages or when we call broadcast.
 		this.ctx.acceptWebSocket(server);
 
+		// Attach viewer metadata so we can build the presence list later.
+		server.serializeAttachment({ viewer } satisfies SocketMeta);
+
+		// Broadcast the updated presence list to everyone (including the new joiner).
+		this.broadcastPresence();
+
 		return new Response(null, {
 			status: 101,
 			webSocket: client,
 		});
+	}
+
+	/**
+	 * Collect the deduplicated list of viewers from all connected sockets.
+	 */
+	private getViewers(): Viewer[] {
+		const seen = new Set<string>();
+		const viewers: Viewer[] = [];
+
+		for (const ws of this.ctx.getWebSockets()) {
+			try {
+				const meta = ws.deserializeAttachment() as SocketMeta | null;
+				if (!meta?.viewer) continue;
+				// Dedupe by userId (authenticated) or name (anonymous).
+				const key = meta.viewer.userId ?? `anon:${meta.viewer.name}`;
+				if (seen.has(key)) continue;
+				seen.add(key);
+				viewers.push(meta.viewer);
+			} catch {
+				// Attachment may not exist on very old sockets. Skip.
+			}
+		}
+
+		return viewers;
+	}
+
+	/**
+	 * Send the current viewer list to all connected clients.
+	 */
+	private broadcastPresence(): void {
+		const viewers = this.getViewers();
+		const message: ServerMessage = { type: "presence.sync", viewers };
+		const payload = JSON.stringify(message);
+
+		for (const ws of this.ctx.getWebSockets()) {
+			try {
+				ws.send(payload);
+			} catch {
+				// ignore
+			}
+		}
 	}
 
 	/**
@@ -78,7 +141,7 @@ export class VideoRoom extends DurableObject<Env> {
 		}
 	}
 
-	// Phase 1 has no client -> server messages. Drop anything we receive.
+	// No client -> server messages needed yet. Drop anything we receive.
 	async webSocketMessage(_ws: WebSocket, _message: ArrayBuffer | string): Promise<void> {
 		// no-op
 	}
@@ -94,6 +157,8 @@ export class VideoRoom extends DurableObject<Env> {
 		} catch {
 			// ignore
 		}
+		// A viewer left — broadcast updated presence to remaining clients.
+		this.broadcastPresence();
 	}
 
 	async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
@@ -102,5 +167,7 @@ export class VideoRoom extends DurableObject<Env> {
 		} catch {
 			// ignore
 		}
+		// A viewer dropped — broadcast updated presence to remaining clients.
+		this.broadcastPresence();
 	}
 }

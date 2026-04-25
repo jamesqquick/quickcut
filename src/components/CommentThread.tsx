@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { formatTimecode, relativeTime } from "../lib/time";
 import { connectVideoRoom } from "../lib/realtime";
+import type { Viewer } from "../lib/realtime";
+import { PresenceBar } from "./PresenceBar";
 
 interface Comment {
   id: string;
@@ -78,6 +80,7 @@ export function CommentThread({
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const [viewers, setViewers] = useState<Viewer[]>([]);
   const lastFetchRef = useRef<string>(new Date().toISOString());
   const threadRef = useRef<HTMLDivElement>(null);
   const commentRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -131,7 +134,11 @@ export function CommentThread({
 
     const conn = connectVideoRoom(
       videoId,
-      shareToken ? { shareToken } : {},
+      {
+        shareToken,
+        viewerName: anonymousName || currentUserName,
+        viewerUserId: currentUserId,
+      },
       {
         onComment: (incoming) => {
           setComments((prev) => {
@@ -140,11 +147,17 @@ export function CommentThread({
           });
           lastFetchRef.current = new Date().toISOString();
         },
+        onPresence: (incomingViewers) => {
+          setViewers(incomingViewers);
+        },
       },
     );
 
-    return () => conn.disconnect();
-  }, [liveEnabled, videoId, shareToken]);
+    return () => {
+      conn.disconnect();
+      setViewers([]);
+    };
+  }, [liveEnabled, videoId, shareToken, anonymousName, currentUserName, currentUserId]);
 
   // Scroll to and highlight a comment when focusRequest changes
   useEffect(() => {
@@ -347,6 +360,9 @@ export function CommentThread({
 
   return (
     <div className="flex h-full flex-col">
+      {/* Presence bar */}
+      {liveEnabled && <PresenceBar viewers={viewers} />}
+
       {/* Filter tabs */}
       <div className="flex border-b border-border-default">
         {(
