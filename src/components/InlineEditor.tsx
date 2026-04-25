@@ -124,7 +124,7 @@ export function InlineEditor({
   return (
     <Tag
       onClick={() => setIsEditing(true)}
-      className={`cursor-pointer rounded-lg px-3 py-1 transition-colors hover:bg-bg-tertiary ${descriptionStyles} ${className} ${!value ? "text-text-tertiary italic" : ""}`}
+      className={`cursor-pointer rounded-lg px-3 ${field === "description" ? "py-2" : "py-1"} transition-colors hover:bg-bg-tertiary ${descriptionStyles} ${className} ${!value ? "text-text-tertiary italic" : ""}`}
       title="Click to edit"
     >
       {value || placeholder}
