@@ -1,10 +1,11 @@
 ---
-import ShareLayout from "../../layouts/ShareLayout.astro";
+import Layout from "../../layouts/Layout.astro";
 import { ShareView } from "../../components/ShareView";
 import { createDb } from "../../db";
-import { shareLinks, videos, comments, users } from "../../db/schema";
-import { eq, asc } from "drizzle-orm";
+import { shareLinks, videos } from "../../db/schema";
+import { eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
+import { getCommentsWithNames } from "../../lib/comments";
 
 const { token } = Astro.params;
 if (!token) return Astro.redirect("/");
@@ -42,32 +43,11 @@ if (!isRevoked) {
   }
 
   video = videoResult[0];
-
-  // Get comments
-  const rawComments = await db
-    .select()
-    .from(comments)
-    .where(eq(comments.videoId, shareLink.videoId))
-    .orderBy(asc(comments.timestamp), asc(comments.createdAt));
-
-  // Resolve display names
-  const userIds = [...new Set(rawComments.filter(c => c.authorUserId).map(c => c.authorUserId!))];
-  let userMap: Record<string, string> = {};
-  if (userIds.length > 0) {
-    const usersResult = await db.select({ id: users.id, displayName: users.displayName }).from(users);
-    userMap = Object.fromEntries(usersResult.map(u => [u.id, u.displayName]));
-  }
-
-  allComments = rawComments.map(c => ({
-    ...c,
-    displayName: c.authorType === "user" && c.authorUserId
-      ? userMap[c.authorUserId] || "Unknown"
-      : c.authorDisplayName || "Anonymous",
-  }));
+  allComments = await getCommentsWithNames(db, shareLink.videoId);
 }
 ---
 
-<ShareLayout title={video ? video.title : "Link Unavailable"}>
+<Layout title={video ? video.title : "Link Unavailable"}>
   {!isRevoked && video && (
     <script src="https://embed.cloudflarestream.com/embed/sdk.latest.js" is:inline></script>
   )}
@@ -81,12 +61,14 @@ if (!isRevoked) {
       </div>
     </div>
   ) : video ? (
-    <ShareView
-      client:load
-      video={video}
-      initialComments={allComments}
-      shareToken={token}
-    />
+    <div class="mx-auto max-w-[1280px] px-4 py-6 sm:px-8 sm:py-8">
+      <ShareView
+        client:load
+        video={video}
+        initialComments={allComments}
+        shareToken={token}
+      />
+    </div>
   ) : (
     <div class="flex min-h-[60vh] items-center justify-center">
       <div class="text-center">
@@ -97,4 +79,4 @@ if (!isRevoked) {
       </div>
     </div>
   )}
-</ShareLayout>
+</Layout>

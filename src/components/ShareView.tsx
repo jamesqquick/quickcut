@@ -1,7 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CommentTimeline } from "./CommentTimeline";
 import { CommentThread } from "./CommentThread";
 import { NamePromptModal } from "./NamePromptModal";
+import { VideoPlayer } from "./VideoPlayer";
+import { VideoPageLayout } from "./VideoPageLayout";
+import { useStreamPlayer } from "../hooks/useStreamPlayer";
+import type { Comment } from "../types";
 
 interface Video {
   id: string;
@@ -12,62 +16,28 @@ interface Video {
   duration: number | null;
 }
 
-interface Comment {
-  id: string;
-  videoId: string;
-  authorType: string;
-  authorUserId: string | null;
-  authorDisplayName: string | null;
-  timestamp: number | null;
-  text: string;
-  parentId: string | null;
-  isResolved: boolean;
-  resolvedBy: string | null;
-  resolvedAt: string | null;
-  createdAt: string;
-  displayName: string;
-}
-
 interface ShareViewProps {
   video: Video;
   initialComments: Comment[];
   shareToken: string;
 }
 
-function waitForStream(timeoutMs = 5000): Promise<NonNullable<Window["Stream"]>> {
-  return new Promise((resolve, reject) => {
-    if (typeof window !== "undefined" && window.Stream) {
-      resolve(window.Stream);
-      return;
-    }
-    const start = Date.now();
-    const interval = setInterval(() => {
-      if (typeof window !== "undefined" && window.Stream) {
-        clearInterval(interval);
-        resolve(window.Stream);
-      } else if (Date.now() - start > timeoutMs) {
-        clearInterval(interval);
-        reject(new Error("Stream SDK did not load in time"));
-      }
-    }, 50);
-  });
-}
-
 const ANON_NAME_KEY = "quickcut_anonymous_name";
 
 export function ShareView({ video, initialComments, shareToken }: ShareViewProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const playerRef = useRef<StreamPlayer | null>(null);
-  // Read the saved name synchronously on first render so we never flash the
-  // page content before deciding to gate.
   const [anonymousName, setAnonymousName] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem(ANON_NAME_KEY);
   });
-  const [currentTime, setCurrentTime] = useState(0);
-  const [videoDuration, setVideoDuration] = useState(video.duration || 0);
   const [liveComments, setLiveComments] = useState(initialComments);
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
+
+  const { iframeRef, currentTime, videoDuration, handleSeek } = useStreamPlayer({
+    status: video.status,
+    streamVideoId: video.streamVideoId,
+    initialDuration: video.duration || 0,
+    enabled: !!anonymousName,
+  });
 
   const handleCommentClick = useCallback((commentId: string) => {
     setFocusRequest({ id: commentId, nonce: Date.now() });
@@ -78,67 +48,6 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
     if (!anonymousName) return;
     fetch(`/api/share/${shareToken}/view`, { method: "POST" }).catch(() => {});
   }, [shareToken, anonymousName]);
-
-  // Initialize Stream SDK (deferred until the gate clears so it doesn't load
-  // for visitors who never enter a name).
-  useEffect(() => {
-    if (!anonymousName) return;
-    if (video.status !== "ready" || !video.streamVideoId) return;
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-
-    let cancelled = false;
-    let player: StreamPlayer | null = null;
-
-    const handleTimeUpdate = () => {
-      if (player) setCurrentTime(player.currentTime || 0);
-    };
-    const handleDurationChange = () => {
-      if (player) setVideoDuration(player.duration || 0);
-    };
-    const handlePause = () => {
-      if (player) setCurrentTime(player.currentTime || 0);
-    };
-
-    waitForStream()
-      .then((StreamFn) => {
-        if (cancelled || !iframeRef.current) return;
-        player = StreamFn(iframeRef.current);
-        playerRef.current = player;
-
-        player.addEventListener("timeupdate", handleTimeUpdate);
-        player.addEventListener("durationchange", handleDurationChange);
-        player.addEventListener("pause", handlePause);
-
-        if (player.duration) {
-          setVideoDuration(player.duration);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to initialize Stream SDK:", err);
-      });
-
-    return () => {
-      cancelled = true;
-      if (player) {
-        try {
-          player.removeEventListener("timeupdate", handleTimeUpdate);
-          player.removeEventListener("durationchange", handleDurationChange);
-          player.removeEventListener("pause", handlePause);
-        } catch {
-          // ignore
-        }
-      }
-      playerRef.current = null;
-    };
-  }, [anonymousName, video.status, video.streamVideoId]);
-
-  const handleSeek = useCallback((time: number) => {
-    if (playerRef.current) {
-      playerRef.current.currentTime = time;
-      setCurrentTime(time);
-    }
-  }, []);
 
   const handleNameSubmit = (name: string) => {
     localStorage.setItem(ANON_NAME_KEY, name);
@@ -159,43 +68,13 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
     );
   }
 
-  const renderPlayer = () => {
-    if (video.status === "processing") {
-      return (
-        <div className="flex aspect-video items-center justify-center rounded-xl bg-black">
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-10 w-10 animate-[pulse_1.5s_ease-in-out_infinite] rounded-full bg-accent-warning/30" />
-            <p className="text-lg font-semibold text-text-primary">This video is still being processed</p>
-            <p className="mt-1 text-sm text-text-secondary">Check back in a few minutes</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (video.status === "failed" || !video.streamVideoId) {
-      return (
-        <div className="flex aspect-video items-center justify-center rounded-xl bg-black">
-          <p className="text-text-tertiary">This video is no longer available</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="relative aspect-video overflow-hidden rounded-xl bg-black">
-        <iframe
-          ref={iframeRef}
-          src={`https://iframe.videodelivery.net/${video.streamVideoId}`}
-          className="h-full w-full"
-          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    );
-  };
-
-  return (
-    <div className="space-y-6">
-      {renderPlayer()}
+  const leftColumn = (
+    <>
+      <VideoPlayer
+        status={video.status}
+        streamVideoId={video.streamVideoId}
+        iframeRef={iframeRef}
+      />
 
       {video.status === "ready" && videoDuration > 0 && (
         <CommentTimeline
@@ -208,28 +87,30 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
       )}
 
       <div>
-        <h1 className="text-2xl font-bold text-text-primary">{video.title}</h1>
+        <h1 className="text-xl font-bold text-text-primary sm:text-2xl">{video.title}</h1>
         {video.description && (
           <p className="mt-2 text-sm text-text-secondary">{video.description}</p>
         )}
       </div>
-
-      <div className="rounded-xl border border-border-default bg-bg-secondary">
-        <CommentThread
-          videoId={video.id}
-          initialComments={initialComments}
-          isAuthenticated={false}
-          duration={videoDuration}
-          videoStatus={video.status}
-          currentTime={currentTime}
-          shareToken={shareToken}
-          anonymousName={anonymousName}
-          liveEnabled
-          onSeek={handleSeek}
-          onCommentsChange={setLiveComments}
-          focusRequest={focusRequest}
-        />
-      </div>
-    </div>
+    </>
   );
+
+  const rightColumn = (
+    <CommentThread
+      videoId={video.id}
+      initialComments={initialComments}
+      isAuthenticated={false}
+      duration={videoDuration}
+      videoStatus={video.status}
+      currentTime={currentTime}
+      shareToken={shareToken}
+      anonymousName={anonymousName}
+      liveEnabled
+      onSeek={handleSeek}
+      onCommentsChange={setLiveComments}
+      focusRequest={focusRequest}
+    />
+  );
+
+  return <VideoPageLayout leftColumn={leftColumn} rightColumn={rightColumn} />;
 }

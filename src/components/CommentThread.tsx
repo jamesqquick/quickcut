@@ -3,27 +3,7 @@ import { formatTimecode, relativeTime } from "../lib/time";
 import { connectVideoRoom } from "../lib/realtime";
 import type { Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
-
-interface Comment {
-  id: string;
-  videoId: string;
-  authorType: string;
-  authorUserId: string | null;
-  authorDisplayName: string | null;
-  timestamp: number | null;
-  text: string;
-  parentId: string | null;
-  isResolved: boolean;
-  resolvedBy: string | null;
-  resolvedAt: string | null;
-  createdAt: string;
-  displayName: string;
-}
-
-interface FocusRequest {
-  id: string;
-  nonce: number;
-}
+import type { Comment, FocusRequest } from "../types";
 
 interface CommentThreadProps {
   videoId: string;

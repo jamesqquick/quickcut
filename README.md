@@ -83,7 +83,7 @@ src/
 ├── components/      Astro + React components (VideoCard, VideoPlayer, CommentThread, ...)
 ├── db/              Drizzle schema and client factory
 ├── durable-objects/ Durable Object classes (VideoRoom for real-time comment fan-out)
-├── layouts/         Layout.astro, ShareLayout.astro
+├── layouts/         Layout.astro
 ├── lib/             Auth, Stream, broadcast (DO RPC), realtime (client WS) helpers
 ├── middleware.ts    Session loader + route protection
 ├── worker.ts        Custom Worker entry — delegates to Astro and exports DOs
