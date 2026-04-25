@@ -11,6 +11,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "deploy": "pnpm build && wrangler deploy",
+    "release": "pnpm build && wrangler deploy",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply quickcut-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply quickcut-db --remote"
