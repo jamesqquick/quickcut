@@ -152,7 +152,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
 
   return (
     <>
-    <div className="mb-6 flex items-center justify-between gap-2">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
       <a
         href="/dashboard"
         className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
@@ -187,7 +187,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
           {moreMenuOpen && (
             <div
               role="menu"
-              className="absolute right-0 z-30 mt-2 w-44 overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg"
+              className="absolute right-0 z-30 mt-2 w-44 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg"
             >
               <button
                 role="menuitem"
@@ -218,7 +218,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
           <div
             role="dialog"
             aria-label="Share video"
-            className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-border-default bg-bg-secondary p-4 shadow-xl"
+            className="absolute right-0 z-20 mt-2 w-[calc(100vw-2rem)] rounded-xl border border-border-default bg-bg-secondary p-4 shadow-xl sm:w-80"
           >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-text-primary">Share for review</h3>
@@ -291,7 +291,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
                     {menuOpen && (
                       <div
                         role="menu"
-                        className="absolute right-0 z-30 mt-1 w-44 overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg"
+                        className="absolute right-0 z-30 mt-1 w-44 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg"
                       >
                         <button
                           role="menuitem"

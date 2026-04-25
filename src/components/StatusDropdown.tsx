@@ -96,7 +96,7 @@ export function StatusDropdown({ videoId, initialStatus }: StatusDropdownProps) 
         aria-label={`Review status: ${current.label}`}
       >
         <StatusCircle option={current} />
-        <span>{current.label}</span>
+        <span className="hidden sm:inline">{current.label}</span>
         <svg
           className={`h-3 w-3 text-text-tertiary transition-transform ${open ? "rotate-180" : ""}`}
           viewBox="0 0 20 20"
@@ -115,7 +115,7 @@ export function StatusDropdown({ videoId, initialStatus }: StatusDropdownProps) 
         <div
           role="menu"
           aria-label="Set review status"
-          className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-xl border border-border-default bg-bg-secondary py-1 shadow-xl"
+          className="absolute right-0 z-30 mt-2 w-56 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border-default bg-bg-secondary py-1 shadow-xl"
         >
           {STATUS_OPTIONS.map((option) => {
             const isActive = option.value === status;
