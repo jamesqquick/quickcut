@@ -1,0 +1,100 @@
+---
+import ShareLayout from "../../layouts/ShareLayout.astro";
+import { ShareView } from "../../components/ShareView";
+import { createDb } from "../../db";
+import { shareLinks, videos, comments, users } from "../../db/schema";
+import { eq, asc } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+
+const { token } = Astro.params;
+if (!token) return Astro.redirect("/");
+
+const db = createDb(env.DB);
+
+// Find share link
+const shareLinkResult = await db
+  .select()
+  .from(shareLinks)
+  .where(eq(shareLinks.token, token))
+  .limit(1);
+
+if (shareLinkResult.length === 0) {
+  return Astro.redirect("/404");
+}
+
+const shareLink = shareLinkResult[0];
+
+const isRevoked = shareLink.status === "revoked";
+
+// Get video
+let video = null;
+let allComments: any[] = [];
+
+if (!isRevoked) {
+  const videoResult = await db
+    .select()
+    .from(videos)
+    .where(eq(videos.id, shareLink.videoId))
+    .limit(1);
+
+  if (videoResult.length === 0) {
+    return Astro.redirect("/404");
+  }
+
+  video = videoResult[0];
+
+  // Get comments
+  const rawComments = await db
+    .select()
+    .from(comments)
+    .where(eq(comments.videoId, shareLink.videoId))
+    .orderBy(asc(comments.timestamp), asc(comments.createdAt));
+
+  // Resolve display names
+  const userIds = [...new Set(rawComments.filter(c => c.authorUserId).map(c => c.authorUserId!))];
+  let userMap: Record<string, string> = {};
+  if (userIds.length > 0) {
+    const usersResult = await db.select({ id: users.id, displayName: users.displayName }).from(users);
+    userMap = Object.fromEntries(usersResult.map(u => [u.id, u.displayName]));
+  }
+
+  allComments = rawComments.map(c => ({
+    ...c,
+    displayName: c.authorType === "user" && c.authorUserId
+      ? userMap[c.authorUserId] || "Unknown"
+      : c.authorDisplayName || "Anonymous",
+  }));
+}
+---
+
+<ShareLayout title={video ? video.title : "Link Unavailable"}>
+  {!isRevoked && video && (
+    <script src="https://embed.cloudflarestream.com/embed/sdk.latest.js" is:inline></script>
+  )}
+  {isRevoked ? (
+    <div class="flex min-h-[60vh] items-center justify-center">
+      <div class="text-center">
+        <h1 class="text-2xl font-bold text-text-primary">Link Unavailable</h1>
+        <p class="mt-2 text-sm text-text-secondary">
+          This review link has been deactivated by the video owner.
+        </p>
+      </div>
+    </div>
+  ) : video ? (
+    <ShareView
+      client:load
+      video={video}
+      initialComments={allComments}
+      shareToken={token}
+    />
+  ) : (
+    <div class="flex min-h-[60vh] items-center justify-center">
+      <div class="text-center">
+        <h1 class="text-2xl font-bold text-text-primary">Video Not Found</h1>
+        <p class="mt-2 text-sm text-text-secondary">
+          This video could not be found.
+        </p>
+      </div>
+    </div>
+  )}
+</ShareLayout>

@@ -1,0 +1,70 @@
+import type { APIRoute } from "astro";
+import { env } from "cloudflare:workers";
+import { createDb } from "../../../db";
+import { users } from "../../../db/schema";
+import { hashPassword, createSession, makeSessionCookie } from "../../../lib/auth";
+import { eq } from "drizzle-orm";
+
+export const POST: APIRoute = async ({ request, redirect }) => {
+  const db = createDb(env.DB);
+
+  let email: string;
+  let password: string;
+  let displayName: string;
+
+  const contentType = request.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const body = await request.json();
+    email = body.email?.trim().toLowerCase();
+    password = body.password;
+    displayName = body.displayName?.trim();
+  } else {
+    const formData = await request.formData();
+    email = (formData.get("email") as string)?.trim().toLowerCase();
+    password = formData.get("password") as string;
+    displayName = (formData.get("displayName") as string)?.trim();
+  }
+
+  // Validation
+  if (!email || !password || !displayName) {
+    return redirect("/register?error=All fields are required");
+  }
+
+  if (password.length < 8) {
+    return redirect("/register?error=Password must be at least 8 characters");
+  }
+
+  // Check if email exists
+  const existing = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  if (existing.length > 0) {
+    return redirect("/register?error=An account with this email already exists");
+  }
+
+  // Create user
+  const passwordHash = await hashPassword(password);
+  const userId = crypto.randomUUID();
+
+  await db.insert(users).values({
+    id: userId,
+    email,
+    passwordHash,
+    displayName,
+  });
+
+  // Create session
+  const sessionId = await createSession(db, userId);
+  const cookie = makeSessionCookie(sessionId);
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: "/dashboard",
+      "Set-Cookie": cookie,
+    },
+  });
+};

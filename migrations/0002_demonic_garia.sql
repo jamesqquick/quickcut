@@ -1,0 +1,1 @@
+ALTER TABLE `videos` ADD `review_status` text DEFAULT 'no_status' NOT NULL;

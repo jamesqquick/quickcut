@@ -1,0 +1,39 @@
+---
+interface Props {
+  user?: { id: string; email: string; displayName: string } | null;
+  backLink?: { href: string; label: string };
+}
+
+const { user, backLink } = Astro.props;
+---
+
+<header class="sticky top-0 z-50 flex h-14 items-center border-b border-border-default bg-bg-primary px-8">
+  <a href="/dashboard" class="text-lg font-bold text-text-primary">
+    QuickCut
+  </a>
+
+  {backLink && (
+    <a href={backLink.href} class="ml-6 text-sm text-text-tertiary transition-colors hover:text-text-primary">
+      {backLink.label}
+    </a>
+  )}
+
+  {user && (
+    <div class="ml-auto flex items-center gap-4">
+      <div class="flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary text-xs font-medium text-white">
+        {user.displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+      </div>
+      <span class="text-sm text-text-secondary">
+        {user.displayName}
+      </span>
+      <form method="POST" action="/api/auth/logout">
+        <button
+          type="submit"
+          class="text-sm text-text-tertiary transition-colors duration-150 hover:text-text-primary"
+        >
+          Logout
+        </button>
+      </form>
+    </div>
+  )}
+</header>

@@ -1,0 +1,719 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const user = Astro.locals.user;
+if (user) {
+  return Astro.redirect("/dashboard");
+}
+---
+
+<Layout
+  title="Collaborative Video Review"
+  description="QuickCut is collaborative video review built on Cloudflare. Timestamped comments, share links for clients, resumable 5GB uploads, and global HLS playback."
+>
+  <!-- Marketing nav -->
+  <header class="sticky top-0 z-50 border-b border-border-default bg-bg-primary/80 backdrop-blur">
+    <div class="mx-auto flex h-14 max-w-[1280px] items-center px-6 sm:px-8">
+      <a href="/" class="text-lg font-bold text-text-primary">QuickCut</a>
+      <nav class="ml-10 hidden items-center gap-6 md:flex">
+        <a href="#features" class="text-sm text-text-secondary transition-colors hover:text-text-primary">Features</a>
+        <a href="#workflow" class="text-sm text-text-secondary transition-colors hover:text-text-primary">Workflow</a>
+        <a href="#stack" class="text-sm text-text-secondary transition-colors hover:text-text-primary">Stack</a>
+        <a href="#faq" class="text-sm text-text-secondary transition-colors hover:text-text-primary">FAQ</a>
+      </nav>
+      <div class="ml-auto flex items-center gap-3">
+        <a href="/login" class="text-sm text-text-secondary transition-colors hover:text-text-primary">Sign in</a>
+        <a
+          href="/register"
+          class="rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
+        >
+          Get Started
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative overflow-hidden">
+    <!-- Background glow -->
+    <div
+      class="pointer-events-none absolute inset-x-0 top-[-10%] -z-10 h-[600px] bg-[radial-gradient(ellipse_at_top,rgba(108,92,231,0.18),transparent_60%)]"
+    >
+    </div>
+
+    <div class="mx-auto max-w-[1280px] px-6 pt-20 pb-24 sm:px-8 sm:pt-28 sm:pb-32">
+      <div class="mx-auto max-w-3xl text-center">
+        <div
+          class="mb-6 inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary"
+        >
+          <span class="size-1.5 rounded-full bg-accent-secondary"></span>
+          Collaborative video review, built on the edge
+        </div>
+        <h1 class="text-4xl font-bold tracking-tight text-text-primary sm:text-6xl">
+          Review video together.
+          <span class="block bg-gradient-to-r from-accent-primary to-accent-info bg-clip-text text-transparent">
+            Frame by frame.
+          </span>
+        </h1>
+        <p class="mx-auto mt-6 max-w-2xl text-lg text-text-secondary">
+          Upload up to 5GB, share a link, and collect timestamped feedback from your team or clients —
+          no account required for reviewers. Powered by Cloudflare.
+        </p>
+        <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href="/register"
+            class="rounded-lg bg-accent-primary px-6 py-3 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
+          >
+            Get Started Free
+          </a>
+          <a
+            href="/login"
+            class="rounded-lg border border-border-default bg-bg-secondary px-6 py-3 text-sm font-medium text-text-primary transition-all duration-150 hover:border-border-hover"
+          >
+            Sign In
+          </a>
+        </div>
+      </div>
+
+      <!-- Hero mockup: faux video review UI -->
+      <div class="mx-auto mt-16 max-w-5xl">
+        <div
+          class="rounded-2xl border border-border-default bg-bg-secondary p-3 shadow-[0_24px_64px_rgba(0,0,0,0.5)]"
+        >
+          <!-- Mock window chrome -->
+          <div class="mb-3 flex items-center justify-between px-2">
+            <div class="flex items-center gap-1.5">
+              <span class="size-2.5 rounded-full bg-accent-danger/60"></span>
+              <span class="size-2.5 rounded-full bg-accent-warning/60"></span>
+              <span class="size-2.5 rounded-full bg-accent-secondary/60"></span>
+            </div>
+            <span class="rounded-full bg-accent-secondary/15 px-2.5 py-0.5 text-xs font-medium text-accent-secondary">
+              Approved
+            </span>
+          </div>
+
+          <!-- Faux video frame -->
+          <div class="relative aspect-video overflow-hidden rounded-xl bg-bg-tertiary">
+            <div
+              class="absolute inset-0 bg-[radial-gradient(circle_at_30%_40%,rgba(108,92,231,0.15),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(0,184,148,0.1),transparent_60%)]"
+            >
+            </div>
+            <!-- Play button -->
+            <div class="absolute inset-0 flex items-center justify-center">
+              <div
+                class="flex size-16 items-center justify-center rounded-full bg-accent-primary/90 shadow-[0_0_40px_rgba(108,92,231,0.5)]"
+              >
+                <svg viewBox="0 0 24 24" fill="white" class="size-6 translate-x-0.5">
+                  <path d="M8 5v14l11-7z"></path>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Floating comment card -->
+            <div
+              class="absolute top-6 right-6 max-w-[260px] rounded-lg border border-border-default bg-bg-secondary p-3 shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
+            >
+              <div class="flex items-start gap-2.5">
+                <div
+                  class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-primary text-xs font-semibold text-white"
+                >
+                  JQ
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-semibold text-text-primary">James</span>
+                    <span class="font-mono text-xs text-accent-primary">0:12</span>
+                  </div>
+                  <p class="mt-0.5 text-xs text-text-secondary">
+                    Can we tighten the cut here? Feels a beat too long.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scrubber with comment markers -->
+          <div class="mt-3 px-2">
+            <div class="relative h-1.5 rounded-full bg-bg-tertiary">
+              <div class="absolute inset-y-0 left-0 w-[35%] rounded-full bg-accent-primary"></div>
+              <span
+                class="absolute top-1/2 size-3 -translate-y-1/2 rounded-full border-2 border-bg-secondary bg-accent-warning"
+                style="left: 12%"
+              ></span>
+              <span
+                class="absolute top-1/2 size-3 -translate-y-1/2 rounded-full border-2 border-bg-secondary bg-accent-info"
+                style="left: 35%"
+              ></span>
+              <span
+                class="absolute top-1/2 size-3 -translate-y-1/2 rounded-full border-2 border-bg-secondary bg-accent-primary"
+                style="left: 58%"
+              ></span>
+              <span
+                class="absolute top-1/2 size-3 -translate-y-1/2 rounded-full border-2 border-bg-secondary bg-accent-secondary"
+                style="left: 82%"
+              ></span>
+            </div>
+            <div class="mt-2 flex justify-between font-mono text-xs text-text-tertiary">
+              <span>0:00</span>
+              <span>2:34</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="border-t border-border-default">
+    <div class="mx-auto max-w-[1280px] px-6 py-20 sm:px-8 sm:py-24">
+      <div class="mx-auto max-w-2xl text-center">
+        <h2 class="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
+          Everything you need to ship video, faster
+        </h2>
+        <p class="mt-4 text-text-secondary">
+          A focused review workflow without the bloat. Drop in, leave feedback, get out.
+        </p>
+      </div>
+
+      <div class="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <!-- Feature 1 -->
+        <div
+          class="rounded-xl border border-border-default bg-bg-secondary p-6 transition-colors hover:border-border-hover"
+        >
+          <div
+            class="mb-4 flex size-10 items-center justify-center rounded-lg bg-accent-primary/15 text-accent-primary"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <path d="M12 12V3"></path>
+              <path d="M7 8l5-5 5 5"></path>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-text-primary">Resumable 5GB uploads</h3>
+          <p class="mt-2 text-sm text-text-secondary">
+            Drag, drop, walk away. TUS-resumable uploads keep going across reconnects so you never lose progress.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div
+          class="rounded-xl border border-border-default bg-bg-secondary p-6 transition-colors hover:border-border-hover"
+        >
+          <div
+            class="mb-4 flex size-10 items-center justify-center rounded-lg bg-accent-info/15 text-accent-info"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-text-primary">Timestamped comments</h3>
+          <p class="mt-2 text-sm text-text-secondary">
+            Pin feedback to the exact frame. No more "around the 30 second mark…" — reviewers click and comment.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div
+          class="rounded-xl border border-border-default bg-bg-secondary p-6 transition-colors hover:border-border-hover"
+        >
+          <div
+            class="mb-4 flex size-10 items-center justify-center rounded-lg bg-accent-secondary/15 text-accent-secondary"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
+              <path d="M17 8h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h2"></path>
+              <polyline points="9 12 11 14 15 10"></polyline>
+              <path d="M9 4h6v4H9z"></path>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-text-primary">Threaded replies & resolve</h3>
+          <p class="mt-2 text-sm text-text-secondary">
+            Discussions stay organized. Reply inline, mark notes resolved, and keep the conversation moving.
+          </p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div
+          class="rounded-xl border border-border-default bg-bg-secondary p-6 transition-colors hover:border-border-hover"
+        >
+          <div
+            class="mb-4 flex size-10 items-center justify-center rounded-lg bg-accent-warning/15 text-accent-warning"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-text-primary">Review statuses</h3>
+          <p class="mt-2 text-sm text-text-secondary">
+            Move clips through Needs Review → In Progress → Approved. Always know what's blocking the cut.
+          </p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div
+          class="rounded-xl border border-border-default bg-bg-secondary p-6 transition-colors hover:border-border-hover"
+        >
+          <div
+            class="mb-4 flex size-10 items-center justify-center rounded-lg bg-accent-primary/15 text-accent-primary"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-text-primary">Public share links</h3>
+          <p class="mt-2 text-sm text-text-secondary">
+            Send a link to a client. They review and comment without an account. Revoke access anytime.
+          </p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div
+          class="rounded-xl border border-border-default bg-bg-secondary p-6 transition-colors hover:border-border-hover"
+        >
+          <div
+            class="mb-4 flex size-10 items-center justify-center rounded-lg bg-accent-info/15 text-accent-info"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-text-primary">Global HLS playback</h3>
+          <p class="mt-2 text-sm text-text-secondary">
+            Adaptive streaming powered by Cloudflare Stream. Smooth playback for every reviewer, anywhere.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Workflow -->
+  <section id="workflow" class="border-t border-border-default bg-bg-secondary/30">
+    <div class="mx-auto max-w-[1280px] px-6 py-20 sm:px-8 sm:py-24">
+      <div class="mx-auto max-w-2xl text-center">
+        <h2 class="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
+          From upload to approval in three steps
+        </h2>
+        <p class="mt-4 text-text-secondary">
+          A workflow designed for editors and the people who review their work.
+        </p>
+      </div>
+
+      <div class="mt-14 grid gap-6 lg:grid-cols-3">
+        <!-- Step 1: Upload -->
+        <div class="rounded-xl border border-border-default bg-bg-primary p-6">
+          <div class="flex items-center gap-3">
+            <span
+              class="flex size-7 items-center justify-center rounded-full bg-accent-primary/15 font-mono text-sm font-semibold text-accent-primary"
+            >
+              1
+            </span>
+            <h3 class="font-semibold text-text-primary">Upload</h3>
+          </div>
+          <p class="mt-3 text-sm text-text-secondary">
+            Drag a file in. Up to 5GB. Resumable. Transcoded to HLS automatically.
+          </p>
+          <!-- Mock upload zone -->
+          <div
+            class="mt-5 rounded-lg border-2 border-dashed border-border-default bg-bg-tertiary/50 p-5"
+          >
+            <div class="flex items-center gap-3">
+              <div class="flex size-9 items-center justify-center rounded-lg bg-accent-primary/15 text-accent-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-xs font-medium text-text-primary">final_cut_v3.mp4</p>
+                <div class="mt-1.5 h-1 rounded-full bg-bg-tertiary">
+                  <div class="h-full w-2/3 rounded-full bg-accent-primary"></div>
+                </div>
+                <p class="mt-1 font-mono text-xs text-text-tertiary">2.1 GB · 67%</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Share -->
+        <div class="rounded-xl border border-border-default bg-bg-primary p-6">
+          <div class="flex items-center gap-3">
+            <span
+              class="flex size-7 items-center justify-center rounded-full bg-accent-info/15 font-mono text-sm font-semibold text-accent-info"
+            >
+              2
+            </span>
+            <h3 class="font-semibold text-text-primary">Share</h3>
+          </div>
+          <p class="mt-3 text-sm text-text-secondary">
+            Generate a link. Reviewers don't need an account — just a name.
+          </p>
+          <!-- Mock share card -->
+          <div class="mt-5 rounded-lg border border-border-default bg-bg-tertiary/50 p-4">
+            <p class="text-xs font-medium text-text-secondary">Share link</p>
+            <div class="mt-2 flex items-center gap-2">
+              <code
+                class="flex-1 truncate rounded-md border border-border-default bg-bg-input px-2.5 py-1.5 font-mono text-xs text-text-primary"
+              >
+                quickcut.app/s/x4Kp9mN2
+              </code>
+              <button
+                class="rounded-md bg-accent-primary px-3 py-1.5 text-xs font-medium text-white"
+              >
+                Copy
+              </button>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-xs">
+              <span class="inline-flex items-center gap-1.5 text-accent-secondary">
+                <span class="size-1.5 rounded-full bg-accent-secondary"></span>
+                Active
+              </span>
+              <span class="font-mono text-text-tertiary">12 views</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Review -->
+        <div class="rounded-xl border border-border-default bg-bg-primary p-6">
+          <div class="flex items-center gap-3">
+            <span
+              class="flex size-7 items-center justify-center rounded-full bg-accent-secondary/15 font-mono text-sm font-semibold text-accent-secondary"
+            >
+              3
+            </span>
+            <h3 class="font-semibold text-text-primary">Review</h3>
+          </div>
+          <p class="mt-3 text-sm text-text-secondary">
+            Comments anchor to timestamps. Reply, resolve, repeat.
+          </p>
+          <!-- Mock comment thread -->
+          <div class="mt-5 space-y-2.5">
+            <div class="rounded-lg border border-border-default bg-bg-tertiary/50 p-3">
+              <div class="flex items-center gap-2">
+                <div
+                  class="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent-info text-[10px] font-semibold text-white"
+                >
+                  AB
+                </div>
+                <span class="text-xs font-semibold text-text-primary">Alex</span>
+                <span class="font-mono text-xs text-accent-primary">0:42</span>
+              </div>
+              <p class="mt-1.5 pl-8 text-xs text-text-secondary">Logo lockup feels off-center here.</p>
+            </div>
+            <div class="rounded-lg border border-border-default bg-bg-tertiary/50 p-3">
+              <div class="flex items-center gap-2">
+                <div
+                  class="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent-secondary text-[10px] font-semibold text-white"
+                >
+                  MK
+                </div>
+                <span class="text-xs font-semibold text-text-primary">Maya</span>
+                <span class="font-mono text-xs text-accent-primary">1:18</span>
+                <span
+                  class="ml-auto rounded-full bg-accent-secondary/15 px-2 py-0.5 text-[10px] font-medium text-accent-secondary"
+                >
+                  Resolved
+                </span>
+              </div>
+              <p class="mt-1.5 pl-8 text-xs text-text-secondary">Great pacing on this transition.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cloudflare Stack -->
+  <section id="stack" class="border-t border-border-default">
+    <div class="mx-auto max-w-[1280px] px-6 py-20 sm:px-8 sm:py-24">
+      <div class="mx-auto max-w-2xl text-center">
+        <div
+          class="mb-4 inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" class="size-3.5 text-[#F38020]">
+            <path
+              d="M16.5 13.5l-9-9-1.5 1.5 9 9zm0-3l-6-6L9 6l6 6zm-3 6l-6-6L6 12l6 6z"
+            ></path>
+          </svg>
+          Built on Cloudflare
+        </div>
+        <h2 class="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
+          Globally distributed by default
+        </h2>
+        <p class="mt-4 text-text-secondary">
+          Every part of QuickCut runs on Cloudflare's network. Fast for every reviewer, anywhere — with
+          serverless economics that scale to zero.
+        </p>
+      </div>
+
+      <div class="mt-14 grid gap-5 sm:grid-cols-2">
+        <!-- Workers -->
+        <div
+          class="rounded-xl border border-border-default bg-bg-secondary p-6 transition-colors hover:border-border-hover"
+        >
+          <div class="flex items-start justify-between">
+            <div
+              class="flex size-10 items-center justify-center rounded-lg bg-[#F38020]/15 text-[#F38020]"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
+                <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline>
+              </svg>
+            </div>
+            <span class="rounded-full bg-accent-primary/15 px-2.5 py-0.5 text-xs font-medium text-accent-primary">
+              Edge compute
+            </span>
+          </div>
+          <h3 class="mt-4 text-lg font-semibold text-text-primary">Workers</h3>
+          <p class="mt-2 text-sm text-text-secondary">
+            The entire Astro app runs at the edge — auth, API routes, page rendering. Sub-50ms cold starts
+            in 300+ cities means reviewers never wait on the network.
+          </p>
+          <p class="mt-3 text-sm font-medium text-accent-primary">
+            Why it matters: zero-ops global deployment, predictable performance.
+          </p>
+        </div>
+
+        <!-- D1 -->
+        <div
+          class="rounded-xl border border-border-default bg-bg-secondary p-6 transition-colors hover:border-border-hover"
+        >
+          <div class="flex items-start justify-between">
+            <div
+              class="flex size-10 items-center justify-center rounded-lg bg-accent-info/15 text-accent-info"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
+                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"></path>
+                <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"></path>
+              </svg>
+            </div>
+            <span class="rounded-full bg-accent-info/15 px-2.5 py-0.5 text-xs font-medium text-accent-info">
+              Serverless SQL
+            </span>
+          </div>
+          <h3 class="mt-4 text-lg font-semibold text-text-primary">D1</h3>
+          <p class="mt-2 text-sm text-text-secondary">
+            Users, sessions, videos, comments, share links — all in serverless SQLite. We use Drizzle ORM
+            for type-safe queries with zero infrastructure to manage.
+          </p>
+          <p class="mt-3 text-sm font-medium text-accent-info">
+            Why it matters: no DB ops, low latency reads, scales to zero.
+          </p>
+        </div>
+
+        <!-- Stream -->
+        <div
+          class="rounded-xl border border-border-default bg-bg-secondary p-6 transition-colors hover:border-border-hover"
+        >
+          <div class="flex items-start justify-between">
+            <div
+              class="flex size-10 items-center justify-center rounded-lg bg-accent-primary/15 text-accent-primary"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+              </svg>
+            </div>
+            <span class="rounded-full bg-accent-primary/15 px-2.5 py-0.5 text-xs font-medium text-accent-primary">
+              Video infra
+            </span>
+          </div>
+          <h3 class="mt-4 text-lg font-semibold text-text-primary">Stream</h3>
+          <p class="mt-2 text-sm text-text-secondary">
+            Direct-to-Stream TUS uploads, automatic transcoding, thumbnail generation, and adaptive
+            HLS/DASH delivery. We never touch the bytes ourselves.
+          </p>
+          <p class="mt-3 text-sm font-medium text-accent-primary">
+            Why it matters: zero egress fees, resumable uploads, global CDN delivery.
+          </p>
+        </div>
+
+        <!-- Workers Assets -->
+        <div
+          class="rounded-xl border border-border-default bg-bg-secondary p-6 transition-colors hover:border-border-hover"
+        >
+          <div class="flex items-start justify-between">
+            <div
+              class="flex size-10 items-center justify-center rounded-lg bg-accent-secondary/15 text-accent-secondary"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+            </div>
+            <span class="rounded-full bg-accent-secondary/15 px-2.5 py-0.5 text-xs font-medium text-accent-secondary">
+              Static assets
+            </span>
+          </div>
+          <h3 class="mt-4 text-lg font-semibold text-text-primary">Workers Assets</h3>
+          <p class="mt-2 text-sm text-text-secondary">
+            The static Astro build is served straight from Cloudflare's network, cached at every edge POP
+            for instant page loads worldwide.
+          </p>
+          <p class="mt-3 text-sm font-medium text-accent-secondary">
+            Why it matters: free, fast, automatic — no separate CDN to wire up.
+          </p>
+        </div>
+      </div>
+
+      <p class="mt-8 text-center text-sm text-text-tertiary">
+        Plus Workers Observability for production telemetry.
+      </p>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="border-t border-border-default bg-bg-secondary/30">
+    <div class="mx-auto max-w-3xl px-6 py-20 sm:px-8 sm:py-24">
+      <div class="text-center">
+        <h2 class="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
+          Frequently asked questions
+        </h2>
+      </div>
+
+      <div class="mt-12 space-y-3">
+        <details
+          class="group rounded-xl border border-border-default bg-bg-primary p-5 transition-colors hover:border-border-hover"
+        >
+          <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-text-primary">
+            Do reviewers need an account?
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="size-4 text-text-tertiary transition-transform group-open:rotate-180"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </summary>
+          <p class="mt-3 text-sm text-text-secondary">
+            No. Anyone with a share link can leave timestamped comments after entering a display name. You
+            stay in control — revoke any link at any time.
+          </p>
+        </details>
+
+        <details
+          class="group rounded-xl border border-border-default bg-bg-primary p-5 transition-colors hover:border-border-hover"
+        >
+          <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-text-primary">
+            What file types and sizes are supported?
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="size-4 text-text-tertiary transition-transform group-open:rotate-180"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </summary>
+          <p class="mt-3 text-sm text-text-secondary">
+            MP4, MOV, WebM, AVI, and MKV up to 5GB per file. Uploads are resumable — close your laptop,
+            come back later, and pick up where you left off.
+          </p>
+        </details>
+
+        <details
+          class="group rounded-xl border border-border-default bg-bg-primary p-5 transition-colors hover:border-border-hover"
+        >
+          <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-text-primary">
+            Is my video secure?
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="size-4 text-text-tertiary transition-transform group-open:rotate-180"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </summary>
+          <p class="mt-3 text-sm text-text-secondary">
+            Videos are private by default. Only people with an explicit share link can view them, and you
+            can revoke any link instantly. Authentication uses PBKDF2-hashed passwords and HttpOnly secure
+            cookies.
+          </p>
+        </details>
+
+        <details
+          class="group rounded-xl border border-border-default bg-bg-primary p-5 transition-colors hover:border-border-hover"
+        >
+          <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-text-primary">
+            Where is QuickCut hosted?
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="size-4 text-text-tertiary transition-transform group-open:rotate-180"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </summary>
+          <p class="mt-3 text-sm text-text-secondary">
+            Entirely on Cloudflare's global network — Workers for compute, D1 for data, Stream for video,
+            Workers Assets for the static frontend. No origin servers, no separate CDN.
+          </p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="border-t border-border-default">
+    <div class="mx-auto max-w-[1280px] px-6 py-20 sm:px-8 sm:py-24">
+      <div
+        class="relative overflow-hidden rounded-2xl border border-accent-primary/30 bg-gradient-to-br from-accent-primary/15 via-bg-secondary to-bg-secondary p-10 text-center sm:p-16"
+      >
+        <div
+          class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(108,92,231,0.15),transparent_70%)]"
+        >
+        </div>
+        <div class="relative">
+          <h2 class="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
+            Start reviewing in under 60 seconds
+          </h2>
+          <p class="mx-auto mt-4 max-w-xl text-text-secondary">
+            Free to start. Upload your first video and share a link before your coffee gets cold.
+          </p>
+          <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href="/register"
+              class="rounded-lg bg-accent-primary px-6 py-3 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
+            >
+              Get Started Free
+            </a>
+            <a
+              href="/login"
+              class="rounded-lg border border-border-default bg-bg-secondary px-6 py-3 text-sm font-medium text-text-primary transition-all duration-150 hover:border-border-hover"
+            >
+              Sign In
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-border-default">
+    <div
+      class="mx-auto flex max-w-[1280px] flex-col items-center justify-between gap-4 px-6 py-10 sm:flex-row sm:px-8"
+    >
+      <div class="flex items-center gap-3">
+        <span class="text-sm font-bold text-text-primary">QuickCut</span>
+        <span class="text-xs text-text-tertiary">Collaborative video review.</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="/login" class="text-xs text-text-tertiary transition-colors hover:text-text-primary">Sign in</a>
+        <a href="/register" class="text-xs text-text-tertiary transition-colors hover:text-text-primary">Register</a>
+        <span class="text-xs text-text-tertiary">© 2026 QuickCut</span>
+      </div>
+    </div>
+  </footer>
+</Layout>

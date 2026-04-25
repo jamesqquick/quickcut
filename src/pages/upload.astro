@@ -1,0 +1,19 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { UploadForm } from "../components/UploadForm";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+---
+
+<Layout title="Upload Video" user={user}>
+  <div class="mx-auto max-w-[1280px] px-8 py-8">
+    <div class="mb-8">
+      <a href="/dashboard" class="text-sm text-text-tertiary transition-colors hover:text-text-primary">
+        &larr; Back to Library
+      </a>
+      <h1 class="mt-2 text-2xl font-bold text-text-primary">Upload Video</h1>
+    </div>
+    <UploadForm client:load />
+  </div>
+</Layout>

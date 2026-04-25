@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "quickcut",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-04-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "quickcut-db",
+      "database_id": "local-dev-db"
+    }
+  ],
+  "vars": {
+    "STREAM_ACCOUNT_ID": "4426cbeacb457b1ca1b865d6c36ced0d",
+    "APP_URL": "http://localhost:4321"
+  }
+}

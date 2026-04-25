@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@layer base {
+  button,
+  [role="button"],
+  a[class*="bg-accent-primary"],
+  input[type="submit"] {
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  button:hover,
+  [role="button"]:hover,
+  a[class*="bg-accent-primary"]:hover,
+  input[type="submit"]:hover {
+    opacity: 0.92;
+    transform: translateY(-0.5px);
+  }
+
+  button:active,
+  [role="button"]:active,
+  a[class*="bg-accent-primary"]:active,
+  input[type="submit"]:active {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@theme {
+  --color-bg-primary: #0d0d0f;
+  --color-bg-secondary: #161619;
+  --color-bg-tertiary: #1e1e22;
+  --color-bg-input: #232328;
+  --color-border-default: #2a2a2f;
+  --color-border-hover: #3a3a42;
+  --color-text-primary: #f0f0f3;
+  --color-text-secondary: #a0a0ab;
+  --color-text-tertiary: #6b6b76;
+  --color-accent-primary: #6c5ce7;
+  --color-accent-hover: #7c6ff0;
+  --color-accent-secondary: #00b894;
+  --color-accent-warning: #f39c12;
+  --color-accent-danger: #e74c3c;
+  --color-accent-info: #3498db;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}

@@ -1,0 +1,73 @@
+---
+import Layout from "../layouts/Layout.astro";
+import VideoCard from "../components/VideoCard.astro";
+import EmptyState from "../components/EmptyState.astro";
+import { createDb } from "../db";
+import { videos, comments } from "../db/schema";
+import { eq, desc, count, sql } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+const db = createDb(env.DB);
+
+const userVideos = await db
+  .select()
+  .from(videos)
+  .where(eq(videos.userId, user.id))
+  .orderBy(desc(videos.createdAt));
+
+// Get comment counts
+let commentCounts: Record<string, number> = {};
+if (userVideos.length > 0) {
+  const videoIds = userVideos.map((v) => v.id);
+  const counts = await db
+    .select({
+      videoId: comments.videoId,
+      count: count(),
+    })
+    .from(comments)
+    .where(sql`${comments.videoId} IN (${sql.join(videoIds.map((id) => sql`${id}`), sql`, `)})`)
+    .groupBy(comments.videoId);
+
+  commentCounts = Object.fromEntries(counts.map((c) => [c.videoId, c.count]));
+}
+---
+
+<Layout title="My Videos" user={user}>
+  <div class="mx-auto max-w-[1280px] px-8 py-8">
+    <div class="mb-8 flex items-center justify-between">
+      <h1 class="text-2xl font-bold text-text-primary">My Videos</h1>
+      <a
+        href="/upload"
+        class="rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
+      >
+        Upload Video
+      </a>
+    </div>
+
+    {userVideos.length === 0 ? (
+      <EmptyState
+        heading="Upload your first video"
+        description="Share it with your team for feedback"
+        actionText="Upload Video"
+        actionHref="/upload"
+      />
+    ) : (
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {userVideos.map((video) => (
+          <VideoCard
+            id={video.id}
+            title={video.title}
+            thumbnailUrl={video.thumbnailUrl}
+            duration={video.duration}
+            status={video.status as "processing" | "ready" | "failed"}
+            createdAt={video.createdAt}
+            commentCount={commentCounts[video.id] || 0}
+          />
+        ))}
+      </div>
+    )}
+  </div>
+</Layout>
