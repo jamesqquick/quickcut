@@ -117,7 +117,9 @@ export function InlineEditor({
   }
 
   const descriptionStyles =
-    field === "description" ? "w-full min-h-[2.5rem] whitespace-pre-wrap" : "";
+    field === "description"
+      ? "w-full min-h-[2.5rem] whitespace-pre-wrap border border-accent-primary/25 hover:border-accent-primary/50"
+      : "";
 
   return (
     <Tag
