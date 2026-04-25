@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { formatTimecode, relativeTime } from "../lib/time";
+import { connectVideoRoom } from "../lib/realtime";
 
 interface Comment {
   id: string;
@@ -33,6 +34,8 @@ interface CommentThreadProps {
   currentTime?: number;
   shareToken?: string;
   anonymousName?: string;
+  /** When true, open a WebSocket to the per-video room for live updates. */
+  liveEnabled?: boolean;
   onSeek?: (time: number) => void;
   onNameRequired?: () => void;
   onCommentsChange?: (comments: Comment[]) => void;
@@ -60,6 +63,7 @@ export function CommentThread({
   currentTime = 0,
   shareToken,
   anonymousName,
+  liveEnabled = false,
   onSeek,
   onNameRequired,
   onCommentsChange,
@@ -83,7 +87,8 @@ export function CommentThread({
     onCommentsChange?.(comments);
   }, [comments, onCommentsChange]);
 
-  // Polling for new comments
+  // Polling for new comments. Acts as a fallback when the WebSocket
+  // connection is briefly unavailable; the WS path is primary when liveEnabled.
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -118,6 +123,28 @@ export function CommentThread({
 
     return () => clearInterval(interval);
   }, [videoId, shareToken]);
+
+  // Live updates via the per-video VideoRoom Durable Object. Dedupe on id so
+  // the poster's own client doesn't double-render when the broadcast echoes.
+  useEffect(() => {
+    if (!liveEnabled) return;
+
+    const conn = connectVideoRoom(
+      videoId,
+      shareToken ? { shareToken } : {},
+      {
+        onComment: (incoming) => {
+          setComments((prev) => {
+            if (prev.some((c) => c.id === incoming.id)) return prev;
+            return sortComments([...prev, incoming as unknown as Comment]);
+          });
+          lastFetchRef.current = new Date().toISOString();
+        },
+      },
+    );
+
+    return () => conn.disconnect();
+  }, [liveEnabled, videoId, shareToken]);
 
   // Scroll to and highlight a comment when focusRequest changes
   useEffect(() => {

@@ -7,3 +7,4 @@ dist/
 .env.local
 .DS_Store
 *.log
+worker-configuration.d.ts

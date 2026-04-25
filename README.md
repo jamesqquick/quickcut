@@ -47,6 +47,15 @@ Tables (see `src/db/schema.ts`):
 
 Migrations are managed via `drizzle-kit` and applied with `wrangler d1 migrations apply`.
 
+### Durable Objects
+A `VideoRoom` Durable Object — one instance per video, routed deterministically with `getByName(videoId)` — fans out new comments to every connected reviewer in real time.
+
+- The Astro app upgrades `/api/videos/[id]/live` into a WebSocket forwarded to the per-video DO
+- Hibernatable WebSockets (`ctx.acceptWebSocket`) keep idle rooms at zero duration cost
+- Comment POST routes call the DO's `broadcastComment` RPC after persisting to D1, so D1 stays the source of truth and the DO is purely a coordination/fan-out layer
+- Anonymous reviewers must enter a display name on page load before any video, comments, or socket activity loads
+- `wrangler.jsonc` declares the binding (`VIDEO_ROOM`) and the `new_sqlite_classes` migration; types are regenerated on `pnpm types` / `pnpm dev` / `pnpm build`
+
 ### Stream
 All video lifecycle is offloaded to Cloudflare Stream:
 - **Direct creator uploads** via TUS (`/accounts/{id}/stream?direct_user=true`) — files never pass through our Worker
@@ -73,9 +82,11 @@ Workers Observability is enabled in `wrangler.jsonc` for production logs and met
 src/
 ├── components/      Astro + React components (VideoCard, VideoPlayer, CommentThread, ...)
 ├── db/              Drizzle schema and client factory
+├── durable-objects/ Durable Object classes (VideoRoom for real-time comment fan-out)
 ├── layouts/         Layout.astro, ShareLayout.astro
-├── lib/             Auth, Stream API helpers
+├── lib/             Auth, Stream, broadcast (DO RPC), realtime (client WS) helpers
 ├── middleware.ts    Session loader + route protection
+├── worker.ts        Custom Worker entry — delegates to Astro and exports DOs
 ├── pages/
 │   ├── index.astro      Marketing landing page
 │   ├── login.astro      Sign-in form
@@ -84,10 +95,10 @@ src/
 │   ├── upload.astro     Upload (auth)
 │   ├── videos/[id].astro    Authenticated review view
 │   ├── s/[token].astro      Public share view (no auth)
-│   └── api/             Auth, videos, comments, share-links, webhooks
+│   └── api/             Auth, videos, comments, share-links, webhooks, /live (WS upgrade)
 └── styles/          Tailwind + design tokens
 migrations/          D1 migrations
-wrangler.jsonc       Worker + bindings config
+wrangler.jsonc       Worker + bindings config (DB, Durable Objects, vars)
 ```
 
 ## Getting Started
@@ -111,7 +122,7 @@ STREAM_API_TOKEN=your_stream_api_token
 STREAM_WEBHOOK_SECRET=your_webhook_secret
 ```
 
-Update `wrangler.jsonc` with your `STREAM_ACCOUNT_ID` and `APP_URL`.
+Update `wrangler.jsonc` with your `STREAM_ACCOUNT_ID`.
 
 ### Database
 
@@ -155,6 +166,7 @@ Builds the Astro app and deploys to Cloudflare Workers via Wrangler.
 | `pnpm db:generate` | Generate Drizzle migrations from schema |
 | `pnpm db:migrate:local` | Apply migrations to local D1 |
 | `pnpm db:migrate:remote` | Apply migrations to remote D1 |
+| `pnpm types` | Regenerate Cloudflare runtime types from `wrangler.jsonc` |
 
 ## License
 
