@@ -73,7 +73,7 @@ function formatDuration(seconds: number | null): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-const appUrl = env.APP_URL || "http://localhost:4321";
+const appUrl = new URL(Astro.request.url).origin;
 ---
 
 <Layout title={video.title} user={user}>

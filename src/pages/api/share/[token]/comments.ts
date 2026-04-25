@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
 import { shareLinks, comments, users } from "../../../../db/schema";
 import { eq, asc, gt, and } from "drizzle-orm";
+import { broadcastNewComment } from "../../../../lib/broadcast";
 
 export const GET: APIRoute = async ({ params, url }) => {
   const { token } = params;
@@ -128,14 +129,16 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   await db.insert(comments).values(newComment);
 
-  return new Response(
-    JSON.stringify({
-      comment: {
-        ...newComment,
-        createdAt: new Date().toISOString(),
-        displayName: displayName.trim(),
-      },
-    }),
-    { status: 201, headers: { "Content-Type": "application/json" } },
-  );
+  const responseComment = {
+    ...newComment,
+    createdAt: new Date().toISOString(),
+    displayName: displayName.trim(),
+  };
+
+  await broadcastNewComment(env, videoId, responseComment);
+
+  return new Response(JSON.stringify({ comment: responseComment }), {
+    status: 201,
+    headers: { "Content-Type": "application/json" },
+  });
 };

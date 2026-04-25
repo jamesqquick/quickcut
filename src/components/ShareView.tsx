@@ -53,11 +53,17 @@ function waitForStream(timeoutMs = 5000): Promise<NonNullable<Window["Stream"]>>
   });
 }
 
+const ANON_NAME_KEY = "quickcut_anonymous_name";
+
 export function ShareView({ video, initialComments, shareToken }: ShareViewProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const playerRef = useRef<StreamPlayer | null>(null);
-  const [anonymousName, setAnonymousName] = useState<string | null>(null);
-  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  // Read the saved name synchronously on first render so we never flash the
+  // page content before deciding to gate.
+  const [anonymousName, setAnonymousName] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem(ANON_NAME_KEY);
+  });
   const [currentTime, setCurrentTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState(video.duration || 0);
   const [liveComments, setLiveComments] = useState(initialComments);
@@ -67,19 +73,16 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
     setFocusRequest({ id: commentId, nonce: Date.now() });
   }, []);
 
-  // Load stored name from localStorage
+  // Track view (only after the user has cleared the name gate).
   useEffect(() => {
-    const stored = localStorage.getItem("quickcut_anonymous_name");
-    if (stored) setAnonymousName(stored);
-  }, []);
-
-  // Track view
-  useEffect(() => {
+    if (!anonymousName) return;
     fetch(`/api/share/${shareToken}/view`, { method: "POST" }).catch(() => {});
-  }, [shareToken]);
+  }, [shareToken, anonymousName]);
 
-  // Initialize Stream SDK
+  // Initialize Stream SDK (deferred until the gate clears so it doesn't load
+  // for visitors who never enter a name).
   useEffect(() => {
+    if (!anonymousName) return;
     if (video.status !== "ready" || !video.streamVideoId) return;
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -128,7 +131,7 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
       }
       playerRef.current = null;
     };
-  }, [video.status, video.streamVideoId]);
+  }, [anonymousName, video.status, video.streamVideoId]);
 
   const handleSeek = useCallback((time: number) => {
     if (playerRef.current) {
@@ -138,10 +141,23 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
   }, []);
 
   const handleNameSubmit = (name: string) => {
+    localStorage.setItem(ANON_NAME_KEY, name);
     setAnonymousName(name);
-    localStorage.setItem("quickcut_anonymous_name", name);
-    setShowNamePrompt(false);
   };
+
+  // Hard gate: no name yet means the page renders nothing but the modal.
+  if (!anonymousName) {
+    return (
+      <NamePromptModal
+        isOpen
+        onSubmit={handleNameSubmit}
+        onClose={() => {}}
+        dismissable={false}
+        title="Welcome"
+        description="Enter your name to view this video and leave comments."
+      />
+    );
+  }
 
   const renderPlayer = () => {
     if (video.status === "processing") {
@@ -207,18 +223,13 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
           videoStatus={video.status}
           currentTime={currentTime}
           shareToken={shareToken}
-          anonymousName={anonymousName || undefined}
+          anonymousName={anonymousName}
+          liveEnabled
           onSeek={handleSeek}
           onCommentsChange={setLiveComments}
           focusRequest={focusRequest}
         />
       </div>
-
-      <NamePromptModal
-        isOpen={showNamePrompt}
-        onSubmit={handleNameSubmit}
-        onClose={() => setShowNamePrompt(false)}
-      />
     </div>
   );
 }

@@ -86,10 +86,14 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return context.redirect("/login?message=Your session has expired. Please sign in again.");
   }
 
-  // Protect API routes
-  const isProtectedApi = authApiRoutes.some((route) =>
-    pathname.startsWith(route),
-  );
+  // Protect API routes. The /live WebSocket upgrade endpoint does its own
+  // auth (supporting both session cookies and share-link tokens) so it must
+  // bypass the cookie-only check here.
+  const isLiveEndpoint =
+    /^\/api\/videos\/[^/]+\/live\/?$/.test(pathname);
+  const isProtectedApi =
+    !isLiveEndpoint &&
+    authApiRoutes.some((route) => pathname.startsWith(route));
   if (isProtectedApi && !context.locals.user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,

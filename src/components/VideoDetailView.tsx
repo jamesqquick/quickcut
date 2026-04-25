@@ -244,6 +244,7 @@ export function VideoDetailView({
           duration={videoDuration}
           videoStatus={processingStatus}
           currentTime={currentTime}
+          liveEnabled={processingStatus === "ready"}
           onSeek={handleSeek}
           onCommentsChange={setLiveComments}
           focusRequest={focusRequest}
