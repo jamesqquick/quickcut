@@ -75,6 +75,7 @@ export function UploadForm({ folderId = null }: UploadFormProps) {
           fileName: file.name,
           fileSize: file.size,
           title: title.trim() || undefined,
+          description: description.trim() || undefined,
           folderId,
         }),
       });

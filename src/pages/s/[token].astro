@@ -3,7 +3,7 @@ import Layout from "../../layouts/Layout.astro";
 import { ShareView } from "../../components/ShareView";
 import { createDb } from "../../db";
 import { shareLinks, videos } from "../../db/schema";
-import { eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getCommentsWithNames } from "../../lib/comments";
 
@@ -30,6 +30,7 @@ const isRevoked = shareLink.status === "revoked";
 // Get video
 let video = null;
 let allComments: any[] = [];
+let versionCount = 1;
 
 if (!isRevoked) {
   const videoResult = await db
@@ -44,6 +45,13 @@ if (!isRevoked) {
 
   video = videoResult[0];
   allComments = await getCommentsWithNames(db, shareLink.videoId);
+
+  const versionGroupId = video.versionGroupId || video.id;
+  const versionCountResult = await db
+    .select({ count: count() })
+    .from(videos)
+    .where(and(eq(videos.userId, video.userId), eq(videos.versionGroupId, versionGroupId)));
+  versionCount = versionCountResult[0]?.count || 1;
 }
 ---
 
@@ -65,6 +73,7 @@ if (!isRevoked) {
       <ShareView
         client:load
         video={video}
+        versionCount={versionCount}
         initialComments={allComments}
         shareToken={token}
       />

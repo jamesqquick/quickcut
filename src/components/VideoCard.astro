@@ -10,10 +10,23 @@ interface Props {
   status: "processing" | "ready" | "failed";
   createdAt: string;
   commentCount: number;
+  versionNumber?: number;
+  versionCount?: number;
   folderId?: string | null;
 }
 
-const { id, title, thumbnailUrl, duration, status, createdAt, commentCount, folderId = null } = Astro.props;
+const {
+  id,
+  title,
+  thumbnailUrl,
+  duration,
+  status,
+  createdAt,
+  commentCount,
+  versionNumber = 1,
+  versionCount = 1,
+  folderId = null,
+} = Astro.props;
 
 function formatDuration(seconds: number | null): string {
   if (!seconds) return "";
@@ -43,6 +56,11 @@ function formatDate(dateStr: string): string {
       {status !== "ready" && (
         <div class="absolute left-2 top-2">
           <StatusBadge status={status} />
+        </div>
+      )}
+      {versionCount > 1 && (
+        <div class="absolute left-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-xs font-medium text-white">
+          V{versionNumber}
         </div>
       )}
       {duration && (

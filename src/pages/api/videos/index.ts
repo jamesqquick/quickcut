@@ -18,9 +18,9 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const folderId = url.searchParams.get("folderId");
   const where = folderId
     ? folderId === "root"
-      ? and(eq(videos.userId, locals.user.id), isNull(videos.folderId))
-      : and(eq(videos.userId, locals.user.id), eq(videos.folderId, folderId))
-    : eq(videos.userId, locals.user.id);
+      ? and(eq(videos.userId, locals.user.id), isNull(videos.folderId), eq(videos.isCurrentVersion, true))
+      : and(eq(videos.userId, locals.user.id), eq(videos.folderId, folderId), eq(videos.isCurrentVersion, true))
+    : and(eq(videos.userId, locals.user.id), eq(videos.isCurrentVersion, true));
 
   const userVideos = await db
     .select()
@@ -52,9 +52,23 @@ export const GET: APIRoute = async ({ locals, url }) => {
     commentCounts = Object.fromEntries(counts.map((c) => [c.videoId, c.count]));
   }
 
+  const versionGroupIds = userVideos.map((v) => v.versionGroupId || v.id);
+  let versionCounts: Record<string, number> = {};
+
+  if (versionGroupIds.length > 0) {
+    const counts = await db
+      .select({ versionGroupId: videos.versionGroupId, count: count() })
+      .from(videos)
+      .where(sql`${videos.versionGroupId} IN (${sql.join(versionGroupIds.map((id) => sql`${id}`), sql`, `)})`)
+      .groupBy(videos.versionGroupId);
+
+    versionCounts = Object.fromEntries(counts.map((c) => [c.versionGroupId || "", c.count]));
+  }
+
   const videosWithCounts = userVideos.map((v) => ({
     ...v,
     commentCount: commentCounts[v.id] || 0,
+    versionCount: versionCounts[v.versionGroupId || v.id] || 1,
   }));
 
   return new Response(

@@ -1,12 +1,13 @@
 # QuickCut
 
-Collaborative video review, built on Cloudflare. Upload up to 5GB, share a link, and collect timestamped feedback from your team or clients — no account required for reviewers.
+Collaborative video review, built on Cloudflare. Upload up to 5GB, stack new versions, share a link, and collect timestamped feedback from your team or clients — no account required for reviewers.
 
 > Think Frame.io, but small, focused, and running entirely on the edge.
 
 ## Features
 
 - **Resumable 5GB uploads** — drag-drop with TUS-resumable direct uploads to Cloudflare Stream
+- **Version stacking** — upload new cuts into an ordered stack while keeping review history version-specific
 - **Timestamped comments** — feedback pinned to the exact frame
 - **Threaded replies + resolve** — keep review discussions organized
 - **Review statuses** — `Needs Review` → `In Progress` → `Approved`
@@ -41,14 +42,14 @@ Serverless SQLite backs every persistent record. The `DB` binding gives the Work
 Tables (see `src/db/schema.ts`):
 - `users` — accounts (PBKDF2-hashed passwords)
 - `sessions` — server-side sessions tied to `quickcut_session` cookie
-- `videos` — Stream UID, status, review status, metadata
+- `videos` — Stream UID, status, review status, metadata, version group fields
 - `share_links` — token, status, view count
 - `comments` — timestamped, threaded (`parentId`), resolvable
 
 Migrations are managed via `drizzle-kit` and applied with `wrangler d1 migrations apply`.
 
 ### Durable Objects
-A `VideoRoom` Durable Object — one instance per video, routed deterministically with `getByName(videoId)` — fans out new comments to every connected reviewer in real time.
+A `VideoRoom` Durable Object — one instance per video version, routed deterministically with `getByName(videoId)` — fans out new comments to every connected reviewer in real time.
 
 - The Astro app upgrades `/api/videos/[id]/live` into a WebSocket forwarded to the per-video DO
 - Hibernatable WebSockets (`ctx.acceptWebSocket`) keep idle rooms at zero duration cost
@@ -95,7 +96,7 @@ src/
 │   ├── upload.astro     Upload (auth)
 │   ├── videos/[id].astro    Authenticated review view
 │   ├── s/[token].astro      Public share view (no auth)
-│   └── api/             Auth, videos, comments, share-links, webhooks, /live (WS upgrade)
+│   └── api/             Auth, videos, versions, comments, share-links, webhooks, /live (WS upgrade)
 └── styles/          Tailwind + design tokens
 migrations/          D1 migrations
 wrangler.jsonc       Worker + bindings config (DB, Durable Objects, vars)

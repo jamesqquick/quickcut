@@ -25,7 +25,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
     });
   }
 
-  const { fileName, fileSize, title, folderId } = parsed.data;
+  const { fileName, fileSize, title, description, folderId } = parsed.data;
 
   if (!fileName || !fileSize) {
     return new Response(
@@ -85,7 +85,11 @@ export const POST: APIRoute = async ({ locals, request }) => {
       userId: locals.user.id,
       folderId: folderId || null,
       title: videoTitle,
+      description: description?.trim() || null,
       status: "processing",
+      versionGroupId: videoId,
+      versionNumber: 1,
+      isCurrentVersion: true,
       streamVideoId,
       fileName,
       fileSize,

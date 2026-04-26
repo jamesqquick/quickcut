@@ -5,6 +5,7 @@ import { InlineEditor } from "./InlineEditor";
 import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
 import { AnnotationOverlay } from "./AnnotationOverlay";
+import { UploadVersionModal } from "./UploadVersionModal";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
 import type { Annotation, Comment } from "../types";
 import type { AnnotationTool } from "./AnnotationOverlay";
@@ -186,6 +187,11 @@ export function VideoDetailView({
           <span className="inline-flex w-full items-center gap-1 truncate sm:w-auto sm:max-w-[260px]">
             <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
             {fileName}
+          </span>
+        )}
+        {isOwner && (
+          <span className="w-full sm:w-auto">
+            <UploadVersionModal videoId={videoId} title={title} description={description} />
           </span>
         )}
       </div>
