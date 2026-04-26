@@ -9,7 +9,7 @@ if (user) {
 
 <Layout
   title="Collaborative Video Review"
-  description="QuickCut is collaborative video review built on Cloudflare. Timestamped comments, share links for clients, resumable 5GB uploads, and global HLS playback."
+  description="QuickCut is collaborative video review built on Cloudflare. Version stacks, timestamped comments, share links for clients, resumable 5GB uploads, and global HLS playback."
 >
   <!-- Marketing nav -->
   <header class="sticky top-0 z-50 border-b border-border-default bg-bg-primary/80 backdrop-blur">
@@ -56,8 +56,8 @@ if (user) {
           </span>
         </h1>
         <p class="mx-auto mt-6 max-w-2xl text-lg text-text-secondary">
-          Upload up to 5GB, share a link, and collect timestamped feedback from your team or clients —
-          no account required for reviewers. Powered by Cloudflare.
+          Upload up to 5GB, stack new cuts as versions, share a link, and collect timestamped feedback
+          from your team or clients — no account required for reviewers. Powered by Cloudflare.
         </p>
         <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
           <a
@@ -225,9 +225,9 @@ if (user) {
               <path d="M9 4h6v4H9z"></path>
             </svg>
           </div>
-          <h3 class="font-semibold text-text-primary">Threaded replies & resolve</h3>
+          <h3 class="font-semibold text-text-primary">Version stacking</h3>
           <p class="mt-2 text-sm text-text-secondary">
-            Discussions stay organized. Reply inline, mark notes resolved, and keep the conversation moving.
+            Upload new cuts into an ordered stack. Switch versions without mixing comments between edits.
           </p>
         </div>
 
@@ -313,7 +313,7 @@ if (user) {
             <h3 class="font-semibold text-text-primary">Upload</h3>
           </div>
           <p class="mt-3 text-sm text-text-secondary">
-            Drag a file in. Up to 5GB. Resumable. Transcoded to HLS automatically.
+            Drag a file in. Up to 5GB. Resumable. Add later cuts as versions in the same stack.
           </p>
           <!-- Mock upload zone -->
           <div
@@ -387,7 +387,7 @@ if (user) {
             <h3 class="font-semibold text-text-primary">Review</h3>
           </div>
           <p class="mt-3 text-sm text-text-secondary">
-            Comments anchor to timestamps. Reply, resolve, repeat.
+            Comments anchor to timestamps and stay tied to the version they were created on. Reply, resolve, repeat.
           </p>
           <!-- Mock comment thread -->
           <div class="mt-5 space-y-2.5">
@@ -496,8 +496,8 @@ if (user) {
           </div>
           <h3 class="mt-4 text-lg font-semibold text-text-primary">D1</h3>
           <p class="mt-2 text-sm text-text-secondary">
-            Users, sessions, videos, comments, share links — all in serverless SQLite. We use Drizzle ORM
-            for type-safe queries with zero infrastructure to manage.
+            Users, sessions, videos, version groups, comments, share links — all in serverless SQLite.
+            We use Drizzle ORM for type-safe queries with zero infrastructure to manage.
           </p>
           <p class="mt-3 text-sm font-medium text-accent-info">
             Why it matters: no DB ops, low latency reads, scales to zero.
@@ -637,6 +637,27 @@ if (user) {
             Videos are private by default. Only people with an explicit share link can view them, and you
             can revoke any link instantly. Authentication uses PBKDF2-hashed passwords and HttpOnly secure
             cookies.
+          </p>
+        </details>
+
+        <details
+          class="group rounded-xl border border-border-default bg-bg-primary p-5 transition-colors hover:border-border-hover"
+        >
+          <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-text-primary">
+            How do video versions work?
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="size-4 text-text-tertiary transition-transform group-open:rotate-180"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </summary>
+          <p class="mt-3 text-sm text-text-secondary">
+            Each uploaded version is its own reviewable video in a shared stack. Comments, annotations,
+            share links, and review status stay tied to the specific version they were created on.
           </p>
         </details>
 
