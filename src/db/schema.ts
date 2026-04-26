@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const users = sqliteTable("users", {
@@ -22,11 +22,31 @@ export const sessions = sqliteTable("sessions", {
     .default(sql`(datetime('now'))`),
 });
 
+export const folders = sqliteTable("folders", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  parentId: text("parent_id").references((): AnySQLiteColumn => folders.id, {
+    onDelete: "cascade",
+  }),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 export const videos = sqliteTable("videos", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
+  folderId: text("folder_id").references(() => folders.id, {
+    onDelete: "set null",
+  }),
   title: text("title").notNull(),
   description: text("description"),
   status: text("status", { enum: ["processing", "ready", "failed"] })

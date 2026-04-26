@@ -5,7 +5,11 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
 
 type UploadState = "idle" | "selected" | "uploading" | "processing" | "error";
 
-export function UploadForm() {
+interface UploadFormProps {
+  folderId?: string | null;
+}
+
+export function UploadForm({ folderId = null }: UploadFormProps) {
   const [state, setState] = useState<UploadState>("idle");
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
@@ -71,15 +75,19 @@ export function UploadForm() {
           fileName: file.name,
           fileSize: file.size,
           title: title.trim() || undefined,
+          folderId,
         }),
       });
 
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json() as { error?: string };
         throw new Error(data.error || "Failed to create upload");
       }
 
-      const { videoId, uploadUrl } = await res.json();
+      const { videoId, uploadUrl } = await res.json() as {
+        videoId: string;
+        uploadUrl: string;
+      };
 
       // Step 2: Upload directly to Cloudflare Stream via TUS
       const xhr = new XMLHttpRequest();

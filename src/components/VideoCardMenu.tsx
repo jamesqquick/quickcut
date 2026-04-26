@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { MoveToFolderDialog } from "./MoveToFolderDialog";
 
 interface VideoCardMenuProps {
   videoId: string;
+  folderId?: string | null;
 }
 
-export function VideoCardMenu({ videoId }: VideoCardMenuProps) {
+export function VideoCardMenu({ videoId, folderId = null }: VideoCardMenuProps) {
   const [open, setOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -27,6 +30,13 @@ export function VideoCardMenu({ videoId }: VideoCardMenuProps) {
     e.stopPropagation();
     setOpen(false);
     setConfirmOpen(true);
+  };
+
+  const requestMove = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(false);
+    setMoveOpen(true);
   };
 
   const confirmDelete = async () => {
@@ -63,6 +73,7 @@ export function VideoCardMenu({ videoId }: VideoCardMenuProps) {
           disabled={deleting}
           className={`flex h-7 w-7 items-center justify-center rounded-md bg-black/60 text-white transition-opacity duration-150 hover:bg-black/80 focus:opacity-100 disabled:opacity-50 ${
             open || confirmOpen
+            || moveOpen
               ? "opacity-100"
               : "opacity-0 group-hover:opacity-100"
           }`}
@@ -80,6 +91,14 @@ export function VideoCardMenu({ videoId }: VideoCardMenuProps) {
             role="menu"
             className="absolute right-0 z-30 mt-1 w-40 overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg"
           >
+            <button
+              role="menuitem"
+              onClick={requestMove}
+              disabled={deleting}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-bg-tertiary disabled:opacity-50"
+            >
+              Move to folder
+            </button>
             <button
               role="menuitem"
               onClick={requestDelete}
@@ -105,6 +124,14 @@ export function VideoCardMenu({ videoId }: VideoCardMenuProps) {
           </div>
         )}
       </div>
+
+      <MoveToFolderDialog
+        isOpen={moveOpen}
+        entityId={videoId}
+        entityType="video"
+        currentFolderId={folderId}
+        onClose={() => setMoveOpen(false)}
+      />
 
       <ConfirmDialog
         isOpen={confirmOpen}

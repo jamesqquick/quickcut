@@ -1,9 +1,10 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
-import { videos, shareLinks, comments } from "../../../../db/schema";
-import { eq, count } from "drizzle-orm";
+import { videos, shareLinks, comments, folders } from "../../../../db/schema";
+import { and, eq, count } from "drizzle-orm";
 import { deleteVideo as deleteStreamVideo } from "../../../../lib/stream";
+import { videoUpdateSchema } from "../../../../lib/validation";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
@@ -108,11 +109,38 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
     });
   }
 
-  const body = await request.json();
-  const updates: Record<string, string> = {};
+  const parsed = videoUpdateSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return new Response(JSON.stringify({ error: parsed.error.issues[0]?.message || "Invalid input" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
-  if (body.title !== undefined) updates.title = body.title.trim();
-  if (body.description !== undefined) updates.description = body.description.trim();
+  const updates: { title?: string; description?: string; folderId?: string | null } = {};
+
+  if (parsed.data.title !== undefined) updates.title = parsed.data.title.trim();
+  if (parsed.data.description !== undefined) updates.description = parsed.data.description.trim();
+  if (parsed.data.folderId !== undefined) {
+    const folderId = parsed.data.folderId ?? null;
+
+    if (folderId) {
+      const folder = await db
+        .select({ id: folders.id })
+        .from(folders)
+        .where(and(eq(folders.id, folderId), eq(folders.userId, locals.user.id)))
+        .limit(1);
+
+      if (folder.length === 0) {
+        return new Response(JSON.stringify({ error: "Folder not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    updates.folderId = folderId;
+  }
 
   if (Object.keys(updates).length === 0) {
     return new Response(JSON.stringify({ error: "No updates provided" }), {

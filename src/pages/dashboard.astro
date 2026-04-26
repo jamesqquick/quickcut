@@ -1,21 +1,88 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import VideoCard from "../components/VideoCard.astro";
+import FolderCard from "../components/FolderCard.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
+import { CreateFolderDialog } from "../components/CreateFolderDialog";
 import EmptyState from "../components/EmptyState.astro";
 import { createDb } from "../db";
-import { videos, comments } from "../db/schema";
-import { eq, desc, count, sql } from "drizzle-orm";
+import { folders, videos, comments } from "../db/schema";
+import { and, asc, desc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
 
 const db = createDb(env.DB);
+const currentFolderId = Astro.url.searchParams.get("folderId");
+
+const currentFolder = currentFolderId
+  ? await db
+      .select()
+      .from(folders)
+      .where(and(eq(folders.id, currentFolderId), eq(folders.userId, user.id)))
+      .limit(1)
+  : [];
+
+if (currentFolderId && currentFolder.length === 0) {
+  return Astro.redirect("/dashboard");
+}
+
+const currentFolderRecord = currentFolder[0] || null;
+const allFolders = await db
+  .select()
+  .from(folders)
+  .where(eq(folders.userId, user.id))
+  .orderBy(asc(folders.name));
+const folderById = new Map(allFolders.map((folder) => [folder.id, folder]));
+const folderPath = [];
+let cursor = currentFolderRecord;
+
+while (cursor) {
+  folderPath.unshift({ id: cursor.id, name: cursor.name });
+  cursor = cursor.parentId ? folderById.get(cursor.parentId) || null : null;
+}
+
+const childFolders = allFolders.filter((folder) => {
+  if (currentFolderId) return folder.parentId === currentFolderId;
+  return folder.parentId === null;
+});
+const childFolderIds = childFolders.map((folder) => folder.id);
+
+let folderVideoCounts: Record<string, number> = {};
+let folderThumbnails: Record<string, string[]> = {};
+
+if (childFolderIds.length > 0) {
+  const counts = await db
+    .select({ folderId: videos.folderId, count: count() })
+    .from(videos)
+    .where(and(eq(videos.userId, user.id), inArray(videos.folderId, childFolderIds)))
+    .groupBy(videos.folderId);
+
+  folderVideoCounts = Object.fromEntries(counts.map((row) => [row.folderId || "", row.count]));
+
+  const folderVideos = await db
+    .select({ folderId: videos.folderId, thumbnailUrl: videos.thumbnailUrl })
+    .from(videos)
+    .where(and(eq(videos.userId, user.id), inArray(videos.folderId, childFolderIds)))
+    .orderBy(desc(videos.createdAt));
+
+  folderThumbnails = folderVideos.reduce<Record<string, string[]>>((acc, video) => {
+    if (!video.folderId || !video.thumbnailUrl) return acc;
+    acc[video.folderId] = acc[video.folderId] || [];
+    if (acc[video.folderId].length < 4) acc[video.folderId].push(video.thumbnailUrl);
+    return acc;
+  }, {});
+}
 
 const userVideos = await db
   .select()
   .from(videos)
-  .where(eq(videos.userId, user.id))
+  .where(
+    currentFolderId
+      ? and(eq(videos.userId, user.id), eq(videos.folderId, currentFolderId))
+      : and(eq(videos.userId, user.id), isNull(videos.folderId)),
+  )
   .orderBy(desc(videos.createdAt));
 
 // Get comment counts
@@ -35,31 +102,49 @@ if (userVideos.length > 0) {
 }
 ---
 
-<Layout title="My Videos" user={user}>
+<Layout title={currentFolderRecord ? currentFolderRecord.name : "My Videos"} user={user}>
   <div class="mx-auto max-w-[1280px] px-8 py-8">
     <div class="mb-8 flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-text-primary">My Videos</h1>
-      <a
-        href="/upload"
-        class="rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
-      >
-        Upload Video
-      </a>
+      <div>
+        <Breadcrumbs path={folderPath} />
+        <h1 class="text-2xl font-bold text-text-primary">
+          {currentFolderRecord ? currentFolderRecord.name : "My Videos"}
+        </h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <CreateFolderDialog client:load parentId={currentFolderId} />
+        <a
+          href={currentFolderId ? `/upload?folderId=${currentFolderId}` : "/upload"}
+          class="rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
+        >
+          Upload Video
+        </a>
+      </div>
     </div>
 
-    {userVideos.length === 0 ? (
+    {userVideos.length === 0 && childFolders.length === 0 ? (
       <EmptyState
-        heading="Upload your first video"
-        description="Share it with your team for feedback"
+        heading={currentFolderRecord ? "This folder is empty" : "Upload your first video"}
+        description={currentFolderRecord ? "Add videos or create a nested folder here" : "Share it with your team for feedback"}
         actionText="Upload Video"
-        actionHref="/upload"
+        actionHref={currentFolderId ? `/upload?folderId=${currentFolderId}` : "/upload"}
       />
     ) : (
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {childFolders.map((folder) => (
+          <FolderCard
+            id={folder.id}
+            name={folder.name}
+            parentId={folder.parentId}
+            videoCount={folderVideoCounts[folder.id] || 0}
+            thumbnails={folderThumbnails[folder.id] || []}
+          />
+        ))}
         {userVideos.map((video) => (
           <VideoCard
             id={video.id}
             title={video.title}
+            folderId={video.folderId}
             thumbnailUrl={video.thumbnailUrl}
             duration={video.duration}
             status={video.status as "processing" | "ready" | "failed"}

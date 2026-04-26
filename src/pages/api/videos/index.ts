@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../db";
 import { videos, comments } from "../../../db/schema";
-import { eq, desc, sql, count } from "drizzle-orm";
+import { and, eq, desc, sql, count, isNull } from "drizzle-orm";
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (!locals.user) {
@@ -15,11 +15,17 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const db = createDb(env.DB);
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
   const offset = parseInt(url.searchParams.get("offset") || "0");
+  const folderId = url.searchParams.get("folderId");
+  const where = folderId
+    ? folderId === "root"
+      ? and(eq(videos.userId, locals.user.id), isNull(videos.folderId))
+      : and(eq(videos.userId, locals.user.id), eq(videos.folderId, folderId))
+    : eq(videos.userId, locals.user.id);
 
   const userVideos = await db
     .select()
     .from(videos)
-    .where(eq(videos.userId, locals.user.id))
+    .where(where)
     .orderBy(desc(videos.createdAt))
     .limit(limit)
     .offset(offset);
@@ -27,7 +33,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const totalResult = await db
     .select({ count: count() })
     .from(videos)
-    .where(eq(videos.userId, locals.user.id));
+    .where(where);
 
   // Get comment counts for each video
   const videoIds = userVideos.map((v) => v.id);

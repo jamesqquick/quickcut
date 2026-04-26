@@ -35,6 +35,7 @@ export const uploadSchema = z.object({
   fileName: z.string().min(1, "File name is required"),
   fileSize: z.number().positive().max(5 * 1024 * 1024 * 1024, "File exceeds 5GB limit"),
   title: z.string().optional(),
+  folderId: z.string().uuid().nullable().optional(),
 });
 
 export const commentSchema = z.object({
@@ -54,6 +55,17 @@ export const anonymousCommentSchema = z.object({
 export const videoUpdateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(2000).optional(),
+  folderId: z.string().uuid().nullable().optional(),
+});
+
+export const folderCreateSchema = z.object({
+  name: z.string().trim().min(1, "Folder name is required").max(120),
+  parentId: z.string().uuid().nullable().optional(),
+});
+
+export const folderUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  parentId: z.string().uuid().nullable().optional(),
 });
 
 export const reviewStatusSchema = z.object({

@@ -1,19 +1,48 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { UploadForm } from "../components/UploadForm";
+import { createDb } from "../db";
+import { folders } from "../db/schema";
+import { and, eq } from "drizzle-orm";
+import { env } from "cloudflare:workers";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
+
+const folderId = Astro.url.searchParams.get("folderId");
+const backHref = folderId ? `/dashboard?folderId=${folderId}` : "/dashboard";
+
+const db = createDb(env.DB);
+const folderResult = folderId
+  ? await db
+      .select({ id: folders.id, name: folders.name })
+      .from(folders)
+      .where(and(eq(folders.id, folderId), eq(folders.userId, user.id)))
+      .limit(1)
+  : [];
+
+if (folderId && folderResult.length === 0) {
+  return Astro.redirect("/upload");
+}
+
+const targetFolder = folderResult[0] || null;
 ---
 
 <Layout title="Upload Video" user={user}>
   <div class="mx-auto max-w-[1280px] px-8 py-8">
     <div class="mb-8">
-      <a href="/dashboard" class="text-sm text-text-tertiary transition-colors hover:text-text-primary">
+      <a href={backHref} class="text-sm text-text-tertiary transition-colors hover:text-text-primary">
         &larr; Back to Library
       </a>
       <h1 class="mt-2 text-2xl font-bold text-text-primary">Upload Video</h1>
+      <div class="mt-3 inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-secondary px-3 py-1.5 text-sm text-text-secondary">
+        <svg class="h-4 w-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V6.75A2.25 2.25 0 014.5 4.5h5.379c.596 0 1.169.237 1.591.659l1.122 1.122c.422.422.995.659 1.591.659H19.5a2.25 2.25 0 012.25 2.25v8.06A2.25 2.25 0 0119.5 19.5h-15a2.25 2.25 0 01-2.25-2.25v-4.5z" />
+        </svg>
+        <span>Uploading to</span>
+        <span class="font-medium text-text-primary">{targetFolder ? targetFolder.name : "All Videos"}</span>
+      </div>
     </div>
-    <UploadForm client:load />
+    <UploadForm client:load folderId={folderId} />
   </div>
 </Layout>

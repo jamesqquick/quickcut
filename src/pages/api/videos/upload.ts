@@ -1,8 +1,10 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../db";
-import { videos } from "../../../db/schema";
+import { folders, videos } from "../../../db/schema";
 import { createDirectUpload } from "../../../lib/stream";
+import { and, eq } from "drizzle-orm";
+import { uploadSchema } from "../../../lib/validation";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
@@ -15,8 +17,15 @@ export const POST: APIRoute = async ({ locals, request }) => {
     });
   }
 
-  const body = await request.json();
-  const { fileName, fileSize, title } = body;
+  const parsed = uploadSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return new Response(JSON.stringify({ error: parsed.error.issues[0]?.message || "Invalid input" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const { fileName, fileSize, title, folderId } = parsed.data;
 
   if (!fileName || !fileSize) {
     return new Response(
@@ -56,9 +65,25 @@ export const POST: APIRoute = async ({ locals, request }) => {
     const videoId = crypto.randomUUID();
     const videoTitle = title?.trim() || fileName.replace(/\.[^.]+$/, "");
 
+    if (folderId) {
+      const folder = await db
+        .select({ id: folders.id })
+        .from(folders)
+        .where(and(eq(folders.id, folderId), eq(folders.userId, locals.user.id)))
+        .limit(1);
+
+      if (folder.length === 0) {
+        return new Response(JSON.stringify({ error: "Folder not found" }), {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+
     await db.insert(videos).values({
       id: videoId,
       userId: locals.user.id,
+      folderId: folderId || null,
       title: videoTitle,
       status: "processing",
       streamVideoId,
