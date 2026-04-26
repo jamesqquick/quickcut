@@ -86,6 +86,7 @@ export const comments = sqliteTable("comments", {
     onDelete: "set null",
   }),
   resolvedAt: text("resolved_at"),
+  annotation: text("annotation"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),

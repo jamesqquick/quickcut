@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import type { Annotation } from "../types";
 
 /**
  * Shape of comments broadcast to connected clients.
@@ -16,6 +17,7 @@ export interface BroadcastComment {
 	isResolved: boolean;
 	resolvedBy: string | null;
 	resolvedAt: string | null;
+	annotation: Annotation | null;
 	createdAt: string;
 	displayName: string;
 }

@@ -4,8 +4,10 @@ import { CommentThread } from "./CommentThread";
 import { InlineEditor } from "./InlineEditor";
 import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
+import { AnnotationOverlay } from "./AnnotationOverlay";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
-import type { Comment } from "../types";
+import type { Annotation, Comment } from "../types";
+import type { AnnotationTool } from "./AnnotationOverlay";
 
 interface VideoDetailViewProps {
   videoId: string;
@@ -77,6 +79,9 @@ export function VideoDetailView({
   const [processingStatus, setProcessingStatus] = useState(status);
   const [liveComments, setLiveComments] = useState(initialComments);
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
+  const [activeTool, setActiveTool] = useState<AnnotationTool>("none");
+  const [pendingAnnotation, setPendingAnnotation] = useState<Annotation | null>(null);
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { iframeRef, currentTime, videoDuration, setVideoDuration, handleSeek } = useStreamPlayer({
@@ -87,6 +92,20 @@ export function VideoDetailView({
 
   const handleCommentClick = useCallback((commentId: string) => {
     setFocusRequest({ id: commentId, nonce: Date.now() });
+  }, []);
+
+  const handleAnnotationCreate = useCallback((annotation: Annotation) => {
+    setPendingAnnotation(annotation);
+  }, []);
+
+  const handleAnnotationClick = useCallback((commentId: string) => {
+    setFocusRequest({ id: commentId, nonce: Date.now() });
+  }, []);
+
+  // Clear pending annotation after comment submission
+  const handleAnnotationClear = useCallback(() => {
+    setPendingAnnotation(null);
+    setActiveTool("none");
   }, []);
 
   // Poll for video status when processing
@@ -120,14 +139,27 @@ export function VideoDetailView({
     };
   }, [processingStatus, videoId, setVideoDuration]);
 
+  const annotationOverlay = processingStatus === "ready" ? (
+    <AnnotationOverlay
+      comments={liveComments}
+      currentTime={currentTime}
+      activeTool={activeTool}
+      onAnnotationCreate={handleAnnotationCreate}
+      onAnnotationClick={handleAnnotationClick}
+      highlightedCommentId={highlightedCommentId}
+    />
+  ) : undefined;
+
   const leftColumn = (
     <>
       <VideoPlayer
         status={processingStatus}
         streamVideoId={streamVideoId}
         iframeRef={iframeRef}
+        overlay={annotationOverlay}
       />
 
+      {/* Timeline row */}
       {processingStatus === "ready" && videoDuration > 0 && (
         <CommentTimeline
           comments={liveComments.filter((c) => !c.parentId && c.timestamp != null)}
@@ -197,6 +229,11 @@ export function VideoDetailView({
       onSeek={handleSeek}
       onCommentsChange={setLiveComments}
       focusRequest={focusRequest}
+      pendingAnnotation={pendingAnnotation}
+      onAnnotationClear={handleAnnotationClear}
+      onCommentHover={setHighlightedCommentId}
+      activeTool={activeTool}
+      onToolChange={setActiveTool}
     />
   );
 

@@ -59,6 +59,7 @@ export const GET: APIRoute = async ({ params, url }) => {
 
   const commentsWithNames = allComments.map((c) => ({
     ...c,
+    annotation: c.annotation ? JSON.parse(c.annotation) : null,
     displayName:
       c.authorType === "user" && c.authorUserId
         ? userMap[c.authorUserId] || "Unknown"
@@ -96,7 +97,7 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const videoId = shareLinkResult[0].videoId;
   const body = await request.json();
-  const { text, timestamp, displayName, parentId } = body;
+  const { text, timestamp, displayName, parentId, annotation } = body;
 
   if (!text || !text.trim()) {
     return new Response(JSON.stringify({ error: "Comment text is required" }), {
@@ -125,12 +126,14 @@ export const POST: APIRoute = async ({ params, request }) => {
     isResolved: false,
     resolvedBy: null,
     resolvedAt: null,
+    annotation: annotation ? JSON.stringify(annotation) : null,
   };
 
   await db.insert(comments).values(newComment);
 
   const responseComment = {
     ...newComment,
+    annotation: annotation || null,
     createdAt: new Date().toISOString(),
     displayName: displayName.trim(),
   };

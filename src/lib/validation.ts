@@ -1,5 +1,24 @@
 import { z } from "zod";
 
+const pointAnnotationSchema = z.object({
+  type: z.literal("point"),
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+});
+
+const rectAnnotationSchema = z.object({
+  type: z.literal("rect"),
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  w: z.number().min(0).max(1),
+  h: z.number().min(0).max(1),
+});
+
+export const annotationSchema = z.discriminatedUnion("type", [
+  pointAnnotationSchema,
+  rectAnnotationSchema,
+]);
+
 export const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -21,6 +40,7 @@ export const uploadSchema = z.object({
 export const commentSchema = z.object({
   text: z.string().min(1, "Comment text is required").max(5000),
   timestamp: z.number().nullable().optional(),
+  annotation: annotationSchema.nullable().optional(),
 });
 
 export const anonymousCommentSchema = z.object({
@@ -28,6 +48,7 @@ export const anonymousCommentSchema = z.object({
   timestamp: z.number().nullable().optional(),
   displayName: z.string().min(1, "Display name is required").max(100),
   parentId: z.string().optional(),
+  annotation: annotationSchema.nullable().optional(),
 });
 
 export const videoUpdateSchema = z.object({

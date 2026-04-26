@@ -1,3 +1,19 @@
+export interface PointAnnotation {
+  type: "point";
+  x: number;
+  y: number;
+}
+
+export interface RectAnnotation {
+  type: "rect";
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export type Annotation = PointAnnotation | RectAnnotation;
+
 export interface Comment {
   id: string;
   videoId: string;
@@ -10,6 +26,7 @@ export interface Comment {
   isResolved: boolean;
   resolvedBy: string | null;
   resolvedAt: string | null;
+  annotation: Annotation | null;
   createdAt: string;
   displayName: string;
 }

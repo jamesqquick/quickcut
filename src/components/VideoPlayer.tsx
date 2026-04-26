@@ -1,12 +1,14 @@
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 
 interface VideoPlayerProps {
   status: string;
   streamVideoId: string | null;
   iframeRef: RefObject<HTMLIFrameElement | null>;
+  /** Annotation overlay rendered on top of the video. */
+  overlay?: ReactNode;
 }
 
-export function VideoPlayer({ status, streamVideoId, iframeRef }: VideoPlayerProps) {
+export function VideoPlayer({ status, streamVideoId, iframeRef, overlay }: VideoPlayerProps) {
   if (status === "processing") {
     return (
       <div className="flex aspect-video items-center justify-center rounded-xl bg-black">
@@ -53,6 +55,7 @@ export function VideoPlayer({ status, streamVideoId, iframeRef }: VideoPlayerPro
         allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
         allowFullScreen
       />
+      {overlay}
     </div>
   );
 }

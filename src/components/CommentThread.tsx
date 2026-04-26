@@ -3,7 +3,9 @@ import { formatTimecode, relativeTime } from "../lib/time";
 import { connectVideoRoom } from "../lib/realtime";
 import type { Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
-import type { Comment, FocusRequest } from "../types";
+import { AnnotationToolbar } from "./AnnotationOverlay";
+import type { AnnotationTool } from "./AnnotationOverlay";
+import type { Annotation, Comment, FocusRequest } from "../types";
 
 interface CommentThreadProps {
   videoId: string;
@@ -22,6 +24,16 @@ interface CommentThreadProps {
   onNameRequired?: () => void;
   onCommentsChange?: (comments: Comment[]) => void;
   focusRequest?: FocusRequest | null;
+  /** Annotation placed by the user that should be attached to the next comment. */
+  pendingAnnotation?: Annotation | null;
+  /** Called after a comment with an annotation is submitted (to clear overlay state). */
+  onAnnotationClear?: () => void;
+  /** Called when hovering over a comment that has an annotation. */
+  onCommentHover?: (commentId: string | null) => void;
+  /** Currently active annotation drawing tool. */
+  activeTool?: AnnotationTool;
+  /** Callback to change the active annotation tool. */
+  onToolChange?: (tool: AnnotationTool) => void;
 }
 
 type FilterType = "all" | "unresolved" | "resolved";
@@ -50,6 +62,11 @@ export function CommentThread({
   onNameRequired,
   onCommentsChange,
   focusRequest,
+  pendingAnnotation,
+  onAnnotationClear,
+  onCommentHover,
+  activeTool = "none",
+  onToolChange,
 }: CommentThreadProps) {
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [filter, setFilter] = useState<FilterType>("all");
@@ -206,6 +223,10 @@ export function CommentThread({
         timestamp: videoStatus === "ready" ? currentTime : null,
       };
 
+      if (pendingAnnotation) {
+        body.annotation = pendingAnnotation;
+      }
+
       if (shareToken && anonymousName) {
         body.displayName = anonymousName;
       }
@@ -218,8 +239,12 @@ export function CommentThread({
 
       if (res.ok) {
         const data = await res.json();
-        setComments((prev) => sortComments([...prev, data.comment]));
+        setComments((prev) => {
+          if (prev.some((c) => c.id === data.comment.id)) return prev;
+          return sortComments([...prev, data.comment]);
+        });
         setNewComment("");
+        onAnnotationClear?.();
         lastFetchRef.current = new Date().toISOString();
       } else {
         const data = await res.json();
@@ -262,7 +287,10 @@ export function CommentThread({
 
       if (res.ok) {
         const data = await res.json();
-        setComments((prev) => sortComments([...prev, data.comment]));
+        setComments((prev) => {
+          if (prev.some((c) => c.id === data.comment.id)) return prev;
+          return sortComments([...prev, data.comment]);
+        });
         setReplyText("");
         setReplyingTo(null);
         lastFetchRef.current = new Date().toISOString();
@@ -392,6 +420,7 @@ export function CommentThread({
         ) : (
           filteredComments.map((comment) => {
             const replies = getReplies(comment.id);
+            const hasAnnotation = !!comment.annotation;
             return (
               <div
                 key={comment.id}
@@ -408,6 +437,8 @@ export function CommentThread({
                     ? "ring-2 ring-accent-warning ring-offset-2 ring-offset-bg-secondary"
                     : ""
                 }`}
+                onMouseEnter={() => hasAnnotation && onCommentHover?.(comment.id)}
+                onMouseLeave={() => hasAnnotation && onCommentHover?.(null)}
               >
                 {/* Root comment */}
                 <div className="flex gap-3">
@@ -426,6 +457,23 @@ export function CommentThread({
                         >
                           {formatTC(comment.timestamp)}
                         </button>
+                      )}
+                      {hasAnnotation && (
+                        <span
+                          title={comment.annotation!.type === "point" ? "Pin annotation" : "Rectangle annotation"}
+                          className="inline-flex items-center rounded bg-accent-danger/15 px-1.5 py-0.5 text-[10px] font-medium text-accent-danger"
+                        >
+                          {comment.annotation!.type === "point" ? (
+                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                              <circle cx="12" cy="10" r="3" />
+                            </svg>
+                          ) : (
+                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="3" y="3" width="18" height="18" rx="2" />
+                            </svg>
+                          )}
+                        </span>
                       )}
                       <span className="text-xs text-text-tertiary">
                         {relativeTime(comment.createdAt)}
@@ -535,11 +583,41 @@ export function CommentThread({
       </div>
 
       {/* New comment input */}
-      <div className="border-t border-border-default p-4">
+      <div className="min-w-0 border-t border-border-default p-4">
         {error && (
           <div className="mb-2 text-xs text-accent-danger">{error}</div>
         )}
-        <div className="flex items-center gap-2">
+        {/* Pending annotation indicator */}
+        {pendingAnnotation && (
+          <div className="mb-2 flex items-center gap-2 rounded-md bg-accent-danger/10 px-3 py-1.5 text-xs text-accent-danger">
+            {pendingAnnotation.type === "point" ? (
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+            ) : (
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+              </svg>
+            )}
+            <span>
+              {pendingAnnotation.type === "point" ? "Pin" : "Rectangle"} annotation attached
+            </span>
+            <button
+              type="button"
+              onClick={() => onAnnotationClear?.()}
+              className="ml-auto text-accent-danger/70 hover:text-accent-danger"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        )}
+        <div className="flex min-w-0 items-center gap-2">
+          {videoStatus === "ready" && onToolChange && (
+            <AnnotationToolbar activeTool={activeTool} onToolChange={onToolChange} />
+          )}
           {videoStatus === "ready" && (
             <span className="shrink-0 rounded bg-bg-tertiary px-2 py-1 font-mono text-xs text-accent-primary">
               {formatTC(currentTime)}
@@ -556,11 +634,13 @@ export function CommentThread({
               }
             }}
             placeholder={
-              videoStatus === "ready"
-                ? `Add a comment at ${formatTC(currentTime)}...`
-                : "Add a comment..."
+              pendingAnnotation
+                ? "Describe what you see here..."
+                : videoStatus === "ready"
+                  ? `Add a comment at ${formatTC(currentTime)}...`
+                  : "Add a comment..."
             }
-            className="flex-1 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
+            className="min-w-0 flex-1 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
           />
           <button
             onClick={submitComment}

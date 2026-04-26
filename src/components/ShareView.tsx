@@ -4,8 +4,10 @@ import { CommentThread } from "./CommentThread";
 import { NamePromptModal } from "./NamePromptModal";
 import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
+import { AnnotationOverlay } from "./AnnotationOverlay";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
-import type { Comment } from "../types";
+import type { Annotation, Comment } from "../types";
+import type { AnnotationTool } from "./AnnotationOverlay";
 
 interface Video {
   id: string;
@@ -31,6 +33,9 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
   });
   const [liveComments, setLiveComments] = useState(initialComments);
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
+  const [activeTool, setActiveTool] = useState<AnnotationTool>("none");
+  const [pendingAnnotation, setPendingAnnotation] = useState<Annotation | null>(null);
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
 
   const { iframeRef, currentTime, videoDuration, handleSeek } = useStreamPlayer({
     status: video.status,
@@ -41,6 +46,19 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
 
   const handleCommentClick = useCallback((commentId: string) => {
     setFocusRequest({ id: commentId, nonce: Date.now() });
+  }, []);
+
+  const handleAnnotationCreate = useCallback((annotation: Annotation) => {
+    setPendingAnnotation(annotation);
+  }, []);
+
+  const handleAnnotationClick = useCallback((commentId: string) => {
+    setFocusRequest({ id: commentId, nonce: Date.now() });
+  }, []);
+
+  const handleAnnotationClear = useCallback(() => {
+    setPendingAnnotation(null);
+    setActiveTool("none");
   }, []);
 
   // Track view (only after the user has cleared the name gate).
@@ -68,14 +86,27 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
     );
   }
 
+  const annotationOverlay = video.status === "ready" ? (
+    <AnnotationOverlay
+      comments={liveComments}
+      currentTime={currentTime}
+      activeTool={activeTool}
+      onAnnotationCreate={handleAnnotationCreate}
+      onAnnotationClick={handleAnnotationClick}
+      highlightedCommentId={highlightedCommentId}
+    />
+  ) : undefined;
+
   const leftColumn = (
     <>
       <VideoPlayer
         status={video.status}
         streamVideoId={video.streamVideoId}
         iframeRef={iframeRef}
+        overlay={annotationOverlay}
       />
 
+      {/* Timeline row */}
       {video.status === "ready" && videoDuration > 0 && (
         <CommentTimeline
           comments={liveComments.filter((c) => !c.parentId && c.timestamp != null)}
@@ -109,6 +140,11 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
       onSeek={handleSeek}
       onCommentsChange={setLiveComments}
       focusRequest={focusRequest}
+      pendingAnnotation={pendingAnnotation}
+      onAnnotationClear={handleAnnotationClear}
+      onCommentHover={setHighlightedCommentId}
+      activeTool={activeTool}
+      onToolChange={setActiveTool}
     />
   );
 
