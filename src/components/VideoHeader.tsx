@@ -192,7 +192,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
           {moreMenuOpen && (
             <div
               role="menu"
-              className="absolute right-0 z-30 mt-2 w-44 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg"
+              className="fixed left-1/2 top-24 z-50 w-44 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:translate-x-0"
             >
               <button
                 role="menuitem"
@@ -223,7 +223,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
           <div
             role="dialog"
             aria-label="Share video"
-            className="absolute right-0 z-20 mt-2 w-[calc(100vw-2rem)] rounded-xl border border-border-default bg-bg-secondary p-4 shadow-xl sm:w-80"
+            className="fixed left-1/2 top-24 z-50 max-h-[70vh] w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto rounded-xl border border-border-default bg-bg-secondary p-4 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 sm:translate-x-0"
           >
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-text-primary">Share for review</h3>
@@ -296,7 +296,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
                     {menuOpen && (
                       <div
                         role="menu"
-                        className="absolute right-0 z-30 mt-1 w-44 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg"
+                        className="fixed left-1/2 top-40 z-[60] w-44 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-1 sm:translate-x-0"
                       >
                         <button
                           role="menuitem"
