@@ -56,7 +56,7 @@ if (childFolderIds.length > 0) {
   const counts = await db
     .select({ folderId: videos.folderId, count: count() })
     .from(videos)
-    .where(and(eq(videos.userId, user.id), inArray(videos.folderId, childFolderIds)))
+    .where(and(eq(videos.userId, user.id), eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
     .groupBy(videos.folderId);
 
   folderVideoCounts = Object.fromEntries(counts.map((row) => [row.folderId || "", row.count]));
@@ -64,7 +64,7 @@ if (childFolderIds.length > 0) {
   const folderVideos = await db
     .select({ folderId: videos.folderId, thumbnailUrl: videos.thumbnailUrl })
     .from(videos)
-    .where(and(eq(videos.userId, user.id), inArray(videos.folderId, childFolderIds)))
+    .where(and(eq(videos.userId, user.id), eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
     .orderBy(desc(videos.createdAt));
 
   folderThumbnails = folderVideos.reduce<Record<string, string[]>>((acc, video) => {
@@ -80,8 +80,8 @@ const userVideos = await db
   .from(videos)
   .where(
     currentFolderId
-      ? and(eq(videos.userId, user.id), eq(videos.folderId, currentFolderId))
-      : and(eq(videos.userId, user.id), isNull(videos.folderId)),
+      ? and(eq(videos.userId, user.id), eq(videos.folderId, currentFolderId), eq(videos.isCurrentVersion, true))
+      : and(eq(videos.userId, user.id), isNull(videos.folderId), eq(videos.isCurrentVersion, true)),
   )
   .orderBy(desc(videos.createdAt));
 
@@ -99,6 +99,18 @@ if (userVideos.length > 0) {
     .groupBy(comments.videoId);
 
   commentCounts = Object.fromEntries(counts.map((c) => [c.videoId, c.count]));
+}
+
+let versionCounts: Record<string, number> = {};
+if (userVideos.length > 0) {
+  const versionGroupIds = userVideos.map((video) => video.versionGroupId || video.id);
+  const counts = await db
+    .select({ versionGroupId: videos.versionGroupId, count: count() })
+    .from(videos)
+    .where(sql`${videos.versionGroupId} IN (${sql.join(versionGroupIds.map((id) => sql`${id}`), sql`, `)})`)
+    .groupBy(videos.versionGroupId);
+
+  versionCounts = Object.fromEntries(counts.map((row) => [row.versionGroupId || "", row.count]));
 }
 ---
 
@@ -150,6 +162,8 @@ if (userVideos.length > 0) {
             status={video.status as "processing" | "ready" | "failed"}
             createdAt={video.createdAt}
             commentCount={commentCounts[video.id] || 0}
+            versionNumber={video.versionNumber}
+            versionCount={versionCounts[video.versionGroupId || video.id] || 1}
           />
         ))}
       </div>

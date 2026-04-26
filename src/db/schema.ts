@@ -57,6 +57,11 @@ export const videos = sqliteTable("videos", {
   })
     .notNull()
     .default("no_status"),
+  versionGroupId: text("version_group_id"),
+  versionNumber: integer("version_number").notNull().default(1),
+  isCurrentVersion: integer("is_current_version", { mode: "boolean" })
+    .notNull()
+    .default(true),
   streamVideoId: text("stream_video_id"),
   streamPlaybackUrl: text("stream_playback_url"),
   thumbnailUrl: text("thumbnail_url"),

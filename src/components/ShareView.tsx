@@ -16,17 +16,19 @@ interface Video {
   status: string;
   streamVideoId: string | null;
   duration: number | null;
+  versionNumber: number;
 }
 
 interface ShareViewProps {
   video: Video;
+  versionCount: number;
   initialComments: Comment[];
   shareToken: string;
 }
 
 const ANON_NAME_KEY = "quickcut_anonymous_name";
 
-export function ShareView({ video, initialComments, shareToken }: ShareViewProps) {
+export function ShareView({ video, versionCount, initialComments, shareToken }: ShareViewProps) {
   const [anonymousName, setAnonymousName] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem(ANON_NAME_KEY);
@@ -118,6 +120,11 @@ export function ShareView({ video, initialComments, shareToken }: ShareViewProps
       )}
 
       <div>
+        {versionCount > 1 && (
+          <div className="mb-2 inline-flex rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs font-medium text-text-secondary">
+            V{video.versionNumber} of {versionCount}
+          </div>
+        )}
         <h1 className="text-xl font-bold text-text-primary sm:text-2xl">{video.title}</h1>
         {video.description && (
           <p className="mt-2 text-sm text-text-secondary">{video.description}</p>

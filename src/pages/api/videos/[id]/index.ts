@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
 import { videos, shareLinks, comments, folders } from "../../../../db/schema";
-import { and, eq, count } from "drizzle-orm";
+import { and, desc, eq, count } from "drizzle-orm";
 import { deleteVideo as deleteStreamVideo } from "../../../../lib/stream";
 import { videoUpdateSchema } from "../../../../lib/validation";
 
@@ -60,11 +60,18 @@ export const GET: APIRoute = async ({ params, locals }) => {
     .from(comments)
     .where(eq(comments.videoId, id));
 
+  const versionGroupId = video.versionGroupId || video.id;
+  const versionCountResult = await db
+    .select({ count: count() })
+    .from(videos)
+    .where(and(eq(videos.userId, locals.user.id), eq(videos.versionGroupId, versionGroupId)));
+
   return new Response(
     JSON.stringify({
       video,
       shareLink: shareLinkResult[0] || null,
       commentCount: commentCountResult[0]?.count || 0,
+      versionCount: versionCountResult[0]?.count || 1,
     }),
     { headers: { "Content-Type": "application/json" } },
   );
@@ -117,7 +124,8 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
     });
   }
 
-  const updates: { title?: string; description?: string; folderId?: string | null } = {};
+  const updates: { title?: string; description?: string } = {};
+  let folderUpdate: string | null | undefined;
 
   if (parsed.data.title !== undefined) updates.title = parsed.data.title.trim();
   if (parsed.data.description !== undefined) updates.description = parsed.data.description.trim();
@@ -139,20 +147,32 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
       }
     }
 
-    updates.folderId = folderId;
+    folderUpdate = folderId;
   }
 
-  if (Object.keys(updates).length === 0) {
+  if (Object.keys(updates).length === 0 && folderUpdate === undefined) {
     return new Response(JSON.stringify({ error: "No updates provided" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  await db
-    .update(videos)
-    .set({ ...updates, updatedAt: new Date().toISOString() })
-    .where(eq(videos.id, id));
+  const now = new Date().toISOString();
+
+  if (Object.keys(updates).length > 0) {
+    await db
+      .update(videos)
+      .set({ ...updates, updatedAt: now })
+      .where(eq(videos.id, id));
+  }
+
+  if (folderUpdate !== undefined) {
+    const versionGroupId = videoResult[0].versionGroupId || videoResult[0].id;
+    await db
+      .update(videos)
+      .set({ folderId: folderUpdate, updatedAt: now })
+      .where(and(eq(videos.userId, locals.user.id), eq(videos.versionGroupId, versionGroupId)));
+  }
 
   const updated = await db
     .select()
@@ -219,10 +239,26 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
     }
   }
 
+  const versionGroupId = video.versionGroupId || video.id;
+  const remainingVersions = await db
+    .select({ id: videos.id, versionNumber: videos.versionNumber })
+    .from(videos)
+    .where(and(eq(videos.userId, locals.user.id), eq(videos.versionGroupId, versionGroupId)))
+    .orderBy(desc(videos.versionNumber));
+
+  const replacement = remainingVersions.find((version) => version.id !== id) || null;
+
   // Delete the video row. share_links and comments cascade via FK constraints.
   await db.delete(videos).where(eq(videos.id, id));
 
-  return new Response(JSON.stringify({ success: true }), {
+  if (video.isCurrentVersion && replacement) {
+    await db
+      .update(videos)
+      .set({ isCurrentVersion: true, updatedAt: new Date().toISOString() })
+      .where(eq(videos.id, replacement.id));
+  }
+
+  return new Response(JSON.stringify({ success: true, redirectVideoId: replacement?.id || null }), {
     headers: { "Content-Type": "application/json" },
   });
 };

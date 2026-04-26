@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { StatusDropdown, type ReviewStatus } from "./StatusDropdown";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { VersionSwitcher } from "./VersionSwitcher";
 
 interface ShareLink {
   id: string;
@@ -82,7 +83,10 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
     try {
       const res = await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
       if (res.ok) {
-        window.location.href = "/dashboard";
+        const data = (await res.json().catch(() => null)) as
+          | { redirectVideoId?: string | null }
+          | null;
+        window.location.href = data?.redirectVideoId ? `/videos/${data.redirectVideoId}` : "/dashboard";
         return;
       }
       const data = (await res.json().catch(() => null)) as
@@ -168,6 +172,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
       </a>
 
       <div className="ml-auto flex items-center gap-2">
+        <VersionSwitcher videoId={videoId} />
         <StatusDropdown videoId={videoId} initialStatus={reviewStatus} />
 
         <div className="relative" ref={moreMenuRef}>
