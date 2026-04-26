@@ -1,0 +1,28 @@
+---
+interface Crumb {
+  id: string;
+  name: string;
+}
+
+interface Props {
+  path: Crumb[];
+}
+
+const { path } = Astro.props;
+---
+
+<nav class="mb-3 flex flex-wrap items-center gap-2 text-sm text-text-tertiary" aria-label="Breadcrumb">
+  <a href="/dashboard" class="transition-colors hover:text-text-primary">All Videos</a>
+  {path.map((crumb, index) => (
+    <>
+      <span>/</span>
+      {index === path.length - 1 ? (
+        <span class="font-medium text-text-primary">{crumb.name}</span>
+      ) : (
+        <a href={`/dashboard?folderId=${crumb.id}`} class="transition-colors hover:text-text-primary">
+          {crumb.name}
+        </a>
+      )}
+    </>
+  ))}
+</nav>
