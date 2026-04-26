@@ -614,15 +614,15 @@ export function CommentThread({
             </button>
           </div>
         )}
-        <div className="flex min-w-0 items-center gap-2">
-          {videoStatus === "ready" && onToolChange && (
+        {videoStatus === "ready" && onToolChange && (
+          <div className="mb-2 flex w-full items-center gap-2">
             <AnnotationToolbar activeTool={activeTool} onToolChange={onToolChange} />
-          )}
-          {videoStatus === "ready" && (
-            <span className="shrink-0 rounded bg-bg-tertiary px-2 py-1 font-mono text-xs text-accent-primary">
+            <span className="rounded bg-bg-tertiary px-2 py-1 font-mono text-xs text-accent-primary">
               {formatTC(currentTime)}
             </span>
-          )}
+          </div>
+        )}
+        <div className="flex min-w-0 items-center gap-2">
           <input
             type="text"
             value={newComment}
