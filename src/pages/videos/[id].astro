@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getCommentsWithNames } from "../../lib/comments";
 import { isTranscriptGenerationEnabled } from "../../lib/flags";
+import { verifySpaceAccess } from "../../lib/spaces";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -21,7 +22,9 @@ const videoResult = await db.select().from(videos).where(eq(videos.id, id)).limi
 if (videoResult.length === 0) return Astro.redirect("/dashboard");
 
 const video = videoResult[0];
-if (video.userId !== user.id) return Astro.redirect("/dashboard");
+const role = await verifySpaceAccess(db, user.id, video.spaceId);
+if (!role) return Astro.redirect("/dashboard");
+const isOwner = role === "owner";
 
 // Get share link
 const shareLinkResult = await db.select().from(shareLinks).where(eq(shareLinks.videoId, id)).limit(1);
@@ -42,7 +45,6 @@ const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
       videoId={video.id}
       shareLink={shareLink}
       appUrl={appUrl}
-      reviewStatus={video.reviewStatus}
     />
 
     <VideoDetailView
@@ -56,7 +58,7 @@ const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
       currentUserName={user.displayName}
       title={video.title}
       description={video.description || ""}
-      isOwner={true}
+      isOwner={isOwner}
       uploadDate={video.createdAt}
       fileName={video.fileName}
       transcriptsEnabled={transcriptsEnabled}

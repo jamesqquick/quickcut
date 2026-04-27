@@ -4,6 +4,7 @@ import { createDb } from "../../../../db";
 import { shareLinks, videos } from "../../../../db/schema";
 import { eq } from "drizzle-orm";
 import { generateShareToken } from "../../../../lib/share";
+import { verifySpaceAccess } from "../../../../lib/spaces";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
@@ -23,13 +24,20 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const db = createDb(env.DB);
 
-  // Verify ownership
+  // Verify video exists and user has space access
   const video = await db
     .select()
     .from(videos)
     .where(eq(videos.id, videoId))
     .limit(1);
-  if (video.length === 0 || video[0].userId !== locals.user.id) {
+  if (video.length === 0) {
+    return new Response(JSON.stringify({ error: "Video not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const getRole = await verifySpaceAccess(db, locals.user.id, video[0].spaceId);
+  if (!getRole) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
@@ -66,13 +74,20 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   const db = createDb(env.DB);
 
-  // Verify ownership
+  // Verify video exists and user has space access
   const video = await db
     .select()
     .from(videos)
     .where(eq(videos.id, videoId))
     .limit(1);
-  if (video.length === 0 || video[0].userId !== locals.user.id) {
+  if (video.length === 0) {
+    return new Response(JSON.stringify({ error: "Video not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const postRole = await verifySpaceAccess(db, locals.user.id, video[0].spaceId);
+  if (!postRole) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
@@ -134,13 +149,20 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
 
   const db = createDb(env.DB);
 
-  // Verify ownership
+  // Verify video exists and user has space access
   const video = await db
     .select()
     .from(videos)
     .where(eq(videos.id, videoId))
     .limit(1);
-  if (video.length === 0 || video[0].userId !== locals.user.id) {
+  if (video.length === 0) {
+    return new Response(JSON.stringify({ error: "Video not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const patchRole = await verifySpaceAccess(db, locals.user.id, video[0].spaceId);
+  if (!patchRole) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
@@ -182,13 +204,20 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
 
   const db = createDb(env.DB);
 
-  // Verify ownership
+  // Verify video exists and user has space access
   const video = await db
     .select()
     .from(videos)
     .where(eq(videos.id, videoId))
     .limit(1);
-  if (video.length === 0 || video[0].userId !== locals.user.id) {
+  if (video.length === 0) {
+    return new Response(JSON.stringify({ error: "Video not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const delRole = await verifySpaceAccess(db, locals.user.id, video[0].spaceId);
+  if (!delRole) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },

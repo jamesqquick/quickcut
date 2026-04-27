@@ -5,6 +5,7 @@ import { createDb } from "../../../../db";
 import { transcripts, videos } from "../../../../db/schema";
 import { isTranscriptGenerationEnabled } from "../../../../lib/flags";
 import { queueTranscriptForVideo } from "../../../../lib/transcripts";
+import { verifySpaceAccess } from "../../../../lib/spaces";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -24,7 +25,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const video = videoResult[0];
 
   if (!video) return json({ error: "Video not found" }, 404);
-  if (video.userId !== locals.user.id) return json({ error: "Forbidden" }, 403);
+  const getRole = await verifySpaceAccess(db, locals.user.id, video.spaceId);
+  if (!getRole) return json({ error: "Forbidden" }, 403);
 
   const transcriptResult = await db.select().from(transcripts).where(eq(transcripts.videoId, id)).limit(1);
   const transcript = transcriptResult[0] || null;
@@ -48,7 +50,8 @@ export const POST: APIRoute = async ({ params, locals }) => {
   const video = videoResult[0];
 
   if (!video) return json({ error: "Video not found" }, 404);
-  if (video.userId !== locals.user.id) return json({ error: "Forbidden" }, 403);
+  const postRole = await verifySpaceAccess(db, locals.user.id, video.spaceId);
+  if (!postRole) return json({ error: "Forbidden" }, 403);
 
   const enabled = await isTranscriptGenerationEnabled(env, locals.user);
   if (!enabled) return json({ error: "Transcript generation is not enabled" }, 403);

@@ -6,6 +6,7 @@ import { comments, videos } from "../../../../db/schema";
 import { createDirectUpload } from "../../../../lib/stream";
 import { uploadSchema } from "../../../../lib/validation";
 import { isTranscriptGenerationEnabled } from "../../../../lib/flags";
+import { verifySpaceAccess } from "../../../../lib/spaces";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024;
@@ -28,13 +29,15 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const video = videoResult[0];
 
   if (!video) return json({ error: "Video not found" }, 404);
-  if (video.userId !== locals.user.id) return json({ error: "Forbidden" }, 403);
+
+  const getRole = await verifySpaceAccess(db, locals.user.id, video.spaceId);
+  if (!getRole) return json({ error: "Forbidden" }, 403);
 
   const versionGroupId = video.versionGroupId || video.id;
   const versionRows = await db
     .select()
     .from(videos)
-    .where(and(eq(videos.userId, locals.user.id), eq(videos.versionGroupId, versionGroupId)))
+    .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)))
     .orderBy(desc(videos.versionNumber));
 
   const versionIds = versionRows.map((version) => version.id);
@@ -92,13 +95,15 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   const baseVideo = baseResult[0];
 
   if (!baseVideo) return json({ error: "Video not found" }, 404);
-  if (baseVideo.userId !== locals.user.id) return json({ error: "Forbidden" }, 403);
+
+  const postRole = await verifySpaceAccess(db, locals.user.id, baseVideo.spaceId);
+  if (!postRole) return json({ error: "Forbidden" }, 403);
 
   const versionGroupId = baseVideo.versionGroupId || baseVideo.id;
   const latestResult = await db
     .select({ versionNumber: videos.versionNumber })
     .from(videos)
-    .where(and(eq(videos.userId, locals.user.id), eq(videos.versionGroupId, versionGroupId)))
+    .where(and(eq(videos.spaceId, baseVideo.spaceId), eq(videos.versionGroupId, versionGroupId)))
     .orderBy(desc(videos.versionNumber))
     .limit(1);
 
@@ -121,16 +126,16 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     await db
       .update(videos)
       .set({ isCurrentVersion: false, updatedAt: now })
-      .where(and(eq(videos.userId, locals.user.id), eq(videos.versionGroupId, versionGroupId)));
+      .where(and(eq(videos.spaceId, baseVideo.spaceId), eq(videos.versionGroupId, versionGroupId)));
 
     await db.insert(videos).values({
       id: videoId,
-      userId: locals.user.id,
+      spaceId: baseVideo.spaceId,
+      uploadedBy: locals.user.id,
       folderId: baseVideo.folderId,
       title: title?.trim() || baseVideo.title,
       description: description !== undefined ? description.trim() || null : baseVideo.description,
       status: "processing",
-      reviewStatus: "no_status",
       versionGroupId,
       versionNumber: nextVersionNumber,
       isCurrentVersion: true,

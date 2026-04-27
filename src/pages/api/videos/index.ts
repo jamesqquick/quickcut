@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../db";
-import { videos, comments } from "../../../db/schema";
-import { and, eq, desc, sql, count, isNull } from "drizzle-orm";
+import { videos, comments, spaceMembers } from "../../../db/schema";
+import { and, eq, desc, sql, count, isNull, inArray } from "drizzle-orm";
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (!locals.user) {
@@ -16,11 +16,27 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
   const offset = parseInt(url.searchParams.get("offset") || "0");
   const folderId = url.searchParams.get("folderId");
+
+  // Get all space IDs the user belongs to
+  const memberRows = await db
+    .select({ spaceId: spaceMembers.spaceId })
+    .from(spaceMembers)
+    .where(eq(spaceMembers.userId, locals.user.id));
+  const spaceIds = memberRows.map((r) => r.spaceId);
+
+  if (spaceIds.length === 0) {
+    return new Response(
+      JSON.stringify({ videos: [], total: 0 }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  const spaceFilter = inArray(videos.spaceId, spaceIds);
   const where = folderId
     ? folderId === "root"
-      ? and(eq(videos.userId, locals.user.id), isNull(videos.folderId), eq(videos.isCurrentVersion, true))
-      : and(eq(videos.userId, locals.user.id), eq(videos.folderId, folderId), eq(videos.isCurrentVersion, true))
-    : and(eq(videos.userId, locals.user.id), eq(videos.isCurrentVersion, true));
+      ? and(spaceFilter, isNull(videos.folderId), eq(videos.isCurrentVersion, true))
+      : and(spaceFilter, eq(videos.folderId, folderId), eq(videos.isCurrentVersion, true))
+    : and(spaceFilter, eq(videos.isCurrentVersion, true));
 
   const userVideos = await db
     .select()

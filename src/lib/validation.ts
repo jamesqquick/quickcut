@@ -79,8 +79,4 @@ export const folderUpdateSchema = z.object({
   parentId: z.string().uuid().nullable().optional(),
 });
 
-export const reviewStatusSchema = z.object({
-  reviewStatus: z.enum(["no_status", "needs_review", "in_progress", "approved"]),
-});
 
-export type ReviewStatus = z.infer<typeof reviewStatusSchema>["reviewStatus"];

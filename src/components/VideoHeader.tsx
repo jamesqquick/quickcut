@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { StatusDropdown, type ReviewStatus } from "./StatusDropdown";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { VersionSwitcher } from "./VersionSwitcher";
 
@@ -14,10 +13,9 @@ interface VideoHeaderProps {
   videoId: string;
   shareLink: ShareLink | null;
   appUrl: string;
-  reviewStatus: ReviewStatus;
 }
 
-export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewStatus }: VideoHeaderProps) {
+export function VideoHeader({ videoId, shareLink: initialLink, appUrl }: VideoHeaderProps) {
   const [shareLink, setShareLink] = useState(initialLink);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -173,7 +171,6 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, reviewSta
 
       <div className="ml-auto flex items-center gap-2">
         <VersionSwitcher videoId={videoId} />
-        <StatusDropdown videoId={videoId} initialStatus={reviewStatus} />
 
         <div className="relative" ref={moreMenuRef}>
           <button

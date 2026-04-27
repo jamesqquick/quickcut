@@ -4,6 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { createDb } from "../../../db";
 import { folders, videos } from "../../../db/schema";
 import { folderUpdateSchema } from "../../../lib/validation";
+import { verifySpaceAccess } from "../../../lib/spaces";
 
 export const PATCH: APIRoute = async ({ params, locals, request }) => {
   if (!locals.user) {
@@ -33,12 +34,21 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
   const current = await db
     .select()
     .from(folders)
-    .where(and(eq(folders.id, id), eq(folders.userId, locals.user.id)))
+    .where(eq(folders.id, id))
     .limit(1);
 
   if (current.length === 0) {
     return new Response(JSON.stringify({ error: "Folder not found" }), {
       status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Verify user has space access
+  const patchRole = await verifySpaceAccess(db, locals.user.id, current[0].spaceId);
+  if (!patchRole) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -61,7 +71,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
       const allFolders = await db
         .select({ id: folders.id, parentId: folders.parentId })
         .from(folders)
-        .where(eq(folders.userId, locals.user.id));
+        .where(eq(folders.spaceId, current[0].spaceId));
       const folderById = new Map(allFolders.map((folder) => [folder.id, folder]));
       let cursor = folderById.get(parentId);
 
@@ -112,9 +122,9 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
 
   const db = createDb(env.DB);
   const current = await db
-    .select({ id: folders.id })
+    .select({ id: folders.id, spaceId: folders.spaceId })
     .from(folders)
-    .where(and(eq(folders.id, id), eq(folders.userId, locals.user.id)))
+    .where(eq(folders.id, id))
     .limit(1);
 
   if (current.length === 0) {
@@ -124,10 +134,19 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
     });
   }
 
+  // Verify user has space access
+  const deleteRole = await verifySpaceAccess(db, locals.user.id, current[0].spaceId);
+  if (!deleteRole) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const allFolders = await db
     .select({ id: folders.id, parentId: folders.parentId })
     .from(folders)
-    .where(eq(folders.userId, locals.user.id));
+    .where(eq(folders.spaceId, current[0].spaceId));
   const idsToDelete = new Set([id]);
   let changed = true;
 

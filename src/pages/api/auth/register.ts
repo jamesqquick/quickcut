@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../db";
-import { users } from "../../../db/schema";
+import { users, spaces, spaceMembers } from "../../../db/schema";
 import { hashPassword, createSession, makeSessionCookie } from "../../../lib/auth";
 import { eq } from "drizzle-orm";
 
@@ -56,15 +56,30 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     return redirect("/register?error=An account with this email already exists");
   }
 
-  // Create user
+  // Create user + default Personal space
   const passwordHash = await hashPassword(password);
   const userId = crypto.randomUUID();
+  const spaceId = crypto.randomUUID();
 
   await db.insert(users).values({
     id: userId,
     email,
     passwordHash,
     displayName,
+  });
+
+  await db.insert(spaces).values({
+    id: spaceId,
+    name: "Personal",
+    ownerId: userId,
+    requiredApprovals: 0,
+  });
+
+  await db.insert(spaceMembers).values({
+    id: crypto.randomUUID(),
+    spaceId,
+    userId,
+    role: "owner",
   });
 
   // Create session

@@ -6,7 +6,7 @@ import Breadcrumbs from "../components/Breadcrumbs.astro";
 import { CreateFolderDialog } from "../components/CreateFolderDialog";
 import EmptyState from "../components/EmptyState.astro";
 import { createDb } from "../db";
-import { folders, videos, comments } from "../db/schema";
+import { folders, videos, comments, spaceMembers } from "../db/schema";
 import { and, asc, desc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 
@@ -16,11 +16,20 @@ if (!user) return Astro.redirect("/login");
 const db = createDb(env.DB);
 const currentFolderId = Astro.url.searchParams.get("folderId");
 
+// Get all space IDs the user belongs to
+const memberRows = await db
+  .select({ spaceId: spaceMembers.spaceId })
+  .from(spaceMembers)
+  .where(eq(spaceMembers.userId, user.id));
+const spaceIds = memberRows.map((r) => r.spaceId);
+const spaceFilter = spaceIds.length > 0 ? inArray(folders.spaceId, spaceIds) : eq(folders.spaceId, "__none__");
+const videoSpaceFilter = spaceIds.length > 0 ? inArray(videos.spaceId, spaceIds) : eq(videos.spaceId, "__none__");
+
 const currentFolder = currentFolderId
   ? await db
       .select()
       .from(folders)
-      .where(and(eq(folders.id, currentFolderId), eq(folders.userId, user.id)))
+      .where(and(eq(folders.id, currentFolderId), spaceFilter))
       .limit(1)
   : [];
 
@@ -32,7 +41,7 @@ const currentFolderRecord = currentFolder[0] || null;
 const allFolders = await db
   .select()
   .from(folders)
-  .where(eq(folders.userId, user.id))
+  .where(spaceFilter)
   .orderBy(asc(folders.name));
 const folderById = new Map(allFolders.map((folder) => [folder.id, folder]));
 const folderPath = [];
@@ -56,7 +65,7 @@ if (childFolderIds.length > 0) {
   const counts = await db
     .select({ folderId: videos.folderId, count: count() })
     .from(videos)
-    .where(and(eq(videos.userId, user.id), eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
+    .where(and(eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
     .groupBy(videos.folderId);
 
   folderVideoCounts = Object.fromEntries(counts.map((row) => [row.folderId || "", row.count]));
@@ -64,7 +73,7 @@ if (childFolderIds.length > 0) {
   const folderVideos = await db
     .select({ folderId: videos.folderId, thumbnailUrl: videos.thumbnailUrl })
     .from(videos)
-    .where(and(eq(videos.userId, user.id), eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
+    .where(and(eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
     .orderBy(desc(videos.createdAt));
 
   folderThumbnails = folderVideos.reduce<Record<string, string[]>>((acc, video) => {
@@ -80,8 +89,8 @@ const userVideos = await db
   .from(videos)
   .where(
     currentFolderId
-      ? and(eq(videos.userId, user.id), eq(videos.folderId, currentFolderId), eq(videos.isCurrentVersion, true))
-      : and(eq(videos.userId, user.id), isNull(videos.folderId), eq(videos.isCurrentVersion, true)),
+      ? and(videoSpaceFilter, eq(videos.folderId, currentFolderId), eq(videos.isCurrentVersion, true))
+      : and(videoSpaceFilter, isNull(videos.folderId), eq(videos.isCurrentVersion, true)),
   )
   .orderBy(desc(videos.createdAt));
 
