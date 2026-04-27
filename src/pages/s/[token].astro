@@ -6,6 +6,7 @@ import { shareLinks, videos } from "../../db/schema";
 import { and, count, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getCommentsWithNames } from "../../lib/comments";
+import { getApprovalStatus, type ApprovalStatus } from "../../lib/approvals";
 
 const { token } = Astro.params;
 if (!token) return Astro.redirect("/");
@@ -31,6 +32,7 @@ const isRevoked = shareLink.status === "revoked";
 let video = null;
 let allComments: any[] = [];
 let versionCount = 1;
+let approvalStatus: ApprovalStatus | null = null;
 
 if (!isRevoked) {
   const videoResult = await db
@@ -52,6 +54,11 @@ if (!isRevoked) {
     .from(videos)
     .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)));
   versionCount = versionCountResult[0]?.count || 1;
+
+  // Surface approval state to anonymous reviewers as a read-only signal,
+  // but only when the workflow is enabled on the owning space.
+  const status = await getApprovalStatus(db, video.id, video.spaceId);
+  approvalStatus = status.requiredApprovals > 0 ? status : null;
 }
 ---
 
@@ -76,6 +83,7 @@ if (!isRevoked) {
         versionCount={versionCount}
         initialComments={allComments}
         shareToken={token}
+        initialApprovalStatus={approvalStatus}
       />
     </div>
   ) : (

@@ -9,6 +9,7 @@ import { env } from "cloudflare:workers";
 import { getCommentsWithNames } from "../../lib/comments";
 import { isTranscriptGenerationEnabled } from "../../lib/flags";
 import { verifySpaceAccess } from "../../lib/spaces";
+import { getApprovalStatus } from "../../lib/approvals";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -35,6 +36,13 @@ const commentsWithNames = await getCommentsWithNames(db, id);
 
 const appUrl = new URL(Astro.request.url).origin;
 const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
+
+// Compute the approval state up front. We hand it to the React view as a
+// snapshot; the component then keeps it fresh via the realtime channel.
+// Only render the approval section when the space actually has the
+// workflow enabled (requiredApprovals > 0).
+const approvalStatus = await getApprovalStatus(db, video.id, video.spaceId);
+const showApprovals = approvalStatus.requiredApprovals > 0;
 ---
 
 <Layout title={video.title} user={user}>
@@ -62,6 +70,8 @@ const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
       uploadDate={video.createdAt}
       fileName={video.fileName}
       transcriptsEnabled={transcriptsEnabled}
+      uploadedBy={video.uploadedBy}
+      initialApprovalStatus={showApprovals ? approvalStatus : null}
     />
   </div>
 </Layout>

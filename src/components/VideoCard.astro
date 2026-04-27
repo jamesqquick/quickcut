@@ -21,6 +21,10 @@ interface Props {
   versionNumber?: number;
   versionCount?: number;
   folderId?: string | null;
+  /** When > 0, the space requires approvals and we render the badge. */
+  requiredApprovals?: number;
+  /** Number of approvals recorded so far. */
+  approvalCount?: number;
 }
 
 const {
@@ -35,7 +39,12 @@ const {
   versionNumber = 1,
   versionCount = 1,
   folderId = null,
+  requiredApprovals = 0,
+  approvalCount = 0,
 } = Astro.props;
+
+const showApprovalBadge = requiredApprovals > 0;
+const isApproved = showApprovalBadge && approvalCount >= requiredApprovals;
 
 // Order by severity descending so reviewers see the most urgent items
 // first. Each entry renders a small colored dot + count; the urgency name
@@ -90,7 +99,7 @@ function formatDate(dateStr: string): string {
     </div>
     <div class="p-4">
       <h3 class="truncate text-sm font-semibold text-text-primary">{title}</h3>
-      <div class="mt-1.5 flex items-center gap-3 text-xs text-text-tertiary">
+      <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-tertiary">
         <span>{formatDate(createdAt)}</span>
         {commentCount > 0 && (
           <span class="flex items-center gap-1">
@@ -99,6 +108,21 @@ function formatDate(dateStr: string): string {
             </svg>
             {commentCount}
           </span>
+        )}
+        {showApprovalBadge && (
+          isApproved ? (
+            <span class="inline-flex items-center gap-1 rounded-full bg-accent-secondary/15 px-2 py-0.5 font-medium text-accent-secondary" title={`${approvalCount} of ${requiredApprovals} approvals`}>
+              <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M16.704 5.296a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L8 12.586l7.29-7.29a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+              Approved
+            </span>
+          ) : (
+            <span class="inline-flex items-center gap-1 rounded-full bg-accent-warning/15 px-2 py-0.5 font-medium text-accent-warning" title="Pending approval">
+              <span class="h-1.5 w-1.5 rounded-full bg-accent-warning" aria-hidden="true"></span>
+              {approvalCount}/{requiredApprovals} approvals
+            </span>
+          )
         )}
       </div>
       {urgencyBadges.length > 0 && (

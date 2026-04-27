@@ -6,7 +6,7 @@ import Breadcrumbs from "../components/Breadcrumbs.astro";
 import { CreateFolderDialog } from "../components/CreateFolderDialog";
 import EmptyState from "../components/EmptyState.astro";
 import { createDb } from "../db";
-import { folders, videos, comments, spaceMembers } from "../db/schema";
+import { folders, videos, comments, spaceMembers, spaces, approvals } from "../db/schema";
 import { and, asc, desc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 
@@ -157,6 +157,42 @@ if (userVideos.length > 0) {
 
   versionCounts = Object.fromEntries(counts.map((row) => [row.versionGroupId || "", row.count]));
 }
+
+// Approval badges. Only spaces with `requiredApprovals > 0` participate; any
+// other video gets no badge. We pull the per-space threshold and the count
+// of recorded approvals per video and combine them into the props passed
+// to <VideoCard />.
+const requiredApprovalsBySpace: Record<string, number> = {};
+const approvalCountsByVideo: Record<string, number> = {};
+if (userVideos.length > 0 && spaceIds.length > 0) {
+  const spaceRows = await db
+    .select({ id: spaces.id, requiredApprovals: spaces.requiredApprovals })
+    .from(spaces)
+    .where(inArray(spaces.id, spaceIds));
+  for (const row of spaceRows) {
+    requiredApprovalsBySpace[row.id] = row.requiredApprovals;
+  }
+
+  const approvalSpaceIds = spaceRows
+    .filter((row) => row.requiredApprovals > 0)
+    .map((row) => row.id);
+
+  const videosNeedingApproval = userVideos.filter((video) =>
+    approvalSpaceIds.includes(video.spaceId),
+  );
+
+  if (videosNeedingApproval.length > 0) {
+    const videoIds = videosNeedingApproval.map((v) => v.id);
+    const counts = await db
+      .select({ videoId: approvals.videoId, count: count() })
+      .from(approvals)
+      .where(inArray(approvals.videoId, videoIds))
+      .groupBy(approvals.videoId);
+    for (const row of counts) {
+      approvalCountsByVideo[row.videoId] = row.count;
+    }
+  }
+}
 ---
 
 <Layout title={currentFolderRecord ? currentFolderRecord.name : "My Videos"} user={user}>
@@ -215,6 +251,8 @@ if (userVideos.length > 0) {
             urgencyCounts={urgencyCounts[video.id] || { idea: 0, suggestion: 0, important: 0, critical: 0 }}
             versionNumber={video.versionNumber}
             versionCount={versionCounts[video.versionGroupId || video.id] || 1}
+            requiredApprovals={requiredApprovalsBySpace[video.spaceId] || 0}
+            approvalCount={approvalCountsByVideo[video.id] || 0}
           />
         ))}
       </div>

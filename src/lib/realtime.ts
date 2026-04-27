@@ -1,14 +1,20 @@
-import type { BroadcastComment, Viewer } from "../durable-objects/VideoRoom";
+import type {
+	BroadcastApprovalStatus,
+	BroadcastComment,
+	Viewer,
+} from "../durable-objects/VideoRoom";
 
-export type { Viewer } from "../durable-objects/VideoRoom";
+export type { Viewer, BroadcastApprovalStatus } from "../durable-objects/VideoRoom";
 
 type ServerMessage =
 	| { type: "comment.new"; comment: BroadcastComment }
-	| { type: "presence.sync"; viewers: Viewer[] };
+	| { type: "presence.sync"; viewers: Viewer[] }
+	| { type: "approval.update"; approvalStatus: BroadcastApprovalStatus };
 
 export interface VideoRoomHandlers {
 	onComment?: (comment: BroadcastComment) => void;
 	onPresence?: (viewers: Viewer[]) => void;
+	onApproval?: (approvalStatus: BroadcastApprovalStatus) => void;
 }
 
 export interface VideoRoomConnection {
@@ -79,6 +85,8 @@ export function connectVideoRoom(
 				handlers.onComment?.(parsed.comment);
 			} else if (parsed.type === "presence.sync") {
 				handlers.onPresence?.(parsed.viewers);
+			} else if (parsed.type === "approval.update") {
+				handlers.onApproval?.(parsed.approvalStatus);
 			}
 		});
 
