@@ -1,58 +1,56 @@
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "quickcut",
-	"main": "./src/worker.ts",
-	"compatibility_date": "2026-04-21",
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
-	"assets": {
-		"binding": "ASSETS",
-		"directory": "./dist"
-	},
-	"observability": {
-		"enabled": true
-	},
-	"flagship": [
-		{
-			"binding": "FLAGS",
-			"app_id": "TODO_FLAGSHIP_APP_ID"
-		}
-	],
-	"ai": {
-		"binding": "AI"
-	},
-	"workflows": [
-		{
-			"binding": "TRANSCRIPT_WORKFLOW",
-			"name": "quickcut-transcript-workflow",
-			"class_name": "TranscriptWorkflow"
-		}
-	],
-	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "quickcut-db",
-			"database_id": "e92ddd0c-e338-49e0-8427-79e1d998200a"
-		}
-	],
-	"durable_objects": {
-		"bindings": [
-			{
-				"name": "VIDEO_ROOM",
-				"class_name": "VideoRoom"
-			}
-		]
-	},
-	"migrations": [
-		{
-			"tag": "v1",
-			"new_sqlite_classes": ["VideoRoom"]
-		}
-	],
-	"vars": {
-		"STREAM_ACCOUNT_ID": "4426cbeacb457b1ca1b865d6c36ced0d",
-		"TRANSCRIPTS_ENABLED": "true",
-		"TRANSCRIPT_CLEANUP_MODEL": "@cf/meta/llama-3.1-8b-instruct"
-	}
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "quickcut",
+  "main": "./src/worker.ts",
+  "compatibility_date": "2026-04-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  "flagship": [
+    {
+      "binding": "FLAGS",
+      "app_id": "0e0911ff-8d97-4af0-a6cb-95093b8b045e",
+    },
+  ],
+  "ai": {
+    "binding": "AI",
+  },
+  "workflows": [
+    {
+      "binding": "TRANSCRIPT_WORKFLOW",
+      "name": "quickcut-transcript-workflow",
+      "class_name": "TranscriptWorkflow",
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "quickcut-db",
+      "database_id": "e92ddd0c-e338-49e0-8427-79e1d998200a",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "VIDEO_ROOM",
+        "class_name": "VideoRoom",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["VideoRoom"],
+    },
+  ],
+  "vars": {
+    "STREAM_ACCOUNT_ID": "4426cbeacb457b1ca1b865d6c36ced0d",
+    "TRANSCRIPTS_ENABLED": "true",
+    "TRANSCRIPT_CLEANUP_MODEL": "@cf/meta/llama-3.1-8b-instruct",
+  },
 }
