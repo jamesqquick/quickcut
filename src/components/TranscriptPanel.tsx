@@ -18,6 +18,7 @@ interface TranscriptResponse {
 interface TranscriptPanelProps {
   videoId: string;
   videoTitle: string;
+  transcriptsEnabled: boolean;
 }
 
 const statusCopy: Record<TranscriptStatus, { title: string; body: string }> = {
@@ -82,7 +83,7 @@ function getPollInterval(status: TranscriptStatus): number | null {
   return null;
 }
 
-export function TranscriptPanel({ videoId, videoTitle }: TranscriptPanelProps) {
+export function TranscriptPanel({ videoId, videoTitle, transcriptsEnabled }: TranscriptPanelProps) {
   const [data, setData] = useState<TranscriptResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -154,8 +155,14 @@ export function TranscriptPanel({ videoId, videoTitle }: TranscriptPanelProps) {
     );
   }
 
-  const copy = statusCopy[status];
   const text = data?.transcript?.cleanedText || data?.transcript?.rawText || "";
+
+  // Hide the panel entirely when transcripts aren't enabled and no transcript exists
+  if (!transcriptsEnabled && !text) {
+    return null;
+  }
+
+  const copy = statusCopy[status];
   const canGenerate = data?.transcriptsEnabled && status === "not_requested" && data.videoStatus === "ready";
   const canRetry = data?.transcriptsEnabled && status === "failed" && data.videoStatus === "ready";
 

@@ -227,7 +227,7 @@ export function VideoDetailView({
         className="break-words text-sm text-text-secondary"
       />
 
-      <TranscriptPanel videoId={videoId} videoTitle={title} />
+      <TranscriptPanel videoId={videoId} videoTitle={title} transcriptsEnabled={transcriptsEnabled} />
     </>
   );
 
