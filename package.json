@@ -15,7 +15,8 @@
     "release": "pnpm build && wrangler deploy",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply quickcut-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply quickcut-db --remote"
+    "db:migrate:remote": "wrangler d1 migrations apply quickcut-db --remote",
+    "db:reset:local": "rm -rf .wrangler/state && wrangler d1 migrations apply quickcut-db --local"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^13.2.1",

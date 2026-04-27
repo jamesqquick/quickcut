@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
-import { sessions, users, videos, shareLinks } from "../db/schema";
+import { eq, and } from "drizzle-orm";
+import { sessions, users, videos, shareLinks, spaceMembers } from "../db/schema";
 import type { Database } from "../db";
 
 export type VideoAccess =
-  | { ok: true; videoId: string; identity: { type: "user"; userId: string } | { type: "anonymous" } }
+  | { ok: true; videoId: string; spaceId: string; identity: { type: "user"; userId: string } | { type: "anonymous" } }
   | { ok: false; status: number; error: string };
 
 function parseCookies(cookieHeader: string): Record<string, string> {
@@ -29,7 +29,7 @@ export async function verifyVideoAccess(
 ): Promise<VideoAccess> {
   // 1. Check the video exists.
   const videoRow = await db
-    .select({ id: videos.id, userId: videos.userId })
+    .select({ id: videos.id, spaceId: videos.spaceId })
     .from(videos)
     .where(eq(videos.id, videoId))
     .limit(1);
@@ -37,8 +37,10 @@ export async function verifyVideoAccess(
     return { ok: false, status: 404, error: "Video not found" };
   }
 
-  // 2. Authenticated path: validate the session cookie. Owner-only access for
-  //    private review, mirroring the existing protected-route behavior.
+  const spaceId = videoRow[0].spaceId;
+
+  // 2. Authenticated path: validate the session cookie, then verify the user
+  //    is a member of the video's space.
   const cookieHeader = request.headers.get("cookie") || "";
   const cookies = parseCookies(cookieHeader);
   const sessionId = cookies["quickcut_session"];
@@ -52,14 +54,26 @@ export async function verifyVideoAccess(
       .limit(1);
 
     if (sessionRow.length > 0 && sessionRow[0].expiresAt > now) {
-      // Authenticated. The video.userId == session.userId check is enforced
-      // by route-level authorization elsewhere; for live updates we allow any
-      // authenticated viewer who already loaded the page.
-      return {
-        ok: true,
-        videoId,
-        identity: { type: "user", userId: sessionRow[0].userId },
-      };
+      // Verify user is a member of the video's space.
+      const membership = await db
+        .select({ role: spaceMembers.role })
+        .from(spaceMembers)
+        .where(
+          and(
+            eq(spaceMembers.spaceId, spaceId),
+            eq(spaceMembers.userId, sessionRow[0].userId),
+          ),
+        )
+        .limit(1);
+
+      if (membership.length > 0) {
+        return {
+          ok: true,
+          videoId,
+          spaceId,
+          identity: { type: "user", userId: sessionRow[0].userId },
+        };
+      }
     }
   }
 
@@ -78,7 +92,7 @@ export async function verifyVideoAccess(
       linkRow[0].status === "active" &&
       linkRow[0].videoId === videoId
     ) {
-      return { ok: true, videoId, identity: { type: "anonymous" } };
+      return { ok: true, videoId, spaceId, identity: { type: "anonymous" } };
     }
   }
 

@@ -25,10 +25,12 @@ export async function queueTranscriptForVideo(
 
   if (existing[0] && existing[0].status !== "failed") return;
 
+  if (!video.uploadedBy) return;
+
   const userResult = await db
     .select({ id: users.id, email: users.email })
     .from(users)
-    .where(eq(users.id, video.userId))
+    .where(eq(users.id, video.uploadedBy))
     .limit(1);
   const user = userResult[0];
   if (!user) return;
@@ -47,7 +49,7 @@ export async function queueTranscriptForVideo(
       await db.insert(transcripts).values({
         id: transcriptId,
         videoId: video.id,
-        userId: video.userId,
+        userId: video.uploadedBy,
         status: "skipped_feature_disabled",
         requestedAt: now,
         updatedAt: now,
@@ -72,7 +74,7 @@ export async function queueTranscriptForVideo(
     await db.insert(transcripts).values({
       id: transcriptId,
       videoId: video.id,
-      userId: video.userId,
+      userId: video.uploadedBy,
       status: "queued",
       workflowInstanceId,
       requestedAt: now,

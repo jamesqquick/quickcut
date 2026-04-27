@@ -4,6 +4,7 @@ import { createDb } from "../../../../db";
 import { comments, users, videos } from "../../../../db/schema";
 import { eq, asc, gt, and } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
+import { verifySpaceAccess } from "../../../../lib/spaces";
 
 export const GET: APIRoute = async ({ params, locals, url }) => {
   if (!locals.user) {
@@ -22,6 +23,27 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   }
 
   const db = createDb(env.DB);
+
+  // Verify user can access this video's space
+  const videoRow = await db
+    .select({ spaceId: videos.spaceId })
+    .from(videos)
+    .where(eq(videos.id, id))
+    .limit(1);
+  if (videoRow.length === 0) {
+    return new Response(JSON.stringify({ error: "Video not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const commentRole = await verifySpaceAccess(db, locals.user.id, videoRow[0].spaceId);
+  if (!commentRole) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const since = url.searchParams.get("since");
 
   let conditions = eq(comments.videoId, id);
@@ -103,7 +125,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
 
   const db = createDb(env.DB);
 
-  // Verify video exists
+  // Verify video exists and user has space access
   const video = await db
     .select()
     .from(videos)
@@ -112,6 +134,13 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   if (video.length === 0) {
     return new Response(JSON.stringify({ error: "Video not found" }), {
       status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const postRole = await verifySpaceAccess(db, locals.user.id, video[0].spaceId);
+  if (!postRole) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }

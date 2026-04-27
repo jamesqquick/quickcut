@@ -1,9 +1,10 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
-import { comments } from "../../../../db/schema";
+import { comments, videos } from "../../../../db/schema";
 import { eq } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
+import { verifySpaceAccess } from "../../../../lib/spaces";
 
 export const POST: APIRoute = async ({ params, locals, request }) => {
   if (!locals.user) {
@@ -43,6 +44,26 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   if (parent.length === 0) {
     return new Response(JSON.stringify({ error: "Parent comment not found" }), {
       status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Verify user is a member of the video's space
+  const videoRow = await db
+    .select({ spaceId: videos.spaceId })
+    .from(videos)
+    .where(eq(videos.id, parent[0].videoId))
+    .limit(1);
+  if (videoRow.length === 0) {
+    return new Response(JSON.stringify({ error: "Video not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const replyRole = await verifySpaceAccess(db, locals.user.id, videoRow[0].spaceId);
+  if (!replyRole) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }

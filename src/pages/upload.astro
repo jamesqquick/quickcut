@@ -2,8 +2,8 @@
 import Layout from "../layouts/Layout.astro";
 import { UploadForm } from "../components/UploadForm";
 import { createDb } from "../db";
-import { folders } from "../db/schema";
-import { and, eq } from "drizzle-orm";
+import { folders, spaceMembers } from "../db/schema";
+import { and, eq, inArray } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { isTranscriptGenerationEnabled } from "../lib/flags";
 
@@ -14,11 +14,19 @@ const folderId = Astro.url.searchParams.get("folderId");
 const backHref = folderId ? `/dashboard?folderId=${folderId}` : "/dashboard";
 
 const db = createDb(env.DB);
-const folderResult = folderId
+
+// Get spaces the user belongs to for folder validation
+const memberRows = await db
+  .select({ spaceId: spaceMembers.spaceId })
+  .from(spaceMembers)
+  .where(eq(spaceMembers.userId, user.id));
+const spaceIds = memberRows.map((r) => r.spaceId);
+
+const folderResult = folderId && spaceIds.length > 0
   ? await db
       .select({ id: folders.id, name: folders.name })
       .from(folders)
-      .where(and(eq(folders.id, folderId), eq(folders.userId, user.id)))
+      .where(and(eq(folders.id, folderId), inArray(folders.spaceId, spaceIds)))
       .limit(1)
   : [];
 

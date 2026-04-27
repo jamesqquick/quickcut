@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
-import { comments } from "../../../../db/schema";
+import { comments, videos } from "../../../../db/schema";
 import { eq } from "drizzle-orm";
+import { verifySpaceAccess } from "../../../../lib/spaces";
 
 export const DELETE: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
@@ -31,6 +32,26 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
   if (comment.length === 0) {
     return new Response(JSON.stringify({ error: "Comment not found" }), {
       status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Verify user is a member of the video's space
+  const videoRow = await db
+    .select({ spaceId: videos.spaceId })
+    .from(videos)
+    .where(eq(videos.id, comment[0].videoId))
+    .limit(1);
+  if (videoRow.length === 0) {
+    return new Response(JSON.stringify({ error: "Video not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const deleteRole = await verifySpaceAccess(db, locals.user.id, videoRow[0].spaceId);
+  if (!deleteRole) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }

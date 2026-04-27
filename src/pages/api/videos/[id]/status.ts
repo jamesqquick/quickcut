@@ -5,6 +5,7 @@ import { videos } from "../../../../db/schema";
 import { eq } from "drizzle-orm";
 import { getVideoInfo } from "../../../../lib/stream";
 import { queueTranscriptForVideo } from "../../../../lib/transcripts";
+import { verifySpaceAccess } from "../../../../lib/spaces";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
@@ -37,6 +38,15 @@ export const GET: APIRoute = async ({ params, locals }) => {
   }
 
   const video = result[0];
+
+  // Verify user has space access
+  const statusRole = await verifySpaceAccess(db, locals.user.id, video.spaceId);
+  if (!statusRole) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   // If still processing and we have a Stream video ID, check Stream API directly
   // This handles the case where the webhook can't reach us (e.g. local dev)

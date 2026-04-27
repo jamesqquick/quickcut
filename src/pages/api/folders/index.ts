@@ -2,8 +2,9 @@ import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import { createDb } from "../../../db";
-import { folders, videos } from "../../../db/schema";
+import { folders, videos, spaceMembers } from "../../../db/schema";
 import { folderCreateSchema } from "../../../lib/validation";
+import { getDefaultSpaceForUser } from "../../../lib/spaces";
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (!locals.user) {
@@ -16,11 +17,26 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const db = createDb(env.DB);
   const parentId = url.searchParams.get("parentId");
 
+  // Get all space IDs the user belongs to
+  const memberRows = await db
+    .select({ spaceId: spaceMembers.spaceId })
+    .from(spaceMembers)
+    .where(eq(spaceMembers.userId, locals.user.id));
+  const spaceIds = memberRows.map((r) => r.spaceId);
+
+  if (spaceIds.length === 0) {
+    return new Response(
+      JSON.stringify({ folders: [] }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  const spaceFilter = inArray(folders.spaceId, spaceIds);
   const where = parentId
     ? parentId === "root"
-      ? and(eq(folders.userId, locals.user.id), isNull(folders.parentId))
-      : and(eq(folders.userId, locals.user.id), eq(folders.parentId, parentId))
-    : eq(folders.userId, locals.user.id);
+      ? and(spaceFilter, isNull(folders.parentId))
+      : and(spaceFilter, eq(folders.parentId, parentId))
+    : spaceFilter;
 
   const userFolders = await db.select().from(folders).where(where).orderBy(folders.name);
   const folderIds = userFolders.map((folder) => folder.id);
@@ -32,7 +48,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     const videoCounts = await db
       .select({ folderId: videos.folderId, count: count() })
       .from(videos)
-      .where(and(eq(videos.userId, locals.user.id), inArray(videos.folderId, folderIds)))
+      .where(inArray(videos.folderId, folderIds))
       .groupBy(videos.folderId);
 
     counts = Object.fromEntries(
@@ -42,7 +58,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     const folderVideos = await db
       .select({ folderId: videos.folderId, thumbnailUrl: videos.thumbnailUrl })
       .from(videos)
-      .where(and(eq(videos.userId, locals.user.id), inArray(videos.folderId, folderIds)));
+      .where(inArray(videos.folderId, folderIds));
 
     thumbnails = folderVideos.reduce<Record<string, string[]>>((acc, video) => {
       if (!video.folderId || !video.thumbnailUrl) return acc;
@@ -83,11 +99,21 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const db = createDb(env.DB);
   const parentId = parsed.data.parentId ?? null;
 
+  // Use the user's default space. A future PR will let the client pass a spaceId.
+  const defaultSpace = await getDefaultSpaceForUser(db, locals.user.id);
+  if (!defaultSpace) {
+    return new Response(JSON.stringify({ error: "No space found for user" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const targetSpaceId = defaultSpace.id;
+
   if (parentId) {
     const parent = await db
       .select({ id: folders.id })
       .from(folders)
-      .where(and(eq(folders.id, parentId), eq(folders.userId, locals.user.id)))
+      .where(and(eq(folders.id, parentId), eq(folders.spaceId, targetSpaceId)))
       .limit(1);
 
     if (parent.length === 0) {
@@ -101,7 +127,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const id = crypto.randomUUID();
   await db.insert(folders).values({
     id,
-    userId: locals.user.id,
+    spaceId: targetSpaceId,
     name: parsed.data.name,
     parentId,
   });

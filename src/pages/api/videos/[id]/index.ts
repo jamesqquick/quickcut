@@ -1,10 +1,11 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
-import { videos, shareLinks, comments, folders } from "../../../../db/schema";
+import { videos, shareLinks, comments, folders, spaceMembers } from "../../../../db/schema";
 import { and, desc, eq, count } from "drizzle-orm";
 import { deleteVideo as deleteStreamVideo } from "../../../../lib/stream";
 import { videoUpdateSchema } from "../../../../lib/validation";
+import { verifySpaceAccess } from "../../../../lib/spaces";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
@@ -39,8 +40,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const video = videoResult[0];
 
-  // Only owner can view
-  if (video.userId !== locals.user.id) {
+  // Verify the user is a member of the video's space
+  const role = await verifySpaceAccess(db, locals.user.id, video.spaceId);
+  if (!role) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
@@ -64,7 +66,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const versionCountResult = await db
     .select({ count: count() })
     .from(videos)
-    .where(and(eq(videos.userId, locals.user.id), eq(videos.versionGroupId, versionGroupId)));
+    .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)));
 
   return new Response(
     JSON.stringify({
@@ -95,7 +97,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
 
   const db = createDb(env.DB);
 
-  // Verify ownership
+  // Verify video exists and user has space access
   const videoResult = await db
     .select()
     .from(videos)
@@ -109,7 +111,8 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
     });
   }
 
-  if (videoResult[0].userId !== locals.user.id) {
+  const patchRole = await verifySpaceAccess(db, locals.user.id, videoResult[0].spaceId);
+  if (!patchRole) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
@@ -136,7 +139,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
       const folder = await db
         .select({ id: folders.id })
         .from(folders)
-        .where(and(eq(folders.id, folderId), eq(folders.userId, locals.user.id)))
+        .where(and(eq(folders.id, folderId), eq(folders.spaceId, videoResult[0].spaceId)))
         .limit(1);
 
       if (folder.length === 0) {
@@ -171,7 +174,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
     await db
       .update(videos)
       .set({ folderId: folderUpdate, updatedAt: now })
-      .where(and(eq(videos.userId, locals.user.id), eq(videos.versionGroupId, versionGroupId)));
+      .where(and(eq(videos.spaceId, videoResult[0].spaceId), eq(videos.versionGroupId, versionGroupId)));
   }
 
   const updated = await db
@@ -203,7 +206,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
 
   const db = createDb(env.DB);
 
-  // Verify ownership
+  // Verify video exists and user has access via space membership
   const videoResult = await db
     .select()
     .from(videos)
@@ -219,7 +222,15 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
 
   const video = videoResult[0];
 
-  if (video.userId !== locals.user.id) {
+  // Delete requires: space owner, OR the original uploader
+  const deleteRole = await verifySpaceAccess(db, locals.user.id, video.spaceId);
+  if (!deleteRole) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  if (deleteRole !== "owner" && video.uploadedBy !== locals.user.id) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { "Content-Type": "application/json" },
@@ -243,7 +254,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
   const remainingVersions = await db
     .select({ id: videos.id, versionNumber: videos.versionNumber })
     .from(videos)
-    .where(and(eq(videos.userId, locals.user.id), eq(videos.versionGroupId, versionGroupId)))
+    .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)))
     .orderBy(desc(videos.versionNumber));
 
   const replacement = remainingVersions.find((version) => version.id !== id) || null;

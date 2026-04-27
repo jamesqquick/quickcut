@@ -24,9 +24,9 @@ export const sessions = sqliteTable("sessions", {
 
 export const folders = sqliteTable("folders", {
   id: text("id").primaryKey(),
-  userId: text("user_id")
+  spaceId: text("space_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => spaces.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   parentId: text("parent_id").references((): AnySQLiteColumn => folders.id, {
     onDelete: "cascade",
@@ -41,9 +41,12 @@ export const folders = sqliteTable("folders", {
 
 export const videos = sqliteTable("videos", {
   id: text("id").primaryKey(),
-  userId: text("user_id")
+  spaceId: text("space_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => spaces.id, { onDelete: "cascade" }),
+  uploadedBy: text("uploaded_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
   folderId: text("folder_id").references(() => folders.id, {
     onDelete: "set null",
   }),
@@ -52,11 +55,6 @@ export const videos = sqliteTable("videos", {
   status: text("status", { enum: ["processing", "ready", "failed"] })
     .notNull()
     .default("processing"),
-  reviewStatus: text("review_status", {
-    enum: ["no_status", "needs_review", "in_progress", "approved"],
-  })
-    .notNull()
-    .default("no_status"),
   versionGroupId: text("version_group_id"),
   versionNumber: integer("version_number").notNull().default(1),
   isCurrentVersion: integer("is_current_version", { mode: "boolean" })
@@ -142,10 +140,6 @@ export const shareLinks = sqliteTable("share_links", {
 
 // =============================================================================
 // Spaces (teams) — see docs/teams-feature.md
-//
-// Tables defined here but not yet wired into videos/folders. A follow-up PR
-// will add `spaceId` to `videos` and `folders`, drop `videos.reviewStatus`,
-// and run the backfill migration.
 // =============================================================================
 
 export const spaces = sqliteTable("spaces", {

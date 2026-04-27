@@ -6,6 +6,7 @@ import { createDirectUpload } from "../../../lib/stream";
 import { and, eq } from "drizzle-orm";
 import { uploadSchema } from "../../../lib/validation";
 import { isTranscriptGenerationEnabled } from "../../../lib/flags";
+import { getDefaultSpaceForUser, verifySpaceAccess } from "../../../lib/spaces";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
@@ -69,11 +70,22 @@ export const POST: APIRoute = async ({ locals, request }) => {
       ? await isTranscriptGenerationEnabled(env, locals.user)
       : false;
 
+    // Determine the target space. For now (single-space mode) use the user's
+    // default space. A future PR will let the client pass a spaceId.
+    const defaultSpace = await getDefaultSpaceForUser(db, locals.user.id);
+    if (!defaultSpace) {
+      return new Response(JSON.stringify({ error: "No space found for user" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    const targetSpaceId = defaultSpace.id;
+
     if (folderId) {
       const folder = await db
         .select({ id: folders.id })
         .from(folders)
-        .where(and(eq(folders.id, folderId), eq(folders.userId, locals.user.id)))
+        .where(and(eq(folders.id, folderId), eq(folders.spaceId, targetSpaceId)))
         .limit(1);
 
       if (folder.length === 0) {
@@ -86,7 +98,8 @@ export const POST: APIRoute = async ({ locals, request }) => {
 
     await db.insert(videos).values({
       id: videoId,
-      userId: locals.user.id,
+      spaceId: targetSpaceId,
+      uploadedBy: locals.user.id,
       folderId: folderId || null,
       title: videoTitle,
       description: description?.trim() || null,
