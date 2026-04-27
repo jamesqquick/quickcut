@@ -167,6 +167,20 @@ function UrgencyPicker({
                   <span className="font-medium text-text-primary">
                     {optionMeta.label}
                   </span>
+                  {selected && (
+                    <svg
+                      className="h-3.5 w-3.5 shrink-0 text-text-secondary"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
                 </button>
 
                 {/*
@@ -174,6 +188,8 @@ function UrgencyPicker({
                   focus via the sibling group-hover/group-focus utilities.
                   The tooltip content also doubles as the title attribute so
                   it is accessible to screen readers and pointer-less users.
+                  Always pinned to the right of the row so its position is
+                  stable across selected and unselected states.
                 */}
                 <span className="relative inline-flex">
                   <span
@@ -207,21 +223,6 @@ function UrgencyPicker({
                     {optionMeta.description}
                   </span>
                 </span>
-
-                {selected && (
-                  <svg
-                    className="h-3.5 w-3.5 shrink-0 text-text-secondary"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
               </div>
             );
           })}
