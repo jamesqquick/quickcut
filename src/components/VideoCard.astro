@@ -36,11 +36,13 @@ const {
   folderId = null,
 } = Astro.props;
 
-// Order by severity descending so reviewers see the most urgent items first.
+// Order by severity descending so reviewers see the most urgent items
+// first. Each entry renders a small colored dot + count; the urgency name
+// only surfaces in the tooltip so the card stays calm.
 const urgencyBadges = [
-  { key: "critical", count: urgencyCounts.critical, classes: "bg-accent-danger/15 text-accent-danger" },
-  { key: "important", count: urgencyCounts.important, classes: "bg-accent-warning/15 text-accent-warning" },
-  { key: "suggestion", count: urgencyCounts.suggestion, classes: "bg-accent-info/15 text-accent-info" },
+  { key: "critical", count: urgencyCounts.critical, dot: "bg-accent-danger" },
+  { key: "important", count: urgencyCounts.important, dot: "bg-accent-warning" },
+  { key: "suggestion", count: urgencyCounts.suggestion, dot: "bg-accent-info" },
 ].filter((b) => b.count > 0);
 
 function formatDuration(seconds: number | null): string {
@@ -98,13 +100,14 @@ function formatDate(dateStr: string): string {
         )}
       </div>
       {urgencyBadges.length > 0 && (
-        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+        <div class="mt-2 flex flex-wrap items-center gap-3">
           {urgencyBadges.map((badge) => (
             <span
-              class={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.classes}`}
+              class="inline-flex items-center gap-1 text-xs text-text-secondary"
               title={`${badge.count} unresolved ${badge.key} comment${badge.count === 1 ? "" : "s"}`}
             >
-              {badge.count} {badge.key}
+              <span class={`h-1.5 w-1.5 rounded-full ${badge.dot}`} aria-hidden="true" />
+              {badge.count}
             </span>
           ))}
         </div>
