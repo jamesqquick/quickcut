@@ -193,7 +193,7 @@ export function VideoDetailView({
           </span>
         )}
         {isOwner && (
-          <span className="w-full sm:w-auto">
+          <span className="w-full py-2 sm:w-auto sm:py-0">
             <UploadVersionModal
               videoId={videoId}
               title={title}
