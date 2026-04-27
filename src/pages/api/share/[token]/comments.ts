@@ -97,7 +97,7 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const videoId = shareLinkResult[0].videoId;
   const body = await request.json();
-  const { text, timestamp, displayName, parentId, annotation } = body;
+  const { text, timestamp, displayName, parentId, annotation, urgency } = body;
 
   if (!text || !text.trim()) {
     return new Response(JSON.stringify({ error: "Comment text is required" }), {
@@ -113,6 +113,17 @@ export const POST: APIRoute = async ({ params, request }) => {
     );
   }
 
+  // Replies don't carry urgency; force "suggestion" for them. Validate input
+  // for top-level comments and fall back to "suggestion" if missing/invalid.
+  const allowedUrgencies = ["suggestion", "important", "critical"] as const;
+  type Urgency = (typeof allowedUrgencies)[number];
+  const isReply = !!parentId;
+  const commentUrgency: Urgency = isReply
+    ? "suggestion"
+    : allowedUrgencies.includes(urgency as Urgency)
+      ? (urgency as Urgency)
+      : "suggestion";
+
   const commentId = crypto.randomUUID();
   const newComment = {
     id: commentId,
@@ -127,6 +138,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     resolvedBy: null,
     resolvedAt: null,
     annotation: annotation ? JSON.stringify(annotation) : null,
+    urgency: commentUrgency,
   };
 
   await db.insert(comments).values(newComment);

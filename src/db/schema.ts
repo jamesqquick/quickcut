@@ -161,6 +161,11 @@ export const comments = sqliteTable("comments", {
   }),
   resolvedAt: text("resolved_at"),
   annotation: text("annotation"),
+  urgency: text("urgency", {
+    enum: ["suggestion", "important", "critical"],
+  })
+    .notNull()
+    .default("suggestion"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),

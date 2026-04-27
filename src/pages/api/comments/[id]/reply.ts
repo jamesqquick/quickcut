@@ -48,6 +48,8 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   }
 
   const commentId = crypto.randomUUID();
+  // Replies don't carry urgency; default to "suggestion" so the column stays
+  // populated without surfacing in the UI.
   const newReply = {
     id: commentId,
     videoId: parent[0].videoId,
@@ -61,6 +63,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     resolvedBy: null,
     resolvedAt: null,
     annotation: null,
+    urgency: "suggestion" as const,
   };
 
   await db.insert(comments).values(newReply);

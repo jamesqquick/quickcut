@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import type { CommentUrgency } from "../types";
 
 interface TimelineComment {
   id: string;
@@ -6,6 +7,7 @@ interface TimelineComment {
   text: string;
   displayName: string;
   isResolved: boolean;
+  urgency: CommentUrgency;
 }
 
 interface CommentTimelineProps {
@@ -15,6 +17,17 @@ interface CommentTimelineProps {
   onSeek?: (time: number) => void;
   onCommentClick?: (commentId: string) => void;
 }
+
+/**
+ * Tailwind class for an unresolved marker, keyed by urgency. Resolved
+ * markers always render in the muted secondary color so reviewers can
+ * still distinguish completed feedback at a glance.
+ */
+const URGENCY_DOT: Record<CommentUrgency, string> = {
+  suggestion: "bg-accent-info",
+  important: "bg-accent-warning",
+  critical: "bg-accent-danger",
+};
 
 export function CommentTimeline({
   comments,
@@ -63,14 +76,13 @@ export function CommentTimeline({
       {comments.map((comment) => {
         if (comment.timestamp == null) return null;
         const position = (comment.timestamp / duration) * 100;
+        const dotColor = comment.isResolved
+          ? "bg-accent-secondary"
+          : URGENCY_DOT[comment.urgency];
         return (
           <button
             key={comment.id}
-            className={`absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform hover:scale-150 ${
-              comment.isResolved
-                ? "bg-accent-secondary"
-                : "bg-accent-warning"
-            }`}
+            className={`absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform hover:scale-150 ${dotColor}`}
             style={{ left: `${position}%` }}
             onMouseEnter={(e) => handleMarkerHover(comment, e)}
             onMouseLeave={() => setHoveredComment(null)}

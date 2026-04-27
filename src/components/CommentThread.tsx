@@ -5,7 +5,44 @@ import type { Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
 import { AnnotationToolbar } from "./AnnotationOverlay";
 import type { AnnotationTool } from "./AnnotationOverlay";
-import type { Annotation, Comment, FocusRequest } from "../types";
+import type {
+  Annotation,
+  Comment,
+  CommentUrgency,
+  FocusRequest,
+} from "../types";
+
+/** Visual + display config for each urgency level. */
+const URGENCY_META: Record<
+  CommentUrgency,
+  { label: string; badge: string; pill: string; ring: string }
+> = {
+  suggestion: {
+    label: "Suggestion",
+    // Compose pill (when not selected) and inline badge styles
+    badge: "bg-accent-info/15 text-accent-info",
+    pill: "bg-accent-info text-white",
+    ring: "ring-accent-info",
+  },
+  important: {
+    label: "Important",
+    badge: "bg-accent-warning/15 text-accent-warning",
+    pill: "bg-accent-warning text-white",
+    ring: "ring-accent-warning",
+  },
+  critical: {
+    label: "Critical",
+    badge: "bg-accent-danger/15 text-accent-danger",
+    pill: "bg-accent-danger text-white",
+    ring: "ring-accent-danger",
+  },
+};
+
+const URGENCY_OPTIONS: CommentUrgency[] = [
+  "suggestion",
+  "important",
+  "critical",
+];
 
 interface CommentThreadProps {
   videoId: string;
@@ -71,6 +108,8 @@ export function CommentThread({
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [filter, setFilter] = useState<FilterType>("all");
   const [newComment, setNewComment] = useState("");
+  const [newCommentUrgency, setNewCommentUrgency] =
+    useState<CommentUrgency>("suggestion");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -221,6 +260,7 @@ export function CommentThread({
       const body: Record<string, unknown> = {
         text: newComment.trim(),
         timestamp: videoStatus === "ready" ? currentTime : null,
+        urgency: newCommentUrgency,
       };
 
       if (pendingAnnotation) {
@@ -244,6 +284,7 @@ export function CommentThread({
           return sortComments([...prev, data.comment]);
         });
         setNewComment("");
+        setNewCommentUrgency("suggestion");
         onAnnotationClear?.();
         lastFetchRef.current = new Date().toISOString();
       } else {
@@ -446,9 +487,15 @@ export function CommentThread({
                     {getInitials(comment.displayName)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-text-primary">
                         {comment.displayName}
+                      </span>
+                      <span
+                        className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${URGENCY_META[comment.urgency].badge}`}
+                        title={`${URGENCY_META[comment.urgency].label} comment`}
+                      >
+                        {URGENCY_META[comment.urgency].label}
                       </span>
                       {comment.timestamp != null && (
                         <button
@@ -622,6 +669,31 @@ export function CommentThread({
             </span>
           </div>
         )}
+        {/* Urgency selector — top-level comments only */}
+        <div className="mb-2 flex w-full items-center gap-1.5" role="radiogroup" aria-label="Comment urgency">
+          <span className="mr-1 text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">
+            Urgency
+          </span>
+          {URGENCY_OPTIONS.map((level) => {
+            const isActive = newCommentUrgency === level;
+            return (
+              <button
+                key={level}
+                type="button"
+                role="radio"
+                aria-checked={isActive}
+                onClick={() => setNewCommentUrgency(level)}
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide transition-all ${
+                  isActive
+                    ? URGENCY_META[level].pill
+                    : `${URGENCY_META[level].badge} hover:opacity-80`
+                }`}
+              >
+                {URGENCY_META[level].label}
+              </button>
+            );
+          })}
+        </div>
         <div className="flex min-w-0 items-center gap-2">
           <input
             type="text"

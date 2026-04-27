@@ -2,6 +2,12 @@
 import StatusBadge from "./StatusBadge.astro";
 import { VideoCardMenu } from "./VideoCardMenu";
 
+interface UrgencyCounts {
+  suggestion: number;
+  important: number;
+  critical: number;
+}
+
 interface Props {
   id: string;
   title: string;
@@ -10,6 +16,7 @@ interface Props {
   status: "processing" | "ready" | "failed";
   createdAt: string;
   commentCount: number;
+  urgencyCounts?: UrgencyCounts;
   versionNumber?: number;
   versionCount?: number;
   folderId?: string | null;
@@ -23,10 +30,18 @@ const {
   status,
   createdAt,
   commentCount,
+  urgencyCounts = { suggestion: 0, important: 0, critical: 0 },
   versionNumber = 1,
   versionCount = 1,
   folderId = null,
 } = Astro.props;
+
+// Order by severity descending so reviewers see the most urgent items first.
+const urgencyBadges = [
+  { key: "critical", count: urgencyCounts.critical, classes: "bg-accent-danger/15 text-accent-danger" },
+  { key: "important", count: urgencyCounts.important, classes: "bg-accent-warning/15 text-accent-warning" },
+  { key: "suggestion", count: urgencyCounts.suggestion, classes: "bg-accent-info/15 text-accent-info" },
+].filter((b) => b.count > 0);
 
 function formatDuration(seconds: number | null): string {
   if (!seconds) return "";
@@ -82,6 +97,18 @@ function formatDate(dateStr: string): string {
           </span>
         )}
       </div>
+      {urgencyBadges.length > 0 && (
+        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+          {urgencyBadges.map((badge) => (
+            <span
+              class={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge.classes}`}
+              title={`${badge.count} unresolved ${badge.key} comment${badge.count === 1 ? "" : "s"}`}
+            >
+              {badge.count} {badge.key}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   </a>
   <div class="absolute right-2 top-2 z-10">

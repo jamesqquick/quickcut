@@ -80,7 +80,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   }
 
   const body = await request.json();
-  const { text, timestamp, annotation } = body;
+  const { text, timestamp, annotation, urgency } = body;
 
   if (!text || !text.trim()) {
     return new Response(JSON.stringify({ error: "Comment text is required" }), {
@@ -88,6 +88,13 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  // Validate urgency; default to "suggestion" if not provided.
+  const allowedUrgencies = ["suggestion", "important", "critical"] as const;
+  type Urgency = (typeof allowedUrgencies)[number];
+  const commentUrgency: Urgency = allowedUrgencies.includes(urgency as Urgency)
+    ? (urgency as Urgency)
+    : "suggestion";
 
   const db = createDb(env.DB);
 
@@ -118,6 +125,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     resolvedBy: null,
     resolvedAt: null,
     annotation: annotation ? JSON.stringify(annotation) : null,
+    urgency: commentUrgency,
   };
 
   await db.insert(comments).values(newComment);
