@@ -22,6 +22,11 @@ const URGENCY_META: Record<
   CommentUrgency,
   { label: string; description: string; dot: string }
 > = {
+  idea: {
+    label: "Idea",
+    description: "Concept to consider",
+    dot: "bg-accent-primary",
+  },
   suggestion: {
     label: "Suggestion",
     description: "Optional, nice-to-have",
@@ -39,7 +44,9 @@ const URGENCY_META: Record<
   },
 };
 
+// Listed from lowest to highest severity so the dropdown reads naturally.
 const URGENCY_OPTIONS: CommentUrgency[] = [
+  "idea",
   "suggestion",
   "important",
   "critical",

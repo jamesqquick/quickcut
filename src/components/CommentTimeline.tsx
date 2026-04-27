@@ -24,6 +24,7 @@ interface CommentTimelineProps {
  * still distinguish completed feedback at a glance.
  */
 const URGENCY_DOT: Record<CommentUrgency, string> = {
+  idea: "bg-accent-primary",
   suggestion: "bg-accent-info",
   important: "bg-accent-warning",
   critical: "bg-accent-danger",

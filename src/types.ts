@@ -14,9 +14,14 @@ export interface RectAnnotation {
 
 export type Annotation = PointAnnotation | RectAnnotation;
 
-export type CommentUrgency = "suggestion" | "important" | "critical";
+export type CommentUrgency =
+  | "idea"
+  | "suggestion"
+  | "important"
+  | "critical";
 
 export const COMMENT_URGENCIES: CommentUrgency[] = [
+  "idea",
   "suggestion",
   "important",
   "critical",

@@ -89,7 +89,12 @@ const userVideos = await db
 // unresolved comments. Replies and resolved comments are excluded from the
 // urgency breakdown so reviewers see only outstanding work.
 let commentCounts: Record<string, number> = {};
-type UrgencyCounts = { suggestion: number; important: number; critical: number };
+type UrgencyCounts = {
+  idea: number;
+  suggestion: number;
+  important: number;
+  critical: number;
+};
 let urgencyCounts: Record<string, UrgencyCounts> = {};
 if (userVideos.length > 0) {
   const videoIds = userVideos.map((v) => v.id);
@@ -119,6 +124,7 @@ if (userVideos.length > 0) {
   urgencyCounts = urgencyRows.reduce<Record<string, UrgencyCounts>>(
     (acc, row) => {
       const bucket = acc[row.videoId] || {
+        idea: 0,
         suggestion: 0,
         important: 0,
         critical: 0,
@@ -197,7 +203,7 @@ if (userVideos.length > 0) {
             status={video.status as "processing" | "ready" | "failed"}
             createdAt={video.createdAt}
             commentCount={commentCounts[video.id] || 0}
-            urgencyCounts={urgencyCounts[video.id] || { suggestion: 0, important: 0, critical: 0 }}
+            urgencyCounts={urgencyCounts[video.id] || { idea: 0, suggestion: 0, important: 0, critical: 0 }}
             versionNumber={video.versionNumber}
             versionCount={versionCounts[video.versionGroupId || video.id] || 1}
           />

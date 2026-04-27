@@ -40,7 +40,12 @@ export const uploadSchema = z.object({
   generateTranscript: z.boolean().optional(),
 });
 
-export const urgencySchema = z.enum(["suggestion", "important", "critical"]);
+export const urgencySchema = z.enum([
+  "idea",
+  "suggestion",
+  "important",
+  "critical",
+]);
 
 export const commentSchema = z.object({
   text: z.string().min(1, "Comment text is required").max(5000),

@@ -3,6 +3,7 @@ import StatusBadge from "./StatusBadge.astro";
 import { VideoCardMenu } from "./VideoCardMenu";
 
 interface UrgencyCounts {
+  idea: number;
   suggestion: number;
   important: number;
   critical: number;
@@ -30,7 +31,7 @@ const {
   status,
   createdAt,
   commentCount,
-  urgencyCounts = { suggestion: 0, important: 0, critical: 0 },
+  urgencyCounts = { idea: 0, suggestion: 0, important: 0, critical: 0 },
   versionNumber = 1,
   versionCount = 1,
   folderId = null,
@@ -43,6 +44,7 @@ const urgencyBadges = [
   { key: "critical", count: urgencyCounts.critical, dot: "bg-accent-danger" },
   { key: "important", count: urgencyCounts.important, dot: "bg-accent-warning" },
   { key: "suggestion", count: urgencyCounts.suggestion, dot: "bg-accent-info" },
+  { key: "idea", count: urgencyCounts.idea, dot: "bg-accent-primary" },
 ].filter((b) => b.count > 0);
 
 function formatDuration(seconds: number | null): string {

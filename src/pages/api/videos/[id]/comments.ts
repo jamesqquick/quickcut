@@ -90,7 +90,12 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   }
 
   // Validate urgency; default to "suggestion" if not provided.
-  const allowedUrgencies = ["suggestion", "important", "critical"] as const;
+  const allowedUrgencies = [
+    "idea",
+    "suggestion",
+    "important",
+    "critical",
+  ] as const;
   type Urgency = (typeof allowedUrgencies)[number];
   const commentUrgency: Urgency = allowedUrgencies.includes(urgency as Urgency)
     ? (urgency as Urgency)

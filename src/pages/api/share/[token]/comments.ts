@@ -115,7 +115,12 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   // Replies don't carry urgency; force "suggestion" for them. Validate input
   // for top-level comments and fall back to "suggestion" if missing/invalid.
-  const allowedUrgencies = ["suggestion", "important", "critical"] as const;
+  const allowedUrgencies = [
+    "idea",
+    "suggestion",
+    "important",
+    "critical",
+  ] as const;
   type Urgency = (typeof allowedUrgencies)[number];
   const isReply = !!parentId;
   const commentUrgency: Urgency = isReply
