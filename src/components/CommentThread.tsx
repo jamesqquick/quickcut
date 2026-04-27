@@ -144,31 +144,70 @@ function UrgencyPicker({
             const selected = level === value;
             const active = index === activeIndex;
             return (
-              <button
+              <div
                 key={level}
-                type="button"
                 role="option"
                 aria-selected={selected}
                 onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => {
-                  onChange(level);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
+                className={`group/row flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
                   active ? "bg-bg-tertiary" : "bg-transparent"
                 }`}
               >
-                <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${optionMeta.dot}`}
-                />
-                <span className="flex-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(level);
+                    setOpen(false);
+                  }}
+                  className="flex flex-1 items-center gap-2 text-left"
+                >
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${optionMeta.dot}`}
+                  />
                   <span className="font-medium text-text-primary">
                     {optionMeta.label}
                   </span>
-                  <span className="ml-1.5 text-text-tertiary">
+                </button>
+
+                {/*
+                  Info icon: reveals the description on hover or keyboard
+                  focus via the sibling group-hover/group-focus utilities.
+                  The tooltip content also doubles as the title attribute so
+                  it is accessible to screen readers and pointer-less users.
+                */}
+                <span className="relative inline-flex">
+                  <span
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`${optionMeta.label}: ${optionMeta.description}`}
+                    title={optionMeta.description}
+                    className="peer inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full text-text-tertiary transition-colors hover:text-text-secondary focus:text-text-secondary focus:outline-none"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <svg
+                      className="h-3.5 w-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="16" x2="12" y2="12" />
+                      <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                  </span>
+                  <span
+                    role="tooltip"
+                    className="pointer-events-none absolute right-0 top-full z-30 mt-1 hidden w-44 rounded-md border border-border-default bg-bg-primary px-2.5 py-1.5 text-[11px] text-text-secondary shadow-lg peer-hover:block peer-focus:block"
+                  >
                     {optionMeta.description}
                   </span>
                 </span>
+
                 {selected && (
                   <svg
                     className="h-3.5 w-3.5 shrink-0 text-text-secondary"
@@ -183,7 +222,7 @@ function UrgencyPicker({
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
