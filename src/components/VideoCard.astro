@@ -2,6 +2,13 @@
 import StatusBadge from "./StatusBadge.astro";
 import { VideoCardMenu } from "./VideoCardMenu";
 
+interface UrgencyCounts {
+  idea: number;
+  suggestion: number;
+  important: number;
+  critical: number;
+}
+
 interface Props {
   id: string;
   title: string;
@@ -10,6 +17,7 @@ interface Props {
   status: "processing" | "ready" | "failed";
   createdAt: string;
   commentCount: number;
+  urgencyCounts?: UrgencyCounts;
   versionNumber?: number;
   versionCount?: number;
   folderId?: string | null;
@@ -23,10 +31,21 @@ const {
   status,
   createdAt,
   commentCount,
+  urgencyCounts = { idea: 0, suggestion: 0, important: 0, critical: 0 },
   versionNumber = 1,
   versionCount = 1,
   folderId = null,
 } = Astro.props;
+
+// Order by severity descending so reviewers see the most urgent items
+// first. Each entry renders a small colored dot + count; the urgency name
+// only surfaces in the tooltip so the card stays calm.
+const urgencyBadges = [
+  { key: "critical", count: urgencyCounts.critical, dot: "bg-accent-danger" },
+  { key: "important", count: urgencyCounts.important, dot: "bg-accent-warning" },
+  { key: "suggestion", count: urgencyCounts.suggestion, dot: "bg-accent-info" },
+  { key: "idea", count: urgencyCounts.idea, dot: "bg-accent-primary" },
+].filter((b) => b.count > 0);
 
 function formatDuration(seconds: number | null): string {
   if (!seconds) return "";
@@ -82,6 +101,19 @@ function formatDate(dateStr: string): string {
           </span>
         )}
       </div>
+      {urgencyBadges.length > 0 && (
+        <div class="mt-2 flex flex-wrap items-center gap-3">
+          {urgencyBadges.map((badge) => (
+            <span
+              class="inline-flex items-center gap-1 text-xs text-text-secondary"
+              title={`${badge.count} unresolved ${badge.key} comment${badge.count === 1 ? "" : "s"}`}
+            >
+              <span class={`h-1.5 w-1.5 rounded-full ${badge.dot}`} aria-hidden="true" />
+              {badge.count}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   </a>
   <div class="absolute right-2 top-2 z-10">

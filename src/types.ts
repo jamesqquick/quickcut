@@ -14,6 +14,19 @@ export interface RectAnnotation {
 
 export type Annotation = PointAnnotation | RectAnnotation;
 
+export type CommentUrgency =
+  | "idea"
+  | "suggestion"
+  | "important"
+  | "critical";
+
+export const COMMENT_URGENCIES: CommentUrgency[] = [
+  "idea",
+  "suggestion",
+  "important",
+  "critical",
+];
+
 export interface Comment {
   id: string;
   videoId: string;
@@ -27,6 +40,7 @@ export interface Comment {
   resolvedBy: string | null;
   resolvedAt: string | null;
   annotation: Annotation | null;
+  urgency: CommentUrgency;
   createdAt: string;
   displayName: string;
 }

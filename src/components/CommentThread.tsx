@@ -5,7 +5,239 @@ import type { Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
 import { AnnotationToolbar } from "./AnnotationOverlay";
 import type { AnnotationTool } from "./AnnotationOverlay";
-import type { Annotation, Comment, FocusRequest } from "../types";
+import type {
+  Annotation,
+  Comment,
+  CommentUrgency,
+  FocusRequest,
+} from "../types";
+
+/**
+ * Visual + display config for each urgency level. The colored dot is the
+ * only place urgency colour appears in the UI; surrounding text and pills
+ * use neutral tokens so urgency reads as metadata rather than a primary
+ * action.
+ */
+const URGENCY_META: Record<
+  CommentUrgency,
+  { label: string; description: string; dot: string }
+> = {
+  idea: {
+    label: "Idea",
+    description: "Concept to consider",
+    dot: "bg-accent-primary",
+  },
+  suggestion: {
+    label: "Suggestion",
+    description: "Optional, nice-to-have",
+    dot: "bg-accent-info",
+  },
+  important: {
+    label: "Important",
+    description: "Should be addressed",
+    dot: "bg-accent-warning",
+  },
+  critical: {
+    label: "Critical",
+    description: "Must be fixed",
+    dot: "bg-accent-danger",
+  },
+};
+
+// Listed from lowest to highest severity so the dropdown reads naturally.
+const URGENCY_OPTIONS: CommentUrgency[] = [
+  "idea",
+  "suggestion",
+  "important",
+  "critical",
+];
+
+/**
+ * Compact urgency picker: shows a colored dot + label (label hides on
+ * narrow screens) and opens a small popover with the three options on
+ * click. Closes on outside click, escape key, or selection.
+ */
+function UrgencyPicker({
+  value,
+  onChange,
+}: {
+  value: CommentUrgency;
+  onChange: (next: CommentUrgency) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(() =>
+    URGENCY_OPTIONS.indexOf(value),
+  );
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync the keyboard focus index when the popover opens.
+  useEffect(() => {
+    if (open) setActiveIndex(URGENCY_OPTIONS.indexOf(value));
+  }, [open, value]);
+
+  // Close on outside click / escape.
+  useEffect(() => {
+    if (!open) return;
+
+    const onClick = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => (i + 1) % URGENCY_OPTIONS.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((i) =>
+          i <= 0 ? URGENCY_OPTIONS.length - 1 : i - 1,
+        );
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const next = URGENCY_OPTIONS[activeIndex];
+        if (next) {
+          onChange(next);
+          setOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, activeIndex, onChange]);
+
+  const meta = URGENCY_META[value];
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Urgency: ${meta.label}`}
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-default bg-bg-tertiary px-2 text-xs text-text-secondary transition-colors hover:bg-bg-input focus:border-accent-primary focus:outline-none"
+      >
+        <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
+        <span className="hidden sm:inline">{meta.label}</span>
+        <svg
+          className="h-3 w-3 shrink-0 text-text-tertiary"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Select comment urgency"
+          className="absolute bottom-full left-0 z-20 mb-1 w-56 overflow-hidden rounded-lg border border-border-default bg-bg-secondary shadow-lg"
+        >
+          {URGENCY_OPTIONS.map((level, index) => {
+            const optionMeta = URGENCY_META[level];
+            const selected = level === value;
+            const active = index === activeIndex;
+            return (
+              <div
+                key={level}
+                role="option"
+                aria-selected={selected}
+                onMouseEnter={() => setActiveIndex(index)}
+                className={`group/row flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
+                  active ? "bg-bg-tertiary" : "bg-transparent"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(level);
+                    setOpen(false);
+                  }}
+                  className="flex flex-1 items-center gap-2 text-left"
+                >
+                  <span
+                    className={`h-2 w-2 shrink-0 rounded-full ${optionMeta.dot}`}
+                  />
+                  <span className="font-medium text-text-primary">
+                    {optionMeta.label}
+                  </span>
+                  {selected && (
+                    <svg
+                      className="h-3.5 w-3.5 shrink-0 text-text-secondary"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+
+                {/*
+                  Info icon: reveals the description on hover or keyboard
+                  focus via the sibling group-hover/group-focus utilities.
+                  The tooltip content also doubles as the title attribute so
+                  it is accessible to screen readers and pointer-less users.
+                  Always pinned to the right of the row so its position is
+                  stable across selected and unselected states.
+                */}
+                <span className="relative inline-flex">
+                  <span
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`${optionMeta.label}: ${optionMeta.description}`}
+                    title={optionMeta.description}
+                    className="peer inline-flex h-4 w-4 shrink-0 cursor-help items-center justify-center rounded-full text-text-tertiary transition-colors hover:text-text-secondary focus:text-text-secondary focus:outline-none"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <svg
+                      className="h-3.5 w-3.5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="16" x2="12" y2="12" />
+                      <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                  </span>
+                  <span
+                    role="tooltip"
+                    className="pointer-events-none absolute right-0 top-full z-30 mt-1 hidden w-44 rounded-md border border-border-default bg-bg-primary px-2.5 py-1.5 text-[11px] text-text-secondary shadow-lg peer-hover:block peer-focus:block"
+                  >
+                    {optionMeta.description}
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface CommentThreadProps {
   videoId: string;
@@ -71,6 +303,8 @@ export function CommentThread({
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [filter, setFilter] = useState<FilterType>("all");
   const [newComment, setNewComment] = useState("");
+  const [newCommentUrgency, setNewCommentUrgency] =
+    useState<CommentUrgency>("suggestion");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -221,6 +455,7 @@ export function CommentThread({
       const body: Record<string, unknown> = {
         text: newComment.trim(),
         timestamp: videoStatus === "ready" ? currentTime : null,
+        urgency: newCommentUrgency,
       };
 
       if (pendingAnnotation) {
@@ -244,6 +479,7 @@ export function CommentThread({
           return sortComments([...prev, data.comment]);
         });
         setNewComment("");
+        setNewCommentUrgency("suggestion");
         onAnnotationClear?.();
         lastFetchRef.current = new Date().toISOString();
       } else {
@@ -446,9 +682,19 @@ export function CommentThread({
                     {getInitials(comment.displayName)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-text-primary">
                         {comment.displayName}
+                      </span>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-bg-tertiary px-1.5 py-0.5 text-[10px] font-medium text-text-secondary"
+                        title={`${URGENCY_META[comment.urgency].label} comment`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${URGENCY_META[comment.urgency].dot}`}
+                          aria-hidden="true"
+                        />
+                        {URGENCY_META[comment.urgency].label}
                       </span>
                       {comment.timestamp != null && (
                         <button
@@ -614,14 +860,25 @@ export function CommentThread({
             </button>
           </div>
         )}
-        {videoStatus === "ready" && onToolChange && (
-          <div className="mb-2 flex w-full items-center gap-2">
-            <AnnotationToolbar activeTool={activeTool} onToolChange={onToolChange} />
-            <span className="rounded bg-bg-tertiary px-2 py-1 font-mono text-xs text-accent-primary">
-              {formatTC(currentTime)}
-            </span>
-          </div>
-        )}
+        {/*
+          Compose toolbar row. Renders annotation tools + timecode when the
+          video is ready; the urgency picker always renders so reviewers can
+          tag urgency even before processing finishes.
+        */}
+        <div className="mb-2 flex w-full flex-wrap items-center gap-2">
+          {videoStatus === "ready" && onToolChange && (
+            <>
+              <AnnotationToolbar activeTool={activeTool} onToolChange={onToolChange} />
+              <span className="rounded bg-bg-tertiary px-2 py-1 font-mono text-xs text-accent-primary">
+                {formatTC(currentTime)}
+              </span>
+            </>
+          )}
+          <UrgencyPicker
+            value={newCommentUrgency}
+            onChange={setNewCommentUrgency}
+          />
+        </div>
         <div className="flex min-w-0 items-center gap-2">
           <input
             type="text"

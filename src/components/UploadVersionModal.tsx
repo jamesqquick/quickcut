@@ -140,7 +140,7 @@ export function UploadVersionModal({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-tertiary"
+        className="w-full rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-tertiary sm:w-auto"
       >
         Upload new version
       </button>

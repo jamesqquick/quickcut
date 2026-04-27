@@ -40,10 +40,18 @@ export const uploadSchema = z.object({
   generateTranscript: z.boolean().optional(),
 });
 
+export const urgencySchema = z.enum([
+  "idea",
+  "suggestion",
+  "important",
+  "critical",
+]);
+
 export const commentSchema = z.object({
   text: z.string().min(1, "Comment text is required").max(5000),
   timestamp: z.number().nullable().optional(),
   annotation: annotationSchema.nullable().optional(),
+  urgency: urgencySchema.optional().default("suggestion"),
 });
 
 export const anonymousCommentSchema = z.object({
@@ -52,6 +60,7 @@ export const anonymousCommentSchema = z.object({
   displayName: z.string().min(1, "Display name is required").max(100),
   parentId: z.string().optional(),
   annotation: annotationSchema.nullable().optional(),
+  urgency: urgencySchema.optional().default("suggestion"),
 });
 
 export const videoUpdateSchema = z.object({

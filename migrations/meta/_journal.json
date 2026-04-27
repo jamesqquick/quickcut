@@ -43,6 +43,13 @@
       "when": 1777200000001,
       "tag": "0006_add_transcripts",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1777200000002,
+      "tag": "0007_add_comment_urgency",
+      "breakpoints": true
     }
   ]
 }

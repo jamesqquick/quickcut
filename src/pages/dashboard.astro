@@ -85,8 +85,17 @@ const userVideos = await db
   )
   .orderBy(desc(videos.createdAt));
 
-// Get comment counts
+// Get comment counts (per video) + urgency breakdown for top-level,
+// unresolved comments. Replies and resolved comments are excluded from the
+// urgency breakdown so reviewers see only outstanding work.
 let commentCounts: Record<string, number> = {};
+type UrgencyCounts = {
+  idea: number;
+  suggestion: number;
+  important: number;
+  critical: number;
+};
+let urgencyCounts: Record<string, UrgencyCounts> = {};
 if (userVideos.length > 0) {
   const videoIds = userVideos.map((v) => v.id);
   const counts = await db
@@ -99,6 +108,33 @@ if (userVideos.length > 0) {
     .groupBy(comments.videoId);
 
   commentCounts = Object.fromEntries(counts.map((c) => [c.videoId, c.count]));
+
+  const urgencyRows = await db
+    .select({
+      videoId: comments.videoId,
+      urgency: comments.urgency,
+      count: count(),
+    })
+    .from(comments)
+    .where(
+      sql`${comments.videoId} IN (${sql.join(videoIds.map((id) => sql`${id}`), sql`, `)}) AND ${comments.parentId} IS NULL AND ${comments.isResolved} = 0`,
+    )
+    .groupBy(comments.videoId, comments.urgency);
+
+  urgencyCounts = urgencyRows.reduce<Record<string, UrgencyCounts>>(
+    (acc, row) => {
+      const bucket = acc[row.videoId] || {
+        idea: 0,
+        suggestion: 0,
+        important: 0,
+        critical: 0,
+      };
+      bucket[row.urgency as keyof UrgencyCounts] = row.count;
+      acc[row.videoId] = bucket;
+      return acc;
+    },
+    {},
+  );
 }
 
 let versionCounts: Record<string, number> = {};
@@ -167,6 +203,7 @@ if (userVideos.length > 0) {
             status={video.status as "processing" | "ready" | "failed"}
             createdAt={video.createdAt}
             commentCount={commentCounts[video.id] || 0}
+            urgencyCounts={urgencyCounts[video.id] || { idea: 0, suggestion: 0, important: 0, critical: 0 }}
             versionNumber={video.versionNumber}
             versionCount={versionCounts[video.versionGroupId || video.id] || 1}
           />

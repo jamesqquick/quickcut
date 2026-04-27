@@ -21,6 +21,7 @@ export async function getCommentsWithNames(
       resolvedBy: comments.resolvedBy,
       resolvedAt: comments.resolvedAt,
       annotation: comments.annotation,
+      urgency: comments.urgency,
       createdAt: comments.createdAt,
     })
     .from(comments)
