@@ -79,4 +79,26 @@ export const folderUpdateSchema = z.object({
   parentId: z.string().uuid().nullable().optional(),
 });
 
+// ---------------------------------------------------------------------------
+// Spaces
+// ---------------------------------------------------------------------------
+
+export const spaceCreateSchema = z.object({
+  name: z.string().trim().min(1, "Space name is required").max(120),
+  requiredApprovals: z.number().int().min(0).max(100).optional().default(0),
+});
+
+export const spaceUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  requiredApprovals: z.number().int().min(0).max(100).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Invites
+// ---------------------------------------------------------------------------
+
+export const inviteCreateSchema = z.object({
+  email: z.string().email("Invalid email address").transform((v) => v.trim().toLowerCase()),
+});
+
 

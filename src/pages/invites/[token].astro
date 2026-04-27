@@ -1,0 +1,120 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { InviteResponse } from "../../components/InviteResponse";
+import { createDb } from "../../db";
+import { spaceInvites, spaces } from "../../db/schema";
+import { eq } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+
+const user = Astro.locals.user;
+const { token } = Astro.params;
+
+if (!token) {
+  return Astro.redirect("/login");
+}
+
+// If not logged in, redirect to login with return URL
+if (!user) {
+  const returnUrl = encodeURIComponent(`/invites/${token}`);
+  return Astro.redirect(`/login?message=Sign in to accept your invite&returnUrl=${returnUrl}`);
+}
+
+const db = createDb(env.DB);
+
+const invite = await db
+  .select({
+    id: spaceInvites.id,
+    email: spaceInvites.email,
+    status: spaceInvites.status,
+    token: spaceInvites.token,
+    spaceName: spaces.name,
+    spaceId: spaces.id,
+  })
+  .from(spaceInvites)
+  .innerJoin(spaces, eq(spaceInvites.spaceId, spaces.id))
+  .where(eq(spaceInvites.token, token))
+  .limit(1);
+
+const inv = invite[0] ?? null;
+const emailMatch = inv ? user.email.toLowerCase() === inv.email.toLowerCase() : false;
+---
+
+<Layout title="Space Invite" user={user}>
+  <div class="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
+    <div class="w-full max-w-[440px]">
+      <div class="rounded-2xl border border-border-default bg-bg-secondary p-8">
+        {!inv ? (
+          <div class="text-center">
+            <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent-danger/15">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent-danger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-text-primary">Invite not found</h2>
+            <p class="mt-2 text-sm text-text-secondary">
+              This invite link is invalid or has expired.
+            </p>
+            <a
+              href="/dashboard"
+              class="mt-6 inline-block rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover"
+            >
+              Go to Dashboard
+            </a>
+          </div>
+        ) : inv.status !== "pending" ? (
+          <div class="text-center">
+            <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-bg-tertiary">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                <polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-text-primary">
+              Invite already {inv.status}
+            </h2>
+            <p class="mt-2 text-sm text-text-secondary">
+              This invite to <span class="font-medium text-text-primary">{inv.spaceName}</span> has
+              already been {inv.status}.
+            </p>
+            <a
+              href="/dashboard"
+              class="mt-6 inline-block rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover"
+            >
+              Go to Dashboard
+            </a>
+          </div>
+        ) : !emailMatch ? (
+          <div class="text-center">
+            <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent-warning/15">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-text-primary">Email mismatch</h2>
+            <p class="mt-2 text-sm text-text-secondary">
+              This invite was sent to a different email address. You're signed in
+              as <span class="font-medium text-text-primary">{user.email}</span>.
+            </p>
+            <a
+              href="/dashboard"
+              class="mt-6 inline-block rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover"
+            >
+              Go to Dashboard
+            </a>
+          </div>
+        ) : (
+          <InviteResponse
+            client:load
+            token={inv.token}
+            spaceName={inv.spaceName}
+            spaceId={inv.spaceId}
+          />
+        )}
+      </div>
+    </div>
+  </div>
+</Layout>
