@@ -3,7 +3,7 @@ import Layout from "../../layouts/Layout.astro";
 import { VideoDetailView } from "../../components/VideoDetailView";
 import { VideoHeader } from "../../components/VideoHeader";
 import { createDb } from "../../db";
-import { videos, shareLinks } from "../../db/schema";
+import { videos, shareLinks, spaces } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getCommentsWithNames } from "../../lib/comments";
@@ -43,9 +43,17 @@ const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
 // workflow enabled (requiredApprovals > 0).
 const approvalStatus = await getApprovalStatus(db, video.id, video.spaceId);
 const showApprovals = approvalStatus.requiredApprovals > 0;
+
+const spaceResult = await db
+  .select({ id: spaces.id, name: spaces.name })
+  .from(spaces)
+  .where(eq(spaces.id, video.spaceId))
+  .limit(1);
+const videoSpace = spaceResult[0] ?? { id: video.spaceId, name: "Space" };
+const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
 ---
 
-<Layout title={video.title} user={user}>
+<Layout title={video.title} user={user} selectedSpaceId={video.spaceId}>
   <script src="https://embed.cloudflarestream.com/embed/sdk.latest.js" is:inline></script>
   <div class="mx-auto max-w-[1280px] px-4 py-6 sm:px-8 sm:py-8">
     <VideoHeader
@@ -53,7 +61,16 @@ const showApprovals = approvalStatus.requiredApprovals > 0;
       videoId={video.id}
       shareLink={shareLink}
       appUrl={appUrl}
+      spaceId={video.spaceId}
+      backHref={backHref}
     />
+
+    <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-secondary px-3 py-1.5 text-sm text-text-secondary">
+      <span class="text-text-tertiary">Space</span>
+      <a href={`/dashboard?space=${videoSpace.id}`} class="font-medium text-text-primary transition-colors hover:text-accent-primary">
+        {videoSpace.name}
+      </a>
+    </div>
 
     <VideoDetailView
       client:load

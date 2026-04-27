@@ -299,6 +299,12 @@ export function SpaceSettings({
           ))}
         </ul>
 
+        {isOwner && members.length <= 1 && (
+          <div className="mt-4 rounded-lg border border-border-default bg-bg-primary px-4 py-3 text-sm text-text-secondary">
+            Invite teammates so they can review, comment, and approve videos in this space.
+          </div>
+        )}
+
         {!isOwner && (
           <div className="mt-4 border-t border-border-default pt-4">
             <button

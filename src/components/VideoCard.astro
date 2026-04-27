@@ -21,6 +21,7 @@ interface Props {
   versionNumber?: number;
   versionCount?: number;
   folderId?: string | null;
+  spaceId?: string | null;
   /** When > 0, the space requires approvals and we render the badge. */
   requiredApprovals?: number;
   /** Number of approvals recorded so far. */
@@ -39,6 +40,7 @@ const {
   versionNumber = 1,
   versionCount = 1,
   folderId = null,
+  spaceId = null,
   requiredApprovals = 0,
   approvalCount = 0,
 } = Astro.props;
@@ -70,7 +72,7 @@ function formatDate(dateStr: string): string {
 ---
 
 <div class="group relative overflow-hidden rounded-xl border border-border-default bg-bg-secondary transition-all duration-200 hover:scale-[1.02] hover:border-border-hover hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
-  <a href={`/videos/${id}`} class="block">
+  <a href={spaceId ? `/videos/${id}?space=${spaceId}` : `/videos/${id}`} class="block">
     <div class="relative aspect-video bg-bg-tertiary">
       {thumbnailUrl ? (
         <img src={thumbnailUrl} alt={title} class="h-full w-full object-cover" />
@@ -141,6 +143,6 @@ function formatDate(dateStr: string): string {
     </div>
   </a>
   <div class="absolute right-2 top-2 z-10">
-    <VideoCardMenu client:load videoId={id} folderId={folderId} />
+    <VideoCardMenu client:load videoId={id} folderId={folderId} spaceId={spaceId} />
   </div>
 </div>

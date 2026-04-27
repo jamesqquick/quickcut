@@ -6,42 +6,46 @@ import Breadcrumbs from "../components/Breadcrumbs.astro";
 import { CreateFolderDialog } from "../components/CreateFolderDialog";
 import EmptyState from "../components/EmptyState.astro";
 import { createDb } from "../db";
-import { folders, videos, comments, spaceMembers, spaces, approvals } from "../db/schema";
+import { folders, videos, comments, spaceMembers, approvals } from "../db/schema";
 import { and, asc, desc, count, eq, inArray, isNull, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
+import { getUserSpaces } from "../lib/spaces";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
 
 const db = createDb(env.DB);
 const currentFolderId = Astro.url.searchParams.get("folderId");
+const requestedSpaceId = Astro.url.searchParams.get("space");
 
-// Get all space IDs the user belongs to
-const memberRows = await db
-  .select({ spaceId: spaceMembers.spaceId })
-  .from(spaceMembers)
-  .where(eq(spaceMembers.userId, user.id));
-const spaceIds = memberRows.map((r) => r.spaceId);
-const spaceFilter = spaceIds.length > 0 ? inArray(folders.spaceId, spaceIds) : eq(folders.spaceId, "__none__");
-const videoSpaceFilter = spaceIds.length > 0 ? inArray(videos.spaceId, spaceIds) : eq(videos.spaceId, "__none__");
+const userSpaces = await getUserSpaces(db, user.id);
+const defaultSpace = userSpaces[0] ?? null;
+if (!defaultSpace) return Astro.redirect("/login");
+
+const selectedSpace = userSpaces.find((space) => space.id === requestedSpaceId) ?? defaultSpace;
+const selectedSpaceId = selectedSpace.id;
+if (requestedSpaceId && requestedSpaceId !== selectedSpaceId) {
+  return Astro.redirect(`/dashboard?space=${selectedSpaceId}`);
+}
+const dashboardHref = `/dashboard?space=${selectedSpaceId}`;
 
 const currentFolder = currentFolderId
   ? await db
       .select()
       .from(folders)
-      .where(and(eq(folders.id, currentFolderId), spaceFilter))
+      .where(and(eq(folders.id, currentFolderId), eq(folders.spaceId, selectedSpaceId)))
       .limit(1)
   : [];
 
 if (currentFolderId && currentFolder.length === 0) {
-  return Astro.redirect("/dashboard");
+  return Astro.redirect(dashboardHref);
 }
 
 const currentFolderRecord = currentFolder[0] || null;
 const allFolders = await db
   .select()
   .from(folders)
-  .where(spaceFilter)
+  .where(eq(folders.spaceId, selectedSpaceId))
   .orderBy(asc(folders.name));
 const folderById = new Map(allFolders.map((folder) => [folder.id, folder]));
 const folderPath = [];
@@ -65,7 +69,7 @@ if (childFolderIds.length > 0) {
   const counts = await db
     .select({ folderId: videos.folderId, count: count() })
     .from(videos)
-    .where(and(eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
+    .where(and(eq(videos.spaceId, selectedSpaceId), eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
     .groupBy(videos.folderId);
 
   folderVideoCounts = Object.fromEntries(counts.map((row) => [row.folderId || "", row.count]));
@@ -73,7 +77,7 @@ if (childFolderIds.length > 0) {
   const folderVideos = await db
     .select({ folderId: videos.folderId, thumbnailUrl: videos.thumbnailUrl })
     .from(videos)
-    .where(and(eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
+    .where(and(eq(videos.spaceId, selectedSpaceId), eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
     .orderBy(desc(videos.createdAt));
 
   folderThumbnails = folderVideos.reduce<Record<string, string[]>>((acc, video) => {
@@ -89,8 +93,8 @@ const userVideos = await db
   .from(videos)
   .where(
     currentFolderId
-      ? and(videoSpaceFilter, eq(videos.folderId, currentFolderId), eq(videos.isCurrentVersion, true))
-      : and(videoSpaceFilter, isNull(videos.folderId), eq(videos.isCurrentVersion, true)),
+      ? and(eq(videos.spaceId, selectedSpaceId), eq(videos.folderId, currentFolderId), eq(videos.isCurrentVersion, true))
+      : and(eq(videos.spaceId, selectedSpaceId), isNull(videos.folderId), eq(videos.isCurrentVersion, true)),
   )
   .orderBy(desc(videos.createdAt));
 
@@ -158,56 +162,54 @@ if (userVideos.length > 0) {
   versionCounts = Object.fromEntries(counts.map((row) => [row.versionGroupId || "", row.count]));
 }
 
-// Approval badges. Only spaces with `requiredApprovals > 0` participate; any
-// other video gets no badge. We pull the per-space threshold and the count
-// of recorded approvals per video and combine them into the props passed
-// to <VideoCard />.
-const requiredApprovalsBySpace: Record<string, number> = {};
+// Approval badges only render when the selected space enables approvals.
 const approvalCountsByVideo: Record<string, number> = {};
-if (userVideos.length > 0 && spaceIds.length > 0) {
-  const spaceRows = await db
-    .select({ id: spaces.id, requiredApprovals: spaces.requiredApprovals })
-    .from(spaces)
-    .where(inArray(spaces.id, spaceIds));
-  for (const row of spaceRows) {
-    requiredApprovalsBySpace[row.id] = row.requiredApprovals;
-  }
-
-  const approvalSpaceIds = spaceRows
-    .filter((row) => row.requiredApprovals > 0)
-    .map((row) => row.id);
-
-  const videosNeedingApproval = userVideos.filter((video) =>
-    approvalSpaceIds.includes(video.spaceId),
-  );
-
-  if (videosNeedingApproval.length > 0) {
-    const videoIds = videosNeedingApproval.map((v) => v.id);
-    const counts = await db
-      .select({ videoId: approvals.videoId, count: count() })
-      .from(approvals)
-      .where(inArray(approvals.videoId, videoIds))
-      .groupBy(approvals.videoId);
-    for (const row of counts) {
-      approvalCountsByVideo[row.videoId] = row.count;
-    }
+if (userVideos.length > 0 && selectedSpace.requiredApprovals > 0) {
+  const videoIds = userVideos.map((v) => v.id);
+  const counts = await db
+    .select({ videoId: approvals.videoId, count: count() })
+    .from(approvals)
+    .where(inArray(approvals.videoId, videoIds))
+    .groupBy(approvals.videoId);
+  for (const row of counts) {
+    approvalCountsByVideo[row.videoId] = row.count;
   }
 }
+
+const memberCountRows = await db
+  .select({ count: count() })
+  .from(spaceMembers)
+  .where(eq(spaceMembers.spaceId, selectedSpaceId));
+const memberCount = memberCountRows[0]?.count ?? 0;
+
+const uploadHref = currentFolderId
+  ? `/upload?space=${selectedSpaceId}&folderId=${currentFolderId}`
+  : `/upload?space=${selectedSpaceId}`;
+
+const emptyHeading = currentFolderRecord ? "This folder is empty" : "No videos yet";
+const emptyDescription = currentFolderRecord
+  ? "Add videos or create a nested folder here"
+  : "Upload one to get started.";
 ---
 
-<Layout title={currentFolderRecord ? currentFolderRecord.name : "My Videos"} user={user}>
+<Layout title={currentFolderRecord ? currentFolderRecord.name : selectedSpace.name} user={user} selectedSpaceId={selectedSpaceId}>
   <div class="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
     <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
       <div>
         <Breadcrumbs path={folderPath} />
         <h1 class="text-2xl font-bold text-text-primary">
-          {currentFolderRecord ? currentFolderRecord.name : "My Videos"}
+          {currentFolderRecord ? currentFolderRecord.name : selectedSpace.name}
         </h1>
+        {!currentFolderRecord && (
+          <p class="mt-1 text-sm text-text-secondary">
+            {selectedSpace.role === "owner" ? "Owner" : "Member"} space
+          </p>
+        )}
       </div>
       <div class="flex items-center gap-2 sm:gap-3">
-        <CreateFolderDialog client:load parentId={currentFolderId} />
+        <CreateFolderDialog client:load parentId={currentFolderId} spaceId={selectedSpaceId} />
         <a
-          href={currentFolderId ? `/upload?folderId=${currentFolderId}` : "/upload"}
+          href={uploadHref}
           class="inline-flex items-center gap-2 rounded-lg bg-accent-primary px-3 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)] sm:px-5"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -220,12 +222,21 @@ if (userVideos.length > 0 && spaceIds.length > 0) {
       </div>
     </div>
 
+    {memberCount <= 1 && selectedSpace.role === "owner" && (
+      <div class="mb-6 rounded-xl border border-border-default bg-bg-secondary px-4 py-3 text-sm text-text-secondary">
+        <span>This space only has you in it.</span>
+        <a href={`/spaces/${selectedSpaceId}/settings?space=${selectedSpaceId}`} class="ml-2 font-medium text-accent-primary hover:text-accent-hover">
+          Invite members
+        </a>
+      </div>
+    )}
+
     {userVideos.length === 0 && childFolders.length === 0 ? (
       <EmptyState
-        heading={currentFolderRecord ? "This folder is empty" : "Upload your first video"}
-        description={currentFolderRecord ? "Add videos or create a nested folder here" : "Share it with your team for feedback"}
+        heading={emptyHeading}
+        description={emptyDescription}
         actionText="Upload Video"
-        actionHref={currentFolderId ? `/upload?folderId=${currentFolderId}` : "/upload"}
+        actionHref={uploadHref}
       />
     ) : (
       <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -234,6 +245,7 @@ if (userVideos.length > 0 && spaceIds.length > 0) {
             id={folder.id}
             name={folder.name}
             parentId={folder.parentId}
+            spaceId={selectedSpaceId}
             videoCount={folderVideoCounts[folder.id] || 0}
             thumbnails={folderThumbnails[folder.id] || []}
           />
@@ -243,6 +255,7 @@ if (userVideos.length > 0 && spaceIds.length > 0) {
             id={video.id}
             title={video.title}
             folderId={video.folderId}
+            spaceId={selectedSpaceId}
             thumbnailUrl={video.thumbnailUrl}
             duration={video.duration}
             status={video.status as "processing" | "ready" | "failed"}
@@ -251,7 +264,7 @@ if (userVideos.length > 0 && spaceIds.length > 0) {
             urgencyCounts={urgencyCounts[video.id] || { idea: 0, suggestion: 0, important: 0, critical: 0 }}
             versionNumber={video.versionNumber}
             versionCount={versionCounts[video.versionGroupId || video.id] || 1}
-            requiredApprovals={requiredApprovalsBySpace[video.spaceId] || 0}
+            requiredApprovals={selectedSpace.requiredApprovals}
             approvalCount={approvalCountsByVideo[video.id] || 0}
           />
         ))}

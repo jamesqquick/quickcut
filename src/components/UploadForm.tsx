@@ -7,14 +7,17 @@ type UploadState = "idle" | "selected" | "uploading" | "processing" | "error";
 
 interface UploadFormProps {
   folderId?: string | null;
+  spaces: Array<{ id: string; name: string; role: string }>;
+  selectedSpaceId: string;
   transcriptsEnabled?: boolean;
 }
 
-export function UploadForm({ folderId = null, transcriptsEnabled = false }: UploadFormProps) {
+export function UploadForm({ folderId = null, spaces, selectedSpaceId, transcriptsEnabled = false }: UploadFormProps) {
   const [state, setState] = useState<UploadState>("idle");
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [spaceId, setSpaceId] = useState(selectedSpaceId);
   const [generateTranscript, setGenerateTranscript] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
@@ -76,9 +79,10 @@ export function UploadForm({ folderId = null, transcriptsEnabled = false }: Uplo
         body: JSON.stringify({
           fileName: file.name,
           fileSize: file.size,
+          spaceId,
           title: title.trim() || undefined,
           description: description.trim() || undefined,
-          folderId,
+          folderId: spaceId === selectedSpaceId ? folderId : null,
           generateTranscript: transcriptsEnabled ? generateTranscript : false,
         }),
       });
@@ -111,7 +115,7 @@ export function UploadForm({ folderId = null, transcriptsEnabled = false }: Uplo
           setState("processing");
           // Redirect to video detail page
           setTimeout(() => {
-            window.location.href = `/videos/${videoId}`;
+            window.location.href = `/videos/${videoId}?space=${spaceId}`;
           }, 1500);
         } else {
           setError("Upload failed. Please try again.");
@@ -217,6 +221,22 @@ export function UploadForm({ folderId = null, transcriptsEnabled = false }: Uplo
           </div>
 
           <div className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-text-secondary" htmlFor="upload-space">Space</label>
+              <select
+                id="upload-space"
+                value={spaceId}
+                onChange={(e) => setSpaceId(e.target.value)}
+                disabled={state === "uploading"}
+                className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+              >
+                {spaces.map((space) => (
+                  <option key={space.id} value={space.id}>
+                    {space.name} ({space.role})
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-text-secondary">Title</label>
               <input

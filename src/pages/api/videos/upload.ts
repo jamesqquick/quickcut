@@ -27,7 +27,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
     });
   }
 
-  const { fileName, fileSize, title, description, folderId, generateTranscript } = parsed.data;
+  const { fileName, fileSize, title, description, folderId, generateTranscript, spaceId } = parsed.data;
 
   if (!fileName || !fileSize) {
     return new Response(
@@ -70,16 +70,22 @@ export const POST: APIRoute = async ({ locals, request }) => {
       ? await isTranscriptGenerationEnabled(env, locals.user)
       : false;
 
-    // Determine the target space. For now (single-space mode) use the user's
-    // default space. A future PR will let the client pass a spaceId.
-    const defaultSpace = await getDefaultSpaceForUser(db, locals.user.id);
-    if (!defaultSpace) {
+    const defaultSpace = spaceId ? null : await getDefaultSpaceForUser(db, locals.user.id);
+    const targetSpaceId = spaceId ?? defaultSpace?.id;
+    if (!targetSpaceId) {
       return new Response(JSON.stringify({ error: "No space found for user" }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
       });
     }
-    const targetSpaceId = defaultSpace.id;
+
+    const role = await verifySpaceAccess(db, locals.user.id, targetSpaceId);
+    if (!role) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     if (folderId) {
       const folder = await db

@@ -34,6 +34,7 @@ export const loginSchema = z.object({
 export const uploadSchema = z.object({
   fileName: z.string().min(1, "File name is required"),
   fileSize: z.number().positive().max(5 * 1024 * 1024 * 1024, "File exceeds 5GB limit"),
+  spaceId: z.string().uuid().optional(),
   title: z.string().optional(),
   description: z.string().max(2000).optional(),
   folderId: z.string().uuid().nullable().optional(),
@@ -71,6 +72,7 @@ export const videoUpdateSchema = z.object({
 
 export const folderCreateSchema = z.object({
   name: z.string().trim().min(1, "Folder name is required").max(120),
+  spaceId: z.string().uuid().optional(),
   parentId: z.string().uuid().nullable().optional(),
 });
 
@@ -108,5 +110,4 @@ export const inviteCreateSchema = z.object({
 export const approveVideoSchema = z.object({
   comment: z.string().max(500).optional(),
 });
-
 
