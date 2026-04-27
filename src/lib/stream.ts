@@ -91,3 +91,61 @@ export async function deleteVideo(
     );
   }
 }
+
+export interface StreamAudioDownload {
+  status: "inprogress" | "ready" | "error" | string;
+  url: string | null;
+  percentComplete?: number;
+}
+
+interface StreamDownloadsResponse {
+  result?: {
+    audio?: StreamAudioDownload;
+  };
+}
+
+export async function requestAudioDownload(
+  accountId: string,
+  apiToken: string,
+  streamVideoId: string,
+): Promise<StreamAudioDownload> {
+  const response = await fetch(
+    `${STREAM_API_BASE}/${accountId}/stream/${streamVideoId}/downloads/audio`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Stream audio download request failed: ${response.status}`);
+  }
+
+  const data = (await response.json()) as StreamDownloadsResponse;
+  if (!data.result?.audio) throw new Error("Stream response did not include audio download details");
+  return data.result.audio;
+}
+
+export async function getAudioDownload(
+  accountId: string,
+  apiToken: string,
+  streamVideoId: string,
+): Promise<StreamAudioDownload | null> {
+  const response = await fetch(
+    `${STREAM_API_BASE}/${accountId}/stream/${streamVideoId}/downloads`,
+    {
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Stream downloads lookup failed: ${response.status}`);
+  }
+
+  const data = (await response.json()) as StreamDownloadsResponse;
+  return data.result?.audio || null;
+}

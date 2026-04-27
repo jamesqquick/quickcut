@@ -6,6 +6,7 @@ import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import { UploadVersionModal } from "./UploadVersionModal";
+import { TranscriptPanel } from "./TranscriptPanel";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
 import type { Annotation, Comment } from "../types";
 import type { AnnotationTool } from "./AnnotationOverlay";
@@ -23,6 +24,7 @@ interface VideoDetailViewProps {
   isOwner: boolean;
   uploadDate: string;
   fileName: string | null;
+  transcriptsEnabled: boolean;
 }
 
 function formatDate(dateStr: string): string {
@@ -76,6 +78,7 @@ export function VideoDetailView({
   isOwner,
   uploadDate,
   fileName,
+  transcriptsEnabled,
 }: VideoDetailViewProps) {
   const [processingStatus, setProcessingStatus] = useState(status);
   const [liveComments, setLiveComments] = useState(initialComments);
@@ -191,7 +194,12 @@ export function VideoDetailView({
         )}
         {isOwner && (
           <span className="w-full sm:w-auto">
-            <UploadVersionModal videoId={videoId} title={title} description={description} />
+            <UploadVersionModal
+              videoId={videoId}
+              title={title}
+              description={description}
+              transcriptsEnabled={transcriptsEnabled}
+            />
           </span>
         )}
       </div>
@@ -218,6 +226,8 @@ export function VideoDetailView({
         placeholder="Add a description..."
         className="break-words text-sm text-text-secondary"
       />
+
+      <TranscriptPanel videoId={videoId} />
     </>
   );
 

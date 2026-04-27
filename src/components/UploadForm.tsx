@@ -7,13 +7,15 @@ type UploadState = "idle" | "selected" | "uploading" | "processing" | "error";
 
 interface UploadFormProps {
   folderId?: string | null;
+  transcriptsEnabled?: boolean;
 }
 
-export function UploadForm({ folderId = null }: UploadFormProps) {
+export function UploadForm({ folderId = null, transcriptsEnabled = false }: UploadFormProps) {
   const [state, setState] = useState<UploadState>("idle");
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [generateTranscript, setGenerateTranscript] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -77,6 +79,7 @@ export function UploadForm({ folderId = null }: UploadFormProps) {
           title: title.trim() || undefined,
           description: description.trim() || undefined,
           folderId,
+          generateTranscript: transcriptsEnabled ? generateTranscript : false,
         }),
       });
 
@@ -238,6 +241,23 @@ export function UploadForm({ folderId = null }: UploadFormProps) {
                 placeholder="Add a description..."
               />
             </div>
+            {transcriptsEnabled && (
+              <label className="flex cursor-pointer gap-3 rounded-xl border border-border-default bg-bg-secondary p-4 transition-colors hover:border-border-hover">
+                <input
+                  type="checkbox"
+                  checked={generateTranscript}
+                  onChange={(event) => setGenerateTranscript(event.target.checked)}
+                  disabled={state === "uploading"}
+                  className="mt-1 h-4 w-4 rounded border-border-default bg-bg-input text-accent-primary focus:ring-accent-primary disabled:opacity-50"
+                />
+                <span>
+                  <span className="block text-sm font-medium text-text-primary">Generate transcript for this video</span>
+                  <span className="mt-1 block text-xs text-text-tertiary">
+                    Create a searchable transcript after upload. The video will be available while the transcript is generated.
+                  </span>
+                </span>
+              </label>
+            )}
           </div>
 
           {state === "uploading" && (

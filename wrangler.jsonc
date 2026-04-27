@@ -13,6 +13,22 @@
 	"observability": {
 		"enabled": true
 	},
+	"flagship": [
+		{
+			"binding": "FLAGS",
+			"app_id": "TODO_FLAGSHIP_APP_ID"
+		}
+	],
+	"ai": {
+		"binding": "AI"
+	},
+	"workflows": [
+		{
+			"binding": "TRANSCRIPT_WORKFLOW",
+			"name": "quickcut-transcript-workflow",
+			"class_name": "TranscriptWorkflow"
+		}
+	],
 	"d1_databases": [
 		{
 			"binding": "DB",
@@ -35,6 +51,8 @@
 		}
 	],
 	"vars": {
-		"STREAM_ACCOUNT_ID": "4426cbeacb457b1ca1b865d6c36ced0d"
+		"STREAM_ACCOUNT_ID": "4426cbeacb457b1ca1b865d6c36ced0d",
+		"TRANSCRIPTS_ENABLED": "true",
+		"TRANSCRIPT_CLEANUP_MODEL": "@cf/meta/llama-3.1-8b-instruct"
 	}
 }

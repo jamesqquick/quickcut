@@ -68,6 +68,55 @@ export const videos = sqliteTable("videos", {
   duration: real("duration"),
   fileName: text("file_name"),
   fileSize: integer("file_size"),
+  transcriptRequested: integer("transcript_requested", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const transcripts = sqliteTable("transcripts", {
+  id: text("id").primaryKey(),
+  videoId: text("video_id")
+    .notNull()
+    .unique()
+    .references(() => videos.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  status: text("status", {
+    enum: [
+      "not_requested",
+      "requested",
+      "queued",
+      "exporting_audio",
+      "waiting_for_audio",
+      "transcribing",
+      "cleaning",
+      "ready",
+      "ready_raw_only",
+      "failed",
+      "skipped_feature_disabled",
+    ],
+  })
+    .notNull()
+    .default("requested"),
+  rawText: text("raw_text"),
+  cleanedText: text("cleaned_text"),
+  vtt: text("vtt"),
+  wordCount: integer("word_count"),
+  audioDownloadUrl: text("audio_download_url"),
+  workflowInstanceId: text("workflow_instance_id"),
+  errorMessage: text("error_message"),
+  requestedAt: text("requested_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  startedAt: text("started_at"),
+  completedAt: text("completed_at"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),
