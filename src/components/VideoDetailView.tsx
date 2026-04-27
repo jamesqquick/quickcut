@@ -226,9 +226,11 @@ export function VideoDetailView({
         placeholder="Add a description..."
         className="break-words text-sm text-text-secondary"
       />
-
-      <TranscriptPanel videoId={videoId} videoTitle={title} transcriptsEnabled={transcriptsEnabled} />
     </>
+  );
+
+  const transcriptSection = (
+    <TranscriptPanel videoId={videoId} videoTitle={title} transcriptsEnabled={transcriptsEnabled} />
   );
 
   const rightColumn = (
@@ -253,5 +255,5 @@ export function VideoDetailView({
     />
   );
 
-  return <VideoPageLayout leftColumn={leftColumn} rightColumn={rightColumn} />;
+  return <VideoPageLayout leftColumn={leftColumn} rightColumn={rightColumn} bottomContent={transcriptSection} />;
 }
