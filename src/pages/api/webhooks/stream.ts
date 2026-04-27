@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { createDb } from "../../../db";
 import { videos } from "../../../db/schema";
 import { eq } from "drizzle-orm";
+import { queueTranscriptForVideo } from "../../../lib/transcripts";
 
 interface StreamWebhookPayload {
   uid: string;
@@ -107,6 +108,7 @@ export const POST: APIRoute = async ({ request }) => {
   const video = videoRecords[0];
 
   if (payload.readyToStream && payload.status.state === "ready") {
+    const now = new Date().toISOString();
     await db
       .update(videos)
       .set({
@@ -114,9 +116,18 @@ export const POST: APIRoute = async ({ request }) => {
         duration: payload.duration,
         thumbnailUrl: payload.thumbnail,
         streamPlaybackUrl: payload.playback.hls,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       })
       .where(eq(videos.id, video.id));
+
+    await queueTranscriptForVideo(env, db, {
+      ...video,
+      status: "ready",
+      duration: payload.duration,
+      thumbnailUrl: payload.thumbnail,
+      streamPlaybackUrl: payload.playback.hls,
+      updatedAt: now,
+    });
   } else if (payload.status.state === "error") {
     await db
       .update(videos)

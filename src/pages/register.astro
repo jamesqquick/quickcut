@@ -15,7 +15,7 @@ const error = Astro.url.searchParams.get("error");
       <div class="mb-8 text-center">
         <h1 class="text-3xl font-bold text-text-primary">QuickCut</h1>
         <p class="mt-2 text-sm text-text-secondary">
-          Create your account to start reviewing videos.
+          Create your account with your Cloudflare email to start reviewing videos.
         </p>
       </div>
 
@@ -50,8 +50,9 @@ const error = Astro.url.searchParams.get("error");
               name="email"
               required
               class="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-              placeholder="you@example.com"
+              placeholder="you@cloudflare.com"
             />
+            <p class="mt-1 text-xs text-text-tertiary">QuickCut is currently limited to Cloudflare email addresses.</p>
           </div>
           <div>
             <label for="password" class="mb-1 block text-sm font-medium text-text-secondary">

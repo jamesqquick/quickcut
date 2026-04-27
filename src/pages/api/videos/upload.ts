@@ -5,6 +5,7 @@ import { folders, videos } from "../../../db/schema";
 import { createDirectUpload } from "../../../lib/stream";
 import { and, eq } from "drizzle-orm";
 import { uploadSchema } from "../../../lib/validation";
+import { isTranscriptGenerationEnabled } from "../../../lib/flags";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
@@ -25,7 +26,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
     });
   }
 
-  const { fileName, fileSize, title, description, folderId } = parsed.data;
+  const { fileName, fileSize, title, description, folderId, generateTranscript } = parsed.data;
 
   if (!fileName || !fileSize) {
     return new Response(
@@ -64,6 +65,9 @@ export const POST: APIRoute = async ({ locals, request }) => {
     const db = createDb(env.DB);
     const videoId = crypto.randomUUID();
     const videoTitle = title?.trim() || fileName.replace(/\.[^.]+$/, "");
+    const transcriptRequested = generateTranscript
+      ? await isTranscriptGenerationEnabled(env, locals.user)
+      : false;
 
     if (folderId) {
       const folder = await db
@@ -93,6 +97,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
       streamVideoId,
       fileName,
       fileSize,
+      transcriptRequested,
     });
 
     return new Response(

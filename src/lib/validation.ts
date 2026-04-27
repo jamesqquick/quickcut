@@ -37,6 +37,7 @@ export const uploadSchema = z.object({
   title: z.string().optional(),
   description: z.string().max(2000).optional(),
   folderId: z.string().uuid().nullable().optional(),
+  generateTranscript: z.boolean().optional(),
 });
 
 export const commentSchema = z.object({

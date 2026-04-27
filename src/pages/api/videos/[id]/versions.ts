@@ -5,6 +5,7 @@ import { createDb } from "../../../../db";
 import { comments, videos } from "../../../../db/schema";
 import { createDirectUpload } from "../../../../lib/stream";
 import { uploadSchema } from "../../../../lib/validation";
+import { isTranscriptGenerationEnabled } from "../../../../lib/flags";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024;
@@ -75,7 +76,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     return json({ error: parsed.error.issues[0]?.message || "Invalid input" }, 400);
   }
 
-  const { fileName, fileSize, title, description } = parsed.data;
+  const { fileName, fileSize, title, description, generateTranscript } = parsed.data;
   const ext = fileName.split(".").pop()?.toLowerCase();
 
   if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
@@ -113,6 +114,9 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
 
     const videoId = crypto.randomUUID();
     const now = new Date().toISOString();
+    const transcriptRequested = generateTranscript
+      ? await isTranscriptGenerationEnabled(env, locals.user)
+      : false;
 
     await db
       .update(videos)
@@ -133,6 +137,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
       streamVideoId,
       fileName,
       fileSize,
+      transcriptRequested,
       createdAt: now,
       updatedAt: now,
     });

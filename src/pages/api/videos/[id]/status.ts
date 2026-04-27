@@ -4,6 +4,7 @@ import { createDb } from "../../../../db";
 import { videos } from "../../../../db/schema";
 import { eq } from "drizzle-orm";
 import { getVideoInfo } from "../../../../lib/stream";
+import { queueTranscriptForVideo } from "../../../../lib/transcripts";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
@@ -48,6 +49,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       );
 
       if (info.readyToStream && info.status.state === "ready") {
+        const now = new Date().toISOString();
         // Update DB with the real data from Stream
         await db
           .update(videos)
@@ -56,9 +58,18 @@ export const GET: APIRoute = async ({ params, locals }) => {
             duration: info.duration,
             thumbnailUrl: info.thumbnail,
             streamPlaybackUrl: info.playback.hls,
-            updatedAt: new Date().toISOString(),
+            updatedAt: now,
           })
           .where(eq(videos.id, id));
+
+        await queueTranscriptForVideo(env, db, {
+          ...video,
+          status: "ready",
+          duration: info.duration,
+          thumbnailUrl: info.thumbnail,
+          streamPlaybackUrl: info.playback.hls,
+          updatedAt: now,
+        });
 
         return new Response(
           JSON.stringify({

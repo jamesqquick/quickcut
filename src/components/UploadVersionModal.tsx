@@ -10,6 +10,7 @@ interface UploadVersionModalProps {
   videoId: string;
   title: string;
   description: string;
+  transcriptsEnabled?: boolean;
 }
 
 function formatFileSize(bytes: number): string {
@@ -18,7 +19,12 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
-export function UploadVersionModal({ videoId, title: initialTitle, description: initialDescription }: UploadVersionModalProps) {
+export function UploadVersionModal({
+  videoId,
+  title: initialTitle,
+  description: initialDescription,
+  transcriptsEnabled = false,
+}: UploadVersionModalProps) {
   const headingId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -26,6 +32,7 @@ export function UploadVersionModal({ videoId, title: initialTitle, description: 
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
+  const [generateTranscript, setGenerateTranscript] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -35,6 +42,7 @@ export function UploadVersionModal({ videoId, title: initialTitle, description: 
     setFile(null);
     setTitle(initialTitle);
     setDescription(initialDescription);
+    setGenerateTranscript(false);
     setProgress(0);
     setError("");
     setDragOver(false);
@@ -83,6 +91,7 @@ export function UploadVersionModal({ videoId, title: initialTitle, description: 
           fileSize: file.size,
           title: title.trim() || undefined,
           description: description.trim(),
+          generateTranscript: transcriptsEnabled ? generateTranscript : false,
         }),
       });
 
@@ -210,6 +219,22 @@ export function UploadVersionModal({ videoId, title: initialTitle, description: 
               className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
             />
           </div>
+
+          {transcriptsEnabled && (
+            <label className="flex cursor-pointer gap-3 rounded-xl border border-border-default bg-bg-tertiary p-3 transition-colors hover:border-border-hover">
+              <input
+                type="checkbox"
+                checked={generateTranscript}
+                onChange={(event) => setGenerateTranscript(event.target.checked)}
+                disabled={state === "uploading"}
+                className="mt-1 h-4 w-4 rounded border-border-default bg-bg-input text-accent-primary focus:ring-accent-primary disabled:opacity-50"
+              />
+              <span>
+                <span className="block text-sm font-medium text-text-primary">Generate transcript for this version</span>
+                <span className="mt-1 block text-xs text-text-tertiary">Create a transcript after the new version finishes processing.</span>
+              </span>
+            </label>
+          )}
 
           {state === "uploading" && (
             <div>

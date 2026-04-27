@@ -5,6 +5,7 @@ import { createDb } from "../db";
 import { folders } from "../db/schema";
 import { and, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
+import { isTranscriptGenerationEnabled } from "../lib/flags";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -26,6 +27,7 @@ if (folderId && folderResult.length === 0) {
 }
 
 const targetFolder = folderResult[0] || null;
+const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
 ---
 
 <Layout title="Upload Video" user={user}>
@@ -43,6 +45,6 @@ const targetFolder = folderResult[0] || null;
         <span class="font-medium text-text-primary">{targetFolder ? targetFolder.name : "All Videos"}</span>
       </div>
     </div>
-    <UploadForm client:load folderId={folderId} />
+    <UploadForm client:load folderId={folderId} transcriptsEnabled={transcriptsEnabled} />
   </div>
 </Layout>

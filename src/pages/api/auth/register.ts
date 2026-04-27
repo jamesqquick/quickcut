@@ -10,6 +10,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
 
   let email: string;
   let password: string;
+  let confirmPassword: string;
   let displayName: string;
 
   const contentType = request.headers.get("content-type") || "";
@@ -17,21 +18,31 @@ export const POST: APIRoute = async ({ request, redirect }) => {
     const body = await request.json();
     email = body.email?.trim().toLowerCase();
     password = body.password;
+    confirmPassword = body.confirmPassword;
     displayName = body.displayName?.trim();
   } else {
     const formData = await request.formData();
     email = (formData.get("email") as string)?.trim().toLowerCase();
     password = formData.get("password") as string;
+    confirmPassword = formData.get("confirmPassword") as string;
     displayName = (formData.get("displayName") as string)?.trim();
   }
 
   // Validation
-  if (!email || !password || !displayName) {
+  if (!email || !password || !confirmPassword || !displayName) {
     return redirect("/register?error=All fields are required");
+  }
+
+  if (!email.endsWith("@cloudflare.com")) {
+    return redirect("/register?error=QuickCut is currently limited to Cloudflare email addresses");
   }
 
   if (password.length < 8) {
     return redirect("/register?error=Password must be at least 8 characters");
+  }
+
+  if (password !== confirmPassword) {
+    return redirect("/register?error=Passwords do not match");
   }
 
   // Check if email exists
