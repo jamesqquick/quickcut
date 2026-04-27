@@ -1,4 +1,7 @@
-import type { BroadcastComment } from "../durable-objects/VideoRoom";
+import type {
+	BroadcastApprovalStatus,
+	BroadcastComment,
+} from "../durable-objects/VideoRoom";
 
 /**
  * Best-effort fan-out of a freshly persisted comment to every viewer
@@ -15,5 +18,24 @@ export async function broadcastNewComment(
 		await stub.broadcastComment(comment);
 	} catch (err) {
 		console.error("VideoRoom broadcast failed", { videoId, err });
+	}
+}
+
+/**
+ * Best-effort fan-out of a recomputed approval status after an approval
+ * is added or removed. Same hibernation semantics as the comment
+ * broadcast — D1 is already authoritative; this just lets connected
+ * viewers update their UI in real time.
+ */
+export async function broadcastApprovalUpdate(
+	env: Env,
+	videoId: string,
+	approvalStatus: BroadcastApprovalStatus,
+): Promise<void> {
+	try {
+		const stub = env.VIDEO_ROOM.getByName(videoId);
+		await stub.broadcastApproval(approvalStatus);
+	} catch (err) {
+		console.error("VideoRoom approval broadcast failed", { videoId, err });
 	}
 }

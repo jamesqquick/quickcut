@@ -101,4 +101,12 @@ export const inviteCreateSchema = z.object({
   email: z.string().email("Invalid email address").transform((v) => v.trim().toLowerCase()),
 });
 
+// ---------------------------------------------------------------------------
+// Approvals
+// ---------------------------------------------------------------------------
+
+export const approveVideoSchema = z.object({
+  comment: z.string().max(500).optional(),
+});
+
 

@@ -7,6 +7,7 @@ import { VideoPageLayout } from "./VideoPageLayout";
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import { UploadVersionModal } from "./UploadVersionModal";
 import { TranscriptPanel } from "./TranscriptPanel";
+import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
 import type { Annotation, Comment } from "../types";
 import type { AnnotationTool } from "./AnnotationOverlay";
@@ -25,6 +26,9 @@ interface VideoDetailViewProps {
   uploadDate: string;
   fileName: string | null;
   transcriptsEnabled: boolean;
+  uploadedBy: string | null;
+  /** Null when the space has requiredApprovals = 0; the section is hidden. */
+  initialApprovalStatus: ApprovalStatus | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -79,6 +83,8 @@ export function VideoDetailView({
   uploadDate,
   fileName,
   transcriptsEnabled,
+  uploadedBy,
+  initialApprovalStatus,
 }: VideoDetailViewProps) {
   const [processingStatus, setProcessingStatus] = useState(status);
   const [liveComments, setLiveComments] = useState(initialComments);
@@ -226,6 +232,18 @@ export function VideoDetailView({
         placeholder="Add a description..."
         className="break-words text-sm text-text-secondary"
       />
+
+      {/* Approval status — only when the space has the workflow enabled. */}
+      {initialApprovalStatus && (
+        <ApprovalSection
+          videoId={videoId}
+          initialStatus={initialApprovalStatus}
+          currentUserId={currentUserId}
+          isSpaceMember={true}
+          uploadedBy={uploadedBy}
+          viewerName={currentUserName}
+        />
+      )}
     </>
   );
 

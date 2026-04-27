@@ -5,6 +5,7 @@ import { NamePromptModal } from "./NamePromptModal";
 import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
 import { AnnotationOverlay } from "./AnnotationOverlay";
+import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
 import type { Annotation, Comment } from "../types";
 import type { AnnotationTool } from "./AnnotationOverlay";
@@ -24,11 +25,13 @@ interface ShareViewProps {
   versionCount: number;
   initialComments: Comment[];
   shareToken: string;
+  /** Null when the space has no approval workflow; the section is hidden. */
+  initialApprovalStatus: ApprovalStatus | null;
 }
 
 const ANON_NAME_KEY = "quickcut_anonymous_name";
 
-export function ShareView({ video, versionCount, initialComments, shareToken }: ShareViewProps) {
+export function ShareView({ video, versionCount, initialComments, shareToken, initialApprovalStatus }: ShareViewProps) {
   const [anonymousName, setAnonymousName] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem(ANON_NAME_KEY);
@@ -130,6 +133,21 @@ export function ShareView({ video, versionCount, initialComments, shareToken }: 
           <p className="mt-2 text-sm text-text-secondary">{video.description}</p>
         )}
       </div>
+
+      {/* Read-only approval status for external reviewers. They can see who
+          has signed off, but cannot approve or undo. */}
+      {initialApprovalStatus && (
+        <ApprovalSection
+          videoId={video.id}
+          initialStatus={initialApprovalStatus}
+          currentUserId={null}
+          isSpaceMember={false}
+          uploadedBy={null}
+          readOnly
+          viewerName={anonymousName}
+          shareToken={shareToken}
+        />
+      )}
     </>
   );
 

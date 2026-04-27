@@ -6,6 +6,7 @@ import { and, desc, eq, count } from "drizzle-orm";
 import { deleteVideo as deleteStreamVideo } from "../../../../lib/stream";
 import { videoUpdateSchema } from "../../../../lib/validation";
 import { verifySpaceAccess } from "../../../../lib/spaces";
+import { getApprovalStatus } from "../../../../lib/approvals";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
@@ -68,12 +69,19 @@ export const GET: APIRoute = async ({ params, locals }) => {
     .from(videos)
     .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)));
 
+  // Approval state is computed on demand from the approvals table compared
+  // against the space's required threshold. Only attached when the
+  // workflow is actually enabled for this space (requiredApprovals > 0).
+  const approvalStatus = await getApprovalStatus(db, id, video.spaceId);
+  const includeApprovalStatus = approvalStatus.requiredApprovals > 0;
+
   return new Response(
     JSON.stringify({
       video,
       shareLink: shareLinkResult[0] || null,
       commentCount: commentCountResult[0]?.count || 0,
       versionCount: versionCountResult[0]?.count || 1,
+      approvalStatus: includeApprovalStatus ? approvalStatus : null,
     }),
     { headers: { "Content-Type": "application/json" } },
   );

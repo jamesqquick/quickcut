@@ -23,6 +23,24 @@ export interface BroadcastComment {
 	displayName: string;
 }
 
+/**
+ * Snapshot of a video's approval state, broadcast whenever a member
+ * approves or un-approves the video. Mirrors `ApprovalStatus` in
+ * src/lib/approvals.ts. Replicated here so the DO stays self-contained.
+ */
+export interface BroadcastApprovalStatus {
+	requiredApprovals: number;
+	currentApprovals: number;
+	isApproved: boolean;
+	approvals: Array<{
+		id: string;
+		userId: string;
+		displayName: string;
+		comment: string | null;
+		createdAt: string;
+	}>;
+}
+
 /** A viewer currently connected to the room. */
 export interface Viewer {
 	name: string;
@@ -36,7 +54,8 @@ interface SocketMeta {
 
 type ServerMessage =
 	| { type: "comment.new"; comment: BroadcastComment }
-	| { type: "presence.sync"; viewers: Viewer[] };
+	| { type: "presence.sync"; viewers: Viewer[] }
+	| { type: "approval.update"; approvalStatus: BroadcastApprovalStatus };
 
 /**
  * VideoRoom coordinates real-time updates for a single video review session.
@@ -140,6 +159,30 @@ export class VideoRoom extends DurableObject<Env> {
 			} catch {
 				// Socket may have been closed between the snapshot and the send.
 				// Ignore — the runtime will clean it up.
+			}
+		}
+	}
+
+	/**
+	 * RPC method called by API routes after an approval row has been
+	 * inserted or removed. Pushes the freshly-recomputed approval status
+	 * to every connected socket so each client can replace its local
+	 * state in one shot — no follow-up fetch required.
+	 */
+	async broadcastApproval(
+		approvalStatus: BroadcastApprovalStatus,
+	): Promise<void> {
+		const message: ServerMessage = {
+			type: "approval.update",
+			approvalStatus,
+		};
+		const payload = JSON.stringify(message);
+
+		for (const ws of this.ctx.getWebSockets()) {
+			try {
+				ws.send(payload);
+			} catch {
+				// ignore
 			}
 		}
 	}
