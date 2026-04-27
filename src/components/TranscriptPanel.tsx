@@ -1,17 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-
-type TranscriptStatus =
-  | "not_requested"
-  | "requested"
-  | "queued"
-  | "exporting_audio"
-  | "waiting_for_audio"
-  | "transcribing"
-  | "cleaning"
-  | "ready"
-  | "ready_raw_only"
-  | "failed"
-  | "skipped_feature_disabled";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { TranscriptStatus } from "../lib/transcript-status";
 
 interface TranscriptRecord {
   status: TranscriptStatus;
@@ -78,8 +66,19 @@ const statusCopy: Record<TranscriptStatus, { title: string; body: string }> = {
   },
 };
 
+const FAST_POLL_STATUSES: TranscriptStatus[] = ["requested", "queued", "exporting_audio"];
+const SLOW_POLL_STATUSES: TranscriptStatus[] = ["waiting_for_audio", "transcribing", "cleaning"];
+const FAST_INTERVAL = 4_000;
+const SLOW_INTERVAL = 12_000;
+
 function isFinalStatus(status: TranscriptStatus): boolean {
   return ["ready", "ready_raw_only", "failed", "skipped_feature_disabled", "not_requested"].includes(status);
+}
+
+function getPollInterval(status: TranscriptStatus): number | null {
+  if (FAST_POLL_STATUSES.includes(status)) return FAST_INTERVAL;
+  if (SLOW_POLL_STATUSES.includes(status)) return SLOW_INTERVAL;
+  return null;
 }
 
 export function TranscriptPanel({ videoId }: TranscriptPanelProps) {
@@ -87,9 +86,9 @@ export function TranscriptPanel({ videoId }: TranscriptPanelProps) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const response = await fetch(`/api/videos/${videoId}/transcript`);
       if (!response.ok) throw new Error("Failed to load transcript");
@@ -101,25 +100,32 @@ export function TranscriptPanel({ videoId }: TranscriptPanelProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [videoId]);
 
   useEffect(() => {
     void load();
-  }, [videoId]);
+  }, [load]);
 
   const status: TranscriptStatus = data?.transcript?.status ?? (data?.transcriptRequested ? "requested" : "not_requested");
 
   useEffect(() => {
-    if (!data || isFinalStatus(status)) return;
+    if (!data) return;
 
-    pollRef.current = setInterval(() => {
-      void load();
-    }, 4000);
+    const interval = getPollInterval(status);
+    if (!interval) return;
+
+    const schedule = () => {
+      pollRef.current = setTimeout(async () => {
+        await load();
+        schedule();
+      }, interval);
+    };
+    schedule();
 
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      if (pollRef.current) clearTimeout(pollRef.current);
     };
-  }, [data, status, videoId]);
+  }, [data, status, load]);
 
   const generate = async () => {
     setGenerating(true);
@@ -149,6 +155,7 @@ export function TranscriptPanel({ videoId }: TranscriptPanelProps) {
   const copy = statusCopy[status];
   const text = data?.transcript?.cleanedText || data?.transcript?.rawText || "";
   const canGenerate = data?.transcriptsEnabled && status === "not_requested" && data.videoStatus === "ready";
+  const canRetry = data?.transcriptsEnabled && status === "failed" && data.videoStatus === "ready";
 
   return (
     <section className="rounded-xl border border-border-default bg-bg-secondary p-4">
@@ -177,6 +184,17 @@ export function TranscriptPanel({ videoId }: TranscriptPanelProps) {
           className="mt-4 rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
         >
           {generating ? "Starting..." : "Generate transcript"}
+        </button>
+      )}
+
+      {canRetry && (
+        <button
+          type="button"
+          onClick={generate}
+          disabled={generating}
+          className="mt-4 rounded-lg border border-border-default px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary disabled:opacity-50"
+        >
+          {generating ? "Retrying..." : "Retry transcript"}
         </button>
       )}
 

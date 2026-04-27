@@ -3,18 +3,7 @@ import type { Database } from "../db";
 import { transcripts, users, videos } from "../db/schema";
 import { isTranscriptGenerationEnabled } from "./flags";
 
-export type TranscriptStatus =
-  | "not_requested"
-  | "requested"
-  | "queued"
-  | "exporting_audio"
-  | "waiting_for_audio"
-  | "transcribing"
-  | "cleaning"
-  | "ready"
-  | "ready_raw_only"
-  | "failed"
-  | "skipped_feature_disabled";
+export type { TranscriptStatus } from "./transcript-status";
 
 interface WorkflowBinding {
   create(options: { id?: string; params?: unknown }): Promise<{ id: string }>;
@@ -104,8 +93,25 @@ export async function queueTranscriptForVideo(
       params: { transcriptId, videoId: video.id } satisfies TranscriptWorkflowParams,
     });
   } catch (error) {
-    // Duplicate webhook deliveries can race workflow creation. If the row already
-    // points at this instance, leave it queued and let the existing workflow run.
-    console.warn("Transcript workflow was not created:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    const isDuplicate = message.includes("already exists") || message.includes("duplicate");
+
+    if (isDuplicate) {
+      // Duplicate webhook deliveries can race workflow creation. The existing
+      // workflow will pick up the queued row.
+      console.warn("Transcript workflow instance already exists:", workflowInstanceId);
+    } else {
+      // Non-duplicate failure means the workflow service is down or misconfigured.
+      // Mark transcript as failed so the user can retry later.
+      console.error("Transcript workflow creation failed:", error);
+      await db
+        .update(transcripts)
+        .set({
+          status: "failed",
+          errorMessage: `Workflow creation failed: ${message}`,
+          updatedAt: now,
+        })
+        .where(eq(transcripts.id, transcriptId));
+    }
   }
 }

@@ -29,7 +29,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   }
 
   // Validation
-  if (!email || !password || !displayName) {
+  if (!email || !password || !confirmPassword || !displayName) {
     return redirect("/register?error=All fields are required");
   }
 

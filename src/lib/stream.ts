@@ -119,6 +119,15 @@ export async function requestAudioDownload(
     },
   );
 
+  // Tolerate 409 Conflict -- audio download was already requested.
+  // Fall back to checking download status via the GET endpoint.
+  if (response.status === 409) {
+    const existing = await getAudioDownload(accountId, apiToken, streamVideoId);
+    if (existing) return existing;
+    // If GET also returns nothing, the 409 is unexpected -- throw.
+    throw new Error("Stream returned 409 but no existing audio download found");
+  }
+
   if (!response.ok) {
     throw new Error(`Stream audio download request failed: ${response.status}`);
   }

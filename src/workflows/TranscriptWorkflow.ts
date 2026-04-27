@@ -36,134 +36,122 @@ export class TranscriptWorkflow extends WorkflowEntrypoint<Env, TranscriptWorkfl
     const { transcriptId, videoId } = event.payload;
     const db = createDb(this.env.DB);
 
-    try {
-      const video = await step.do("load video", async () => {
-        const result = await db.select().from(videos).where(eq(videos.id, videoId)).limit(1);
-        if (!result[0]) throw new Error("Video not found");
-        if (!result[0].streamVideoId) throw new Error("Video is missing Stream ID");
-        return result[0];
-      });
+    const video = await step.do("load video", async () => {
+      const result = await db.select().from(videos).where(eq(videos.id, videoId)).limit(1);
+      if (!result[0]) throw new Error("Video not found");
+      if (!result[0].streamVideoId) throw new Error("Video is missing Stream ID");
+      return result[0];
+    });
 
-      await step.do("mark exporting audio", async () => {
+    await step.do("mark exporting audio", async () => {
+      await db
+        .update(transcripts)
+        .set({ status: "exporting_audio", startedAt: now(), updatedAt: now() })
+        .where(eq(transcripts.id, transcriptId));
+    });
+
+    await step.do("request audio download", async () => {
+      await requestAudioDownload(
+        this.env.STREAM_ACCOUNT_ID,
+        this.env.STREAM_API_TOKEN,
+        video.streamVideoId!,
+      );
+    });
+
+    const audioUrl = await step.do(
+      "wait for audio download",
+      { retries: { limit: 20, delay: "15 seconds", backoff: "linear" }, timeout: "2 minutes" },
+      async () => {
         await db
           .update(transcripts)
-          .set({ status: "exporting_audio", startedAt: now(), updatedAt: now() })
+          .set({ status: "waiting_for_audio", updatedAt: now() })
           .where(eq(transcripts.id, transcriptId));
-      });
 
-      await step.do("request audio download", async () => {
-        await requestAudioDownload(
+        const audio = await getAudioDownload(
           this.env.STREAM_ACCOUNT_ID,
           this.env.STREAM_API_TOKEN,
           video.streamVideoId!,
         );
-      });
 
-      let audioUrl = await step.do(
-        "wait for audio download",
-        { retries: { limit: 20, delay: "15 seconds", backoff: "linear" }, timeout: "2 minutes" },
-        async () => {
-          await db
-            .update(transcripts)
-            .set({ status: "waiting_for_audio", updatedAt: now() })
-            .where(eq(transcripts.id, transcriptId));
-
-          const audio = await getAudioDownload(
-            this.env.STREAM_ACCOUNT_ID,
-            this.env.STREAM_API_TOKEN,
-            video.streamVideoId!,
-          );
-
-          if (!audio || audio.status === "inprogress") {
-            throw new Error("Audio download is not ready yet");
-          }
-          if (audio.status !== "ready" || !audio.url) {
-            throw new Error(`Audio download failed with status ${audio.status}`);
-          }
-
-          await db
-            .update(transcripts)
-            .set({ audioDownloadUrl: audio.url, updatedAt: now() })
-            .where(eq(transcripts.id, transcriptId));
-
-          return audio.url;
-        },
-      );
-
-      const whisper = await step.do("transcribe audio", { timeout: "10 minutes" }, async () => {
-        await db
-          .update(transcripts)
-          .set({ status: "transcribing", updatedAt: now() })
-          .where(eq(transcripts.id, transcriptId));
-
-        const audioResponse = await fetch(audioUrl);
-        if (!audioResponse.ok) throw new Error(`Audio fetch failed: ${audioResponse.status}`);
-
-        const audioBuffer = await audioResponse.arrayBuffer();
-        const response = await this.env.AI.run("@cf/openai/whisper", {
-          audio: [...new Uint8Array(audioBuffer)],
-        }) as WhisperResponse;
-
-        if (!response.text) throw new Error("Workers AI did not return transcript text");
-
-        await db
-          .update(transcripts)
-          .set({
-            rawText: response.text,
-            vtt: response.vtt || null,
-            wordCount: response.word_count || null,
-            status: "ready_raw_only",
-            updatedAt: now(),
-          })
-          .where(eq(transcripts.id, transcriptId));
-
-        return response;
-      });
-
-      await step.do("clean transcript", { timeout: "5 minutes" }, async () => {
-        await db
-          .update(transcripts)
-          .set({ status: "cleaning", updatedAt: now() })
-          .where(eq(transcripts.id, transcriptId));
-
-        try {
-          const response = await this.env.AI.run(this.env.TRANSCRIPT_CLEANUP_MODEL, {
-            messages: [{ role: "user", content: getCleanupPrompt(whisper.text!) }],
-          }) as TextGenerationResponse;
-
-          const cleaned = response.response?.trim();
-          await db
-            .update(transcripts)
-            .set({
-              cleanedText: cleaned || null,
-              status: cleaned ? "ready" : "ready_raw_only",
-              completedAt: now(),
-              updatedAt: now(),
-            })
-            .where(eq(transcripts.id, transcriptId));
-        } catch (error) {
-          await db
-            .update(transcripts)
-            .set({
-              status: "ready_raw_only",
-              errorMessage: error instanceof Error ? error.message : "Transcript cleanup failed",
-              completedAt: now(),
-              updatedAt: now(),
-            })
-            .where(eq(transcripts.id, transcriptId));
+        if (!audio || audio.status === "inprogress") {
+          throw new Error("Audio download is not ready yet");
         }
-      });
-    } catch (error) {
+        if (audio.status !== "ready" || !audio.url) {
+          throw new Error(`Audio download failed with status ${audio.status}`);
+        }
+
+        await db
+          .update(transcripts)
+          .set({ audioDownloadUrl: audio.url, updatedAt: now() })
+          .where(eq(transcripts.id, transcriptId));
+
+        return audio.url;
+      },
+    );
+
+    const whisper = await step.do("transcribe audio", { timeout: "10 minutes" }, async () => {
+      await db
+        .update(transcripts)
+        .set({ status: "transcribing", updatedAt: now() })
+        .where(eq(transcripts.id, transcriptId));
+
+      const audioResponse = await fetch(audioUrl);
+      if (!audioResponse.ok) throw new Error(`Audio fetch failed: ${audioResponse.status}`);
+
+      const audioBytes = new Uint8Array(await audioResponse.arrayBuffer());
+      const response = await this.env.AI.run("@cf/openai/whisper", {
+        audio: [...audioBytes],
+      }) as WhisperResponse;
+
+      if (!response.text) throw new Error("Workers AI did not return transcript text");
+
       await db
         .update(transcripts)
         .set({
-          status: "failed",
-          errorMessage: error instanceof Error ? error.message : "Transcript workflow failed",
-          completedAt: now(),
+          rawText: response.text,
+          vtt: response.vtt || null,
+          wordCount: response.word_count || null,
+          status: "ready_raw_only",
           updatedAt: now(),
         })
         .where(eq(transcripts.id, transcriptId));
-      throw error;
-    }
+
+      return response;
+    });
+
+    await step.do("clean transcript", { timeout: "5 minutes" }, async () => {
+      await db
+        .update(transcripts)
+        .set({ status: "cleaning", updatedAt: now() })
+        .where(eq(transcripts.id, transcriptId));
+
+      try {
+        const response = await this.env.AI.run(this.env.TRANSCRIPT_CLEANUP_MODEL, {
+          messages: [{ role: "user", content: getCleanupPrompt(whisper.text!) }],
+        }) as TextGenerationResponse;
+
+        const cleaned = response.response?.trim();
+        await db
+          .update(transcripts)
+          .set({
+            cleanedText: cleaned || null,
+            status: cleaned ? "ready" : "ready_raw_only",
+            completedAt: now(),
+            updatedAt: now(),
+          })
+          .where(eq(transcripts.id, transcriptId));
+      } catch (cleanupError) {
+        // Cleanup failure is non-fatal -- raw transcript is still usable.
+        await db
+          .update(transcripts)
+          .set({
+            status: "ready_raw_only",
+            errorMessage: cleanupError instanceof Error ? cleanupError.message : "Transcript cleanup failed",
+            completedAt: now(),
+            updatedAt: now(),
+          })
+          .where(eq(transcripts.id, transcriptId));
+      }
+    });
   }
 }
