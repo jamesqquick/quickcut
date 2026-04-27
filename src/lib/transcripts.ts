@@ -5,10 +5,6 @@ import { isTranscriptGenerationEnabled } from "./flags";
 
 export type { TranscriptStatus } from "./transcript-status";
 
-interface WorkflowBinding {
-  create(options: { id?: string; params?: unknown }): Promise<{ id: string }>;
-}
-
 export interface TranscriptWorkflowParams {
   transcriptId: string;
   videoId: string;
@@ -84,7 +80,7 @@ export async function queueTranscriptForVideo(
     });
   }
 
-  const workflow = (env as Env & { TRANSCRIPT_WORKFLOW?: WorkflowBinding }).TRANSCRIPT_WORKFLOW;
+  const workflow = env.TRANSCRIPT_WORKFLOW;
   if (!workflow) return;
 
   try {
