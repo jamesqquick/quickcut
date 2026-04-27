@@ -1,0 +1,84 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { SpaceSettings } from "../../../components/SpaceSettings";
+import { createDb } from "../../../db";
+import { spaces, spaceMembers, spaceInvites, users } from "../../../db/schema";
+import { eq, and, count } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+import { verifySpaceAccess } from "../../../lib/spaces";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/dashboard");
+
+const db = createDb(env.DB);
+
+const role = await verifySpaceAccess(db, user.id, id);
+if (!role) return Astro.redirect("/dashboard");
+
+const space = await db
+  .select()
+  .from(spaces)
+  .where(eq(spaces.id, id))
+  .limit(1);
+
+if (space.length === 0) return Astro.redirect("/dashboard");
+
+const members = await db
+  .select({
+    id: spaceMembers.id,
+    userId: spaceMembers.userId,
+    role: spaceMembers.role,
+    createdAt: spaceMembers.createdAt,
+    displayName: users.displayName,
+    email: users.email,
+  })
+  .from(spaceMembers)
+  .innerJoin(users, eq(spaceMembers.userId, users.id))
+  .where(eq(spaceMembers.spaceId, id));
+
+const pendingInvites = role === "owner"
+  ? await db
+      .select()
+      .from(spaceInvites)
+      .where(and(eq(spaceInvites.spaceId, id), eq(spaceInvites.status, "pending")))
+  : [];
+
+// Check if this is the user's default personal space
+const firstOwned = await db
+  .select({ id: spaces.id })
+  .from(spaces)
+  .where(eq(spaces.ownerId, user.id))
+  .orderBy(spaces.createdAt)
+  .limit(1);
+
+const isDefaultSpace = firstOwned.length > 0 && firstOwned[0].id === id;
+---
+
+<Layout title={`${space[0].name} Settings`} user={user}>
+  <div class="mx-auto max-w-[720px] px-4 py-8 sm:px-8">
+    <div class="mb-6">
+      <a
+        href="/dashboard"
+        class="inline-flex items-center gap-1 text-sm text-text-secondary transition-colors hover:text-text-primary"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+        Back to Dashboard
+      </a>
+    </div>
+
+    <SpaceSettings
+      client:load
+      space={space[0]}
+      members={members}
+      pendingInvites={pendingInvites}
+      currentUserId={user.id}
+      currentUserRole={role}
+      isDefaultSpace={isDefaultSpace}
+    />
+  </div>
+</Layout>
