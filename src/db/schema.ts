@@ -140,6 +140,80 @@ export const shareLinks = sqliteTable("share_links", {
     .default(sql`(datetime('now'))`),
 });
 
+// =============================================================================
+// Spaces (teams) — see docs/teams-feature.md
+//
+// Tables defined here but not yet wired into videos/folders. A follow-up PR
+// will add `spaceId` to `videos` and `folders`, drop `videos.reviewStatus`,
+// and run the backfill migration.
+// =============================================================================
+
+export const spaces = sqliteTable("spaces", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  ownerId: text("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  requiredApprovals: integer("required_approvals").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const spaceMembers = sqliteTable("space_members", {
+  id: text("id").primaryKey(),
+  spaceId: text("space_id")
+    .notNull()
+    .references(() => spaces.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  role: text("role", { enum: ["owner", "member"] })
+    .notNull()
+    .default("member"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const spaceInvites = sqliteTable("space_invites", {
+  id: text("id").primaryKey(),
+  spaceId: text("space_id")
+    .notNull()
+    .references(() => spaces.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  invitedBy: text("invited_by")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  status: text("status", {
+    enum: ["pending", "accepted", "declined", "revoked"],
+  })
+    .notNull()
+    .default("pending"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  acceptedAt: text("accepted_at"),
+});
+
+export const approvals = sqliteTable("approvals", {
+  id: text("id").primaryKey(),
+  videoId: text("video_id")
+    .notNull()
+    .references(() => videos.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  comment: text("comment"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 export const comments = sqliteTable("comments", {
   id: text("id").primaryKey(),
   videoId: text("video_id")
