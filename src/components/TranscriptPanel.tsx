@@ -17,6 +17,7 @@ interface TranscriptResponse {
 
 interface TranscriptPanelProps {
   videoId: string;
+  videoTitle: string;
 }
 
 const statusCopy: Record<TranscriptStatus, { title: string; body: string }> = {
@@ -53,8 +54,8 @@ const statusCopy: Record<TranscriptStatus, { title: string; body: string }> = {
     body: "",
   },
   ready_raw_only: {
-    title: "Raw transcript ready",
-    body: "Cleanup failed, so this is the raw speech-to-text output.",
+    title: "Transcript ready",
+    body: "This transcript has not been formatted. It may contain minor punctuation or capitalization issues.",
   },
   failed: {
     title: "Transcript failed",
@@ -81,11 +82,12 @@ function getPollInterval(status: TranscriptStatus): number | null {
   return null;
 }
 
-export function TranscriptPanel({ videoId }: TranscriptPanelProps) {
+export function TranscriptPanel({ videoId, videoTitle }: TranscriptPanelProps) {
   const [data, setData] = useState<TranscriptResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -196,6 +198,43 @@ export function TranscriptPanel({ videoId }: TranscriptPanelProps) {
         >
           {generating ? "Retrying..." : "Retry transcript"}
         </button>
+      )}
+
+      {text && (status === "ready" || status === "ready_raw_only") && (
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              await navigator.clipboard.writeText(text);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+            className="rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-tertiary"
+          >
+            {copied ? "Copied!" : "Copy transcript"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const blob = new Blob([text], { type: "text/plain" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              const slug = videoTitle
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/(^-|-$)/g, "");
+              a.href = url;
+              a.download = `${slug || "transcript"}-transcript.txt`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(url);
+            }}
+            className="rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-tertiary"
+          >
+            Download .txt
+          </button>
+        </div>
       )}
 
       {text && (
