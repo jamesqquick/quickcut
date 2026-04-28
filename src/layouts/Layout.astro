@@ -3,6 +3,7 @@ import "../styles/tailwind.css";
 import { UserMenu } from "../components/UserMenu";
 import { SpaceSwitcher } from "../components/SpaceSwitcher";
 import { createDb } from "../db";
+import { getPendingInvitesForUser } from "../lib/invites";
 import { getUserSpaces } from "../lib/spaces";
 import { env } from "cloudflare:workers";
 
@@ -15,7 +16,9 @@ interface Props {
 
 const { title, description, user, selectedSpaceId } = Astro.props;
 const metaDescription = description ?? "QuickCut - Collaborative video review";
-const userSpaces = user ? await getUserSpaces(createDb(env.DB), user.id) : [];
+const db = createDb(env.DB);
+const userSpaces = user ? await getUserSpaces(db, user.id) : [];
+const pendingInviteCount = user ? (await getPendingInvitesForUser(db, user.email)).length : 0;
 const headerSpaceId = selectedSpaceId ?? Astro.url.searchParams.get("space") ?? userSpaces[0]?.id ?? null;
 ---
 
@@ -42,7 +45,7 @@ const headerSpaceId = selectedSpaceId ?? Astro.url.searchParams.get("space") ?? 
           </a>
           <div class="ml-auto flex items-center gap-3">
             <SpaceSwitcher client:load spaces={userSpaces} selectedSpaceId={headerSpaceId} />
-            <UserMenu client:load displayName={user.displayName} email={user.email} />
+            <UserMenu client:load displayName={user.displayName} email={user.email} notificationCount={pendingInviteCount} />
           </div>
         </header>
       )

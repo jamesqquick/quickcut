@@ -22,7 +22,7 @@ function parseCookies(cookieHeader: string): Record<string, string> {
   return cookies;
 }
 
-const protectedRoutes = ["/dashboard", "/upload", "/videos/", "/spaces/"];
+const protectedRoutes = ["/dashboard", "/notifications", "/upload", "/videos/", "/spaces/"];
 const authApiRoutes = ["/api/videos", "/api/comments", "/api/spaces", "/api/invites"];
 
 export const onRequest = defineMiddleware(async (context, next) => {

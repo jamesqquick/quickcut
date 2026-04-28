@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ToastViewport, useToast } from "./Toast";
 
 interface Space {
   id: string;
@@ -62,8 +63,7 @@ export function SpaceSettings({
   // Invite form state
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteSaving, setInviteSaving] = useState(false);
-  const [inviteError, setInviteError] = useState("");
-  const [inviteSuccess, setInviteSuccess] = useState("");
+  const { toasts, showToast, dismissToast } = useToast();
 
   // General action state
   const [actionError, setActionError] = useState("");
@@ -99,8 +99,6 @@ export function SpaceSettings({
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviteSaving(true);
-    setInviteError("");
-    setInviteSuccess("");
 
     try {
       const res = await fetch(`/api/spaces/${space.id}/invites`, {
@@ -116,10 +114,9 @@ export function SpaceSettings({
       if (!res.ok) throw new Error(data?.error || "Failed to send invite");
       if (data?.invite) setInvites((prev) => [...prev, data.invite!]);
       setInviteEmail("");
-      setInviteSuccess("Invite sent");
-      setTimeout(() => setInviteSuccess(""), 3000);
+      showToast("Invite sent");
     } catch (err) {
-      setInviteError(err instanceof Error ? err.message : "Failed to invite");
+      showToast(err instanceof Error ? err.message : "Failed to invite", "error");
     } finally {
       setInviteSaving(false);
     }
@@ -185,21 +182,7 @@ export function SpaceSettings({
 
   return (
     <div className="space-y-8">
-      {inviteSuccess && (
-        <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[60] sm:inset-x-auto sm:bottom-auto sm:right-6 sm:top-20">
-          <div
-            role="status"
-            className="pointer-events-auto flex items-center gap-3 rounded-xl border border-accent-success/30 bg-bg-secondary px-4 py-3 text-sm text-text-primary shadow-xl"
-          >
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-success/15 text-accent-success">
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fillRule="evenodd" d="M16.704 5.296a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L8 12.586l7.29-7.29a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </span>
-            <span>{inviteSuccess}</span>
-          </div>
-        </div>
-      )}
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
 
       {/* Header */}
       <div>
@@ -357,11 +340,6 @@ export function SpaceSettings({
             </button>
           </form>
 
-          {inviteError && (
-            <div className="mt-3 rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
-              {inviteError}
-            </div>
-          )}
           {invites.length > 0 && (
             <ul className="mt-4 divide-y divide-border-default">
               {invites.map((invite) => (

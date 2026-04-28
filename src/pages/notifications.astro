@@ -1,0 +1,26 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { PendingInvitesList } from "../components/PendingInvitesList";
+import { createDb } from "../db";
+import { getPendingInvitesForUser } from "../lib/invites";
+import { env } from "cloudflare:workers";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+const db = createDb(env.DB);
+const pendingInvites = await getPendingInvitesForUser(db, user.email);
+---
+
+<Layout title="Notifications" user={user}>
+  <div class="mx-auto max-w-3xl px-4 py-8 sm:px-8">
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-text-primary">Notifications</h1>
+      <p class="mt-1 text-sm text-text-secondary">
+        Review pending space invites for your account.
+      </p>
+    </div>
+
+    <PendingInvitesList client:load invites={pendingInvites} />
+  </div>
+</Layout>
