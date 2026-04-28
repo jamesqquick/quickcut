@@ -323,19 +323,19 @@ export function SpaceSettings({
         <section className="rounded-xl border border-border-default bg-bg-secondary p-6">
           <h2 className="text-base font-semibold text-text-primary">Invites</h2>
 
-          <form onSubmit={handleInvite} className="mt-4 flex gap-3">
+          <form onSubmit={handleInvite} className="mt-4 flex flex-col gap-3 sm:flex-row">
             <input
               type="email"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               disabled={inviteSaving}
               placeholder="colleague@example.com"
-              className="flex-1 rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50 sm:flex-1"
             />
             <button
               type="submit"
               disabled={inviteSaving || !inviteEmail.trim()}
-              className="rounded-lg bg-accent-primary px-4 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover disabled:opacity-50"
+              className="w-full rounded-lg bg-accent-primary px-4 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover disabled:opacity-50 sm:w-auto"
             >
               {inviteSaving ? "Sending..." : "Send Invite"}
             </button>
