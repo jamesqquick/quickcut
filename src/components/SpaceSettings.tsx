@@ -185,6 +185,22 @@ export function SpaceSettings({
 
   return (
     <div className="space-y-8">
+      {inviteSuccess && (
+        <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[60] sm:inset-x-auto sm:bottom-auto sm:right-6 sm:top-20">
+          <div
+            role="status"
+            className="pointer-events-auto flex items-center gap-3 rounded-xl border border-accent-success/30 bg-bg-secondary px-4 py-3 text-sm text-text-primary shadow-xl"
+          >
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-success/15 text-accent-success">
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M16.704 5.296a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L8 12.586l7.29-7.29a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </span>
+            <span>{inviteSuccess}</span>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-text-primary">{space.name}</h1>
@@ -346,12 +362,6 @@ export function SpaceSettings({
               {inviteError}
             </div>
           )}
-          {inviteSuccess && (
-            <div className="mt-3 rounded-lg bg-accent-success/15 px-4 py-2 text-sm text-accent-success">
-              {inviteSuccess}
-            </div>
-          )}
-
           {invites.length > 0 && (
             <ul className="mt-4 divide-y divide-border-default">
               {invites.map((invite) => (
