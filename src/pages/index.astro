@@ -9,7 +9,7 @@ if (user) {
 
 <Layout
   title="Collaborative Video Review"
-  description="QuickCut is collaborative video review built on Cloudflare. Version stacks, timestamped comments, share links for clients, resumable 5GB uploads, and global HLS playback."
+  description="QuickCut is collaborative video review built on Cloudflare. Team spaces, member invites, version stacks, timestamped comments, share links for clients, resumable 5GB uploads, and global HLS playback."
 >
   <!-- Marketing nav -->
   <header class="sticky top-0 z-50 border-b border-border-default bg-bg-primary/80 backdrop-blur">
@@ -47,7 +47,7 @@ if (user) {
           class="mb-6 inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-secondary px-3 py-1 text-xs text-text-secondary"
         >
           <span class="size-1.5 rounded-full bg-accent-secondary"></span>
-          Collaborative video review, built on the edge
+          Team spaces for collaborative video review
         </div>
         <h1 class="text-4xl font-bold tracking-tight text-text-primary sm:text-6xl">
           Review video together.
@@ -56,8 +56,8 @@ if (user) {
           </span>
         </h1>
         <p class="mx-auto mt-6 max-w-2xl text-lg text-text-secondary">
-          Upload up to 5GB, stack new cuts as versions, share a link, and collect timestamped feedback
-          from your team or clients — no account required for reviewers. Powered by Cloudflare.
+          Create spaces for each team or client, invite collaborators, upload up to 5GB, stack new cuts as
+          versions, and collect timestamped feedback — no account required for external reviewers.
         </p>
         <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
           <a
@@ -81,16 +81,21 @@ if (user) {
           class="rounded-2xl border border-border-default bg-bg-secondary p-3 shadow-[0_24px_64px_rgba(0,0,0,0.5)]"
         >
           <!-- Mock window chrome -->
-          <div class="mb-3 flex items-center justify-between px-2">
-            <div class="flex items-center gap-1.5">
-              <span class="size-2.5 rounded-full bg-accent-danger/60"></span>
-              <span class="size-2.5 rounded-full bg-accent-warning/60"></span>
-              <span class="size-2.5 rounded-full bg-accent-secondary/60"></span>
+            <div class="mb-3 flex items-center justify-between px-2">
+              <div class="flex items-center gap-1.5">
+                <span class="size-2.5 rounded-full bg-accent-danger/60"></span>
+                <span class="size-2.5 rounded-full bg-accent-warning/60"></span>
+                <span class="size-2.5 rounded-full bg-accent-secondary/60"></span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="rounded-full bg-accent-primary/15 px-2.5 py-0.5 text-xs font-medium text-accent-primary">
+                  Acme Launch Space
+                </span>
+                <span class="rounded-full bg-accent-secondary/15 px-2.5 py-0.5 text-xs font-medium text-accent-secondary">
+                  Approved
+                </span>
+              </div>
             </div>
-            <span class="rounded-full bg-accent-secondary/15 px-2.5 py-0.5 text-xs font-medium text-accent-secondary">
-              Approved
-            </span>
-          </div>
 
           <!-- Faux video frame -->
           <div class="relative aspect-video overflow-hidden rounded-xl bg-bg-tertiary">
@@ -239,13 +244,15 @@ if (user) {
             class="mb-4 flex size-10 items-center justify-center rounded-lg bg-accent-warning/15 text-accent-warning"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
             </svg>
           </div>
-          <h3 class="font-semibold text-text-primary">Review statuses</h3>
+          <h3 class="font-semibold text-text-primary">Team spaces</h3>
           <p class="mt-2 text-sm text-text-secondary">
-            Move clips through Needs Review → In Progress → Approved. Always know what's blocking the cut.
+            Separate every client, channel, or project into its own space with members, invites, and settings.
           </p>
         </div>
 
@@ -275,15 +282,94 @@ if (user) {
             class="mb-4 flex size-10 items-center justify-center rounded-lg bg-accent-info/15 text-accent-info"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-5">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
             </svg>
           </div>
-          <h3 class="font-semibold text-text-primary">Global HLS playback</h3>
+          <h3 class="font-semibold text-text-primary">Approval workflows</h3>
           <p class="mt-2 text-sm text-text-secondary">
-            Adaptive streaming powered by Cloudflare Stream. Smooth playback for every reviewer, anywhere.
+            Set required approvals per space so every team has the right sign-off process before a cut ships.
           </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Spaces -->
+  <section class="border-t border-border-default bg-bg-secondary/30">
+    <div class="mx-auto grid max-w-[1280px] gap-10 px-6 py-20 sm:px-8 sm:py-24 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+      <div>
+        <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-primary px-3 py-1 text-xs text-text-secondary">
+          <span class="size-1.5 rounded-full bg-accent-primary"></span>
+          New: Spaces
+        </div>
+        <h2 class="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
+          Keep every review group in its own space
+        </h2>
+        <p class="mt-4 text-text-secondary">
+          Spaces give each team, client, or project a dedicated home for videos, members, approvals, and invite notifications.
+          Switch contexts without mixing feedback, files, or access.
+        </p>
+        <div class="mt-8 grid gap-3 sm:grid-cols-2">
+          <div class="rounded-xl border border-border-default bg-bg-primary p-4">
+            <h3 class="text-sm font-semibold text-text-primary">Invite teammates</h3>
+            <p class="mt-2 text-sm text-text-secondary">
+              Send space invites by email and let users accept from their notifications page.
+            </p>
+          </div>
+          <div class="rounded-xl border border-border-default bg-bg-primary p-4">
+            <h3 class="text-sm font-semibold text-text-primary">Scope access</h3>
+            <p class="mt-2 text-sm text-text-secondary">
+              Videos, folders, members, and approval settings stay tied to the selected space.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-border-default bg-bg-primary p-3 shadow-[0_24px_64px_rgba(0,0,0,0.35)]">
+        <div class="rounded-xl border border-border-default bg-bg-secondary p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border-default pb-4">
+            <div>
+              <p class="text-xs font-medium uppercase tracking-wide text-text-tertiary">Current space</p>
+              <h3 class="mt-1 text-lg font-semibold text-text-primary">Acme Launch</h3>
+            </div>
+            <span class="rounded-full bg-accent-primary/15 px-3 py-1 text-xs font-medium text-accent-primary">
+              4 members
+            </span>
+          </div>
+
+          <div class="mt-5 space-y-3">
+            <div class="flex items-center justify-between rounded-lg border border-border-default bg-bg-tertiary/60 p-3">
+              <div class="flex items-center gap-3">
+                <div class="flex size-9 items-center justify-center rounded-lg bg-accent-primary/15 text-accent-primary">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="size-4">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-text-primary">Invite pending</p>
+                  <p class="text-xs text-text-tertiary">maya@example.com</p>
+                </div>
+              </div>
+              <span class="rounded-full bg-accent-warning/15 px-2.5 py-0.5 text-xs font-medium text-accent-warning">
+                Pending
+              </span>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="rounded-lg border border-border-default bg-bg-tertiary/60 p-3">
+                <p class="text-xs font-medium text-text-tertiary">Required approvals</p>
+                <p class="mt-2 text-2xl font-bold text-text-primary">2</p>
+              </div>
+              <div class="rounded-lg border border-border-default bg-bg-tertiary/60 p-3">
+                <p class="text-xs font-medium text-text-tertiary">Videos in review</p>
+                <p class="mt-2 text-2xl font-bold text-text-primary">12</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -346,10 +432,10 @@ if (user) {
             >
               2
             </span>
-            <h3 class="font-semibold text-text-primary">Share</h3>
+            <h3 class="font-semibold text-text-primary">Invite or share</h3>
           </div>
           <p class="mt-3 text-sm text-text-secondary">
-            Generate a link. Reviewers don't need an account — just a name.
+            Invite teammates into a space or generate a public link for clients who only need to review.
           </p>
           <!-- Mock share card -->
           <div class="mt-5 rounded-lg border border-border-default bg-bg-tertiary/50 p-4">
@@ -594,6 +680,27 @@ if (user) {
           <p class="mt-3 text-sm text-text-secondary">
             No. Anyone with a share link can leave timestamped comments after entering a display name. You
             stay in control — revoke any link at any time.
+          </p>
+        </details>
+
+        <details
+          class="group rounded-xl border border-border-default bg-bg-primary p-5 transition-colors hover:border-border-hover"
+        >
+          <summary class="flex cursor-pointer items-center justify-between text-sm font-semibold text-text-primary">
+            What are spaces for?
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              class="size-4 text-text-tertiary transition-transform group-open:rotate-180"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </summary>
+          <p class="mt-3 text-sm text-text-secondary">
+            Spaces keep videos, folders, members, invites, and approval settings grouped by team, client, or project.
+            Use public share links when someone only needs temporary review access.
           </p>
         </details>
 
