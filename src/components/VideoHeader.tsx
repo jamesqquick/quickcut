@@ -159,8 +159,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
     <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
       <a
         href={backHref}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-        aria-label="Back to library"
+        className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
       >
         <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path
@@ -169,6 +168,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
             clipRule="evenodd"
           />
         </svg>
+        Back to videos
       </a>
 
       <div className="ml-auto flex items-center gap-2">
