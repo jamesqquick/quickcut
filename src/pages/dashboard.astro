@@ -200,11 +200,6 @@ const emptyDescription = currentFolderRecord
         <h1 class="text-2xl font-bold text-text-primary">
           {currentFolderRecord ? currentFolderRecord.name : selectedSpace.name}
         </h1>
-        {!currentFolderRecord && (
-          <p class="mt-1 text-sm text-text-secondary">
-            {selectedSpace.role === "owner" ? "Owner" : "Member"} space
-          </p>
-        )}
       </div>
       <div class="flex items-center gap-2 sm:gap-3">
         <CreateFolderDialog client:load parentId={currentFolderId} spaceId={selectedSpaceId} />
