@@ -115,11 +115,10 @@ export function SpaceSwitcher({ spaces, selectedSpaceId }: SpaceSwitcherProps) {
                 type="button"
                 role="menuitem"
                 onClick={() => selectSpace(space.id)}
-                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-bg-tertiary"
+                className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-bg-tertiary"
               >
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-text-primary">{space.name}</span>
-                  <span className="text-xs text-text-tertiary">{space.requiredApprovals} required approvals</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-[10px] uppercase tracking-wide text-text-secondary">
@@ -136,9 +135,9 @@ export function SpaceSwitcher({ spaces, selectedSpaceId }: SpaceSwitcherProps) {
                 href={`/spaces/${selectedSpace.id}/settings?space=${selectedSpace.id}`}
                 className="flex items-center gap-2 px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
               >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.653.854.102.05.203.103.302.159.325.183.72.188 1.04-.004l1.096-.658a1.125 1.125 0 011.45.191l1.832 1.832c.389.389.47.995.191 1.45l-.658 1.096c-.192.32-.187.715-.004 1.04.056.099.109.2.159.302.168.34.48.59.854.653l1.281.213c.542.09.94.56.94 1.11v2.593c0 .55-.398 1.02-.94 1.11l-1.281.213a1.125 1.125 0 00-.854.653 6.963 6.963 0 01-.159.302c-.183.325-.188.72.004 1.04l.658 1.096c.279.455.198 1.061-.191 1.45l-1.832 1.832a1.125 1.125 0 01-1.45.191l-1.096-.658a1.125 1.125 0 00-1.04-.004c-.099.056-.2.109-.302.159a1.125 1.125 0 00-.653.854l-.213 1.281c-.09.542-.56.94-1.11.94h-2.593c-.55 0-1.02-.398-1.11-.94l-.213-1.281a1.125 1.125 0 00-.653-.854 6.963 6.963 0 01-.302-.159 1.125 1.125 0 00-1.04.004l-1.096.658a1.125 1.125 0 01-1.45-.191l-1.832-1.832a1.125 1.125 0 01-.191-1.45l.658-1.096c.192-.32.187-.715.004-1.04a6.963 6.963 0 01-.159-.302 1.125 1.125 0 00-.854-.653l-1.281-.213a1.125 1.125 0 01-.94-1.11v-2.593c0-.55.398-1.02.94-1.11l1.281-.213c.374-.063.686-.313.854-.653.05-.102.103-.203.159-.302.183-.325.188-.72-.004-1.04l-.658-1.096a1.125 1.125 0 01.191-1.45l1.832-1.832a1.125 1.125 0 011.45-.191l1.096.658c.32.192.715.187 1.04.004.099-.056.2-.109.302-.159.34-.168.59-.48.653-.854l.213-1.281z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <svg className="h-4 w-4 shrink-0 overflow-visible" fill="none" viewBox="0 0 20 20" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 2.5h3l.4 2a6.8 6.8 0 011.4.8l1.9-.7 1.5 2.6-1.5 1.3a6.9 6.9 0 010 1.6l1.5 1.3-1.5 2.6-1.9-.7a6.8 6.8 0 01-1.4.8l-.4 2h-3l-.4-2a6.8 6.8 0 01-1.4-.8l-1.9.7-1.5-2.6 1.5-1.3a6.9 6.9 0 010-1.6L3.3 7.2l1.5-2.6 1.9.7a6.8 6.8 0 011.4-.8l.4-2z" />
+                  <circle cx="10" cy="9.3" r="2.2" />
                 </svg>
                 Settings
               </a>
