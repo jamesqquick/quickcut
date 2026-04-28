@@ -3,9 +3,10 @@ import { Modal } from "./Modal";
 
 interface CreateFolderDialogProps {
   parentId?: string | null;
+  spaceId: string;
 }
 
-export function CreateFolderDialog({ parentId = null }: CreateFolderDialogProps) {
+export function CreateFolderDialog({ parentId = null, spaceId }: CreateFolderDialogProps) {
   const headingId = useId();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -23,7 +24,7 @@ export function CreateFolderDialog({ parentId = null }: CreateFolderDialogProps)
       const res = await fetch("/api/folders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), parentId }),
+        body: JSON.stringify({ name: name.trim(), parentId, spaceId }),
       });
       const data = await res.json().catch(() => null) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error || "Failed to create folder");

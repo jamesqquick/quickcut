@@ -12,6 +12,7 @@ interface MoveToFolderDialogProps {
   entityId: string;
   entityType: "video" | "folder";
   currentFolderId?: string | null;
+  spaceId?: string | null;
   onClose: () => void;
 }
 
@@ -60,6 +61,7 @@ export function MoveToFolderDialog({
   entityId,
   entityType,
   currentFolderId = null,
+  spaceId = null,
   onClose,
 }: MoveToFolderDialogProps) {
   const headingId = useId();
@@ -75,7 +77,7 @@ export function MoveToFolderDialog({
     setError("");
     setLoading(true);
 
-    fetch("/api/folders")
+    fetch(spaceId ? `/api/folders?space=${spaceId}` : "/api/folders")
       .then(async (res) => await res.json() as { folders?: Folder[]; error?: string })
       .then((data) => {
         if (data.error) throw new Error(data.error);
@@ -83,7 +85,7 @@ export function MoveToFolderDialog({
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load folders"))
       .finally(() => setLoading(false));
-  }, [currentFolderId, isOpen]);
+  }, [currentFolderId, isOpen, spaceId]);
 
   const handleMove = async () => {
     setSaving(true);

@@ -1,16 +1,18 @@
 # QuickCut
 
-Collaborative video review, built on Cloudflare. Upload up to 5GB, stack new versions, share a link, and collect timestamped feedback from your team or clients — no account required for reviewers.
+Collaborative video review, built on Cloudflare. Organize work into team spaces, upload up to 5GB, stack new versions, share a link, and collect timestamped feedback from your team or clients — no account required for external reviewers.
 
 > Think Frame.io, but small, focused, and running entirely on the edge.
 
 ## Features
 
 - **Resumable 5GB uploads** — drag-drop with TUS-resumable direct uploads to Cloudflare Stream
+- **Spaces for teams and clients** — create separate workspaces, invite members, switch contexts, and keep videos scoped to the right group
 - **Version stacking** — upload new cuts into an ordered stack while keeping review history version-specific
 - **Timestamped comments** — feedback pinned to the exact frame
 - **Threaded replies + resolve** — keep review discussions organized
-- **Review statuses** — `Needs Review` → `In Progress` → `Approved`
+- **Approval workflows** — configure required approvals per space and track sign-off on each cut
+- **Invite notifications** — pending space invites show in the account menu and can be accepted from `/notifications`
 - **Public share links** — reviewers comment without an account; revoke anytime
 - **Global HLS playback** — adaptive streaming via Cloudflare Stream
 - **Auth + sessions** — email/password (PBKDF2), HttpOnly secure cookies, "remember me"
@@ -42,9 +44,13 @@ Serverless SQLite backs every persistent record. The `DB` binding gives the Work
 Tables (see `src/db/schema.ts`):
 - `users` — accounts (PBKDF2-hashed passwords)
 - `sessions` — server-side sessions tied to `quickcut_session` cookie
-- `videos` — Stream UID, status, review status, metadata, version group fields
+- `spaces` — team/client workspaces, ownership, and required approval settings
+- `space_members` — user membership and role per space
+- `space_invites` — pending, accepted, declined, and revoked space invites
+- `videos` — Stream UID, status, metadata, version group fields, and space ownership
 - `share_links` — token, status, view count
 - `comments` — timestamped, threaded (`parentId`), resolvable
+- `approvals` — per-user approval records for videos
 
 Migrations are managed via `drizzle-kit` and applied with `wrangler d1 migrations apply`.
 
@@ -85,7 +91,7 @@ src/
 ├── db/              Drizzle schema and client factory
 ├── durable-objects/ Durable Object classes (VideoRoom for real-time comment fan-out)
 ├── layouts/         Layout.astro
-├── lib/             Auth, Stream, broadcast (DO RPC), realtime (client WS) helpers
+├── lib/             Auth, Stream, spaces, invites, broadcast (DO RPC), realtime (client WS) helpers
 ├── middleware.ts    Session loader + route protection
 ├── worker.ts        Custom Worker entry — delegates to Astro and exports DOs
 ├── pages/
@@ -93,10 +99,13 @@ src/
 │   ├── login.astro      Sign-in form
 │   ├── register.astro   Account creation
 │   ├── dashboard.astro  Video grid (auth)
+│   ├── notifications.astro  Pending space invites
 │   ├── upload.astro     Upload (auth)
+│   ├── spaces/[id]/settings.astro  Space settings, members, and invites
 │   ├── videos/[id].astro    Authenticated review view
+│   ├── invites/[token].astro    Direct invite accept/decline view
 │   ├── s/[token].astro      Public share view (no auth)
-│   └── api/             Auth, videos, versions, comments, share-links, webhooks, /live (WS upgrade)
+│   └── api/             Auth, spaces, invites, videos, versions, comments, share-links, webhooks, /live (WS upgrade)
 └── styles/          Tailwind + design tokens
 migrations/          D1 migrations
 wrangler.jsonc       Worker + bindings config (DB, Durable Objects, vars)

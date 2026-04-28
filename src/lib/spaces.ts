@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { spaces, spaceMembers } from "../db/schema";
 import type { Database } from "../db";
 
@@ -31,7 +31,8 @@ export async function getUserSpaces(
     })
     .from(spaceMembers)
     .innerJoin(spaces, eq(spaceMembers.spaceId, spaces.id))
-    .where(eq(spaceMembers.userId, userId));
+    .where(eq(spaceMembers.userId, userId))
+    .orderBy(asc(spaceMembers.createdAt));
 
   return rows as SpaceWithRole[];
 }

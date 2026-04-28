@@ -5,9 +5,10 @@ import { MoveToFolderDialog } from "./MoveToFolderDialog";
 interface VideoCardMenuProps {
   videoId: string;
   folderId?: string | null;
+  spaceId?: string | null;
 }
 
-export function VideoCardMenu({ videoId, folderId = null }: VideoCardMenuProps) {
+export function VideoCardMenu({ videoId, folderId = null, spaceId = null }: VideoCardMenuProps) {
   const [open, setOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -130,6 +131,7 @@ export function VideoCardMenu({ videoId, folderId = null }: VideoCardMenuProps) 
         entityId={videoId}
         entityType="video"
         currentFolderId={folderId}
+        spaceId={spaceId}
         onClose={() => setMoveOpen(false)}
       />
 

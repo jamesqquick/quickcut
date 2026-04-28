@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { createDb } from "../../../../../db";
 import { spaceInvites, spaceMembers } from "../../../../../db/schema";
 
@@ -51,13 +51,25 @@ export const POST: APIRoute = async ({ params, locals }) => {
     );
   }
 
-  // Create membership
-  await db.insert(spaceMembers).values({
-    id: crypto.randomUUID(),
-    spaceId: inv.spaceId,
-    userId: locals.user.id,
-    role: "member",
-  });
+  const existingMembership = await db
+    .select({ id: spaceMembers.id })
+    .from(spaceMembers)
+    .where(
+      and(
+        eq(spaceMembers.spaceId, inv.spaceId),
+        eq(spaceMembers.userId, locals.user.id),
+      ),
+    )
+    .limit(1);
+
+  if (existingMembership.length === 0) {
+    await db.insert(spaceMembers).values({
+      id: crypto.randomUUID(),
+      spaceId: inv.spaceId,
+      userId: locals.user.id,
+      role: "member",
+    });
+  }
 
   // Mark invite as accepted
   await db

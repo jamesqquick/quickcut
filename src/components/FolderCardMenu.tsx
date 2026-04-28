@@ -7,9 +7,10 @@ interface FolderCardMenuProps {
   folderId: string;
   folderName: string;
   parentId?: string | null;
+  spaceId: string;
 }
 
-export function FolderCardMenu({ folderId, folderName, parentId = null }: FolderCardMenuProps) {
+export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId }: FolderCardMenuProps) {
   const headingId = useId();
   const [open, setOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -87,7 +88,7 @@ export function FolderCardMenu({ folderId, folderName, parentId = null }: Folder
       const res = await fetch(`/api/folders/${folderId}`, { method: "DELETE" });
       const data = await res.json().catch(() => null) as { error?: string } | null;
       if (!res.ok) throw new Error(data?.error || "Failed to delete folder");
-      window.location.href = parentId ? `/dashboard?folderId=${parentId}` : "/dashboard";
+      window.location.href = parentId ? `/dashboard?space=${spaceId}&folderId=${parentId}` : `/dashboard?space=${spaceId}`;
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete folder");
       setSaving(false);
@@ -194,6 +195,7 @@ export function FolderCardMenu({ folderId, folderName, parentId = null }: Folder
         entityId={folderId}
         entityType="folder"
         currentFolderId={parentId}
+        spaceId={spaceId}
         onClose={() => setMoveOpen(false)}
       />
 

@@ -4,7 +4,7 @@ import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import { createDb } from "../../../db";
 import { folders, videos, spaceMembers } from "../../../db/schema";
 import { folderCreateSchema } from "../../../lib/validation";
-import { getDefaultSpaceForUser } from "../../../lib/spaces";
+import { getDefaultSpaceForUser, verifySpaceAccess } from "../../../lib/spaces";
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (!locals.user) {
@@ -16,6 +16,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
 
   const db = createDb(env.DB);
   const parentId = url.searchParams.get("parentId");
+  const requestedSpaceId = url.searchParams.get("space");
 
   // Get all space IDs the user belongs to
   const memberRows = await db
@@ -31,7 +32,15 @@ export const GET: APIRoute = async ({ locals, url }) => {
     );
   }
 
-  const spaceFilter = inArray(folders.spaceId, spaceIds);
+  const targetSpaceIds = requestedSpaceId ? spaceIds.filter((id) => id === requestedSpaceId) : spaceIds;
+  if (requestedSpaceId && targetSpaceIds.length === 0) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const spaceFilter = inArray(folders.spaceId, targetSpaceIds);
   const where = parentId
     ? parentId === "root"
       ? and(spaceFilter, isNull(folders.parentId))
@@ -99,15 +108,22 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const db = createDb(env.DB);
   const parentId = parsed.data.parentId ?? null;
 
-  // Use the user's default space. A future PR will let the client pass a spaceId.
-  const defaultSpace = await getDefaultSpaceForUser(db, locals.user.id);
-  if (!defaultSpace) {
+  const defaultSpace = parsed.data.spaceId ? null : await getDefaultSpaceForUser(db, locals.user.id);
+  const targetSpaceId = parsed.data.spaceId ?? defaultSpace?.id;
+  if (!targetSpaceId) {
     return new Response(JSON.stringify({ error: "No space found for user" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
   }
-  const targetSpaceId = defaultSpace.id;
+
+  const role = await verifySpaceAccess(db, locals.user.id, targetSpaceId);
+  if (!role) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   if (parentId) {
     const parent = await db

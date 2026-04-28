@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ToastViewport, useToast } from "./Toast";
 
 interface Space {
   id: string;
@@ -62,8 +63,7 @@ export function SpaceSettings({
   // Invite form state
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteSaving, setInviteSaving] = useState(false);
-  const [inviteError, setInviteError] = useState("");
-  const [inviteSuccess, setInviteSuccess] = useState("");
+  const { toasts, showToast, dismissToast } = useToast();
 
   // General action state
   const [actionError, setActionError] = useState("");
@@ -99,8 +99,6 @@ export function SpaceSettings({
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviteSaving(true);
-    setInviteError("");
-    setInviteSuccess("");
 
     try {
       const res = await fetch(`/api/spaces/${space.id}/invites`, {
@@ -116,10 +114,9 @@ export function SpaceSettings({
       if (!res.ok) throw new Error(data?.error || "Failed to send invite");
       if (data?.invite) setInvites((prev) => [...prev, data.invite!]);
       setInviteEmail("");
-      setInviteSuccess("Invite sent");
-      setTimeout(() => setInviteSuccess(""), 3000);
+      showToast("Invite sent");
     } catch (err) {
-      setInviteError(err instanceof Error ? err.message : "Failed to invite");
+      showToast(err instanceof Error ? err.message : "Failed to invite", "error");
     } finally {
       setInviteSaving(false);
     }
@@ -185,6 +182,8 @@ export function SpaceSettings({
 
   return (
     <div className="space-y-8">
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-text-primary">{space.name}</h1>
@@ -299,6 +298,12 @@ export function SpaceSettings({
           ))}
         </ul>
 
+        {isOwner && members.length <= 1 && (
+          <div className="mt-4 rounded-lg border border-border-default bg-bg-primary px-4 py-3 text-sm text-text-secondary">
+            Invite teammates so they can review, comment, and approve videos in this space.
+          </div>
+        )}
+
         {!isOwner && (
           <div className="mt-4 border-t border-border-default pt-4">
             <button
@@ -317,34 +322,23 @@ export function SpaceSettings({
         <section className="rounded-xl border border-border-default bg-bg-secondary p-6">
           <h2 className="text-base font-semibold text-text-primary">Invites</h2>
 
-          <form onSubmit={handleInvite} className="mt-4 flex gap-3">
+          <form onSubmit={handleInvite} className="mt-4 flex flex-col gap-3 lg:flex-row">
             <input
               type="email"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               disabled={inviteSaving}
               placeholder="colleague@example.com"
-              className="flex-1 rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50 lg:flex-1"
             />
             <button
               type="submit"
               disabled={inviteSaving || !inviteEmail.trim()}
-              className="rounded-lg bg-accent-primary px-4 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover disabled:opacity-50"
+              className="w-full rounded-lg bg-accent-primary px-4 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover disabled:opacity-50 lg:w-auto"
             >
               {inviteSaving ? "Sending..." : "Send Invite"}
             </button>
           </form>
-
-          {inviteError && (
-            <div className="mt-3 rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
-              {inviteError}
-            </div>
-          )}
-          {inviteSuccess && (
-            <div className="mt-3 rounded-lg bg-accent-success/15 px-4 py-2 text-sm text-accent-success">
-              {inviteSuccess}
-            </div>
-          )}
 
           {invites.length > 0 && (
             <ul className="mt-4 divide-y divide-border-default">

@@ -13,9 +13,11 @@ interface VideoHeaderProps {
   videoId: string;
   shareLink: ShareLink | null;
   appUrl: string;
+  spaceId: string;
+  backHref: string;
 }
 
-export function VideoHeader({ videoId, shareLink: initialLink, appUrl }: VideoHeaderProps) {
+export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref }: VideoHeaderProps) {
   const [shareLink, setShareLink] = useState(initialLink);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -84,7 +86,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl }: VideoHe
         const data = (await res.json().catch(() => null)) as
           | { redirectVideoId?: string | null }
           | null;
-        window.location.href = data?.redirectVideoId ? `/videos/${data.redirectVideoId}` : "/dashboard";
+        window.location.href = data?.redirectVideoId ? `/videos/${data.redirectVideoId}?space=${spaceId}` : `/dashboard?space=${spaceId}`;
         return;
       }
       const data = (await res.json().catch(() => null)) as
@@ -104,8 +106,8 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl }: VideoHe
     try {
       const res = await fetch(`/api/share/manage/${videoId}`, { method: "POST" });
       if (res.ok) {
-        const data = await res.json();
-        setShareLink(data.shareLink);
+        const data = await res.json() as { shareLink?: ShareLink };
+        setShareLink(data.shareLink ?? null);
       }
     } catch {
       // ignore
@@ -156,7 +158,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl }: VideoHe
     <>
     <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
       <a
-        href="/dashboard"
+        href={backHref}
         className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
         aria-label="Back to library"
       >
