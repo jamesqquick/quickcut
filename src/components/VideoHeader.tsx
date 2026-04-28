@@ -159,16 +159,17 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
     <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
       <a
         href={backHref}
-        className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+        className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
+        aria-label="Back to videos"
       >
-        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <svg className="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path
             fillRule="evenodd"
             d="M12.707 4.293a1 1 0 010 1.414L8.414 10l4.293 4.293a1 1 0 01-1.414 1.414l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 0z"
             clipRule="evenodd"
           />
         </svg>
-        Back to videos
+        <span className="hidden sm:inline">Back to videos</span>
       </a>
 
       <div className="ml-auto flex items-center gap-2">
