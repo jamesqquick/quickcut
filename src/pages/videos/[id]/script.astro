@@ -1,0 +1,139 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { InlineEditor } from "../../../components/InlineEditor";
+import { ProjectActivityTimeline } from "../../../components/ProjectActivityTimeline";
+import { ProjectPhaseControls } from "../../../components/ProjectPhaseControls";
+import { ScriptWorkspace } from "../../../components/ScriptWorkspace";
+import { TargetDateEditor } from "../../../components/TargetDateEditor";
+import { VideoHeader } from "../../../components/VideoHeader";
+import { createDb } from "../../../db";
+import { scripts, shareLinks, spaces, videos } from "../../../db/schema";
+import { eq } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+import { getCommentsWithNames } from "../../../lib/comments";
+import { verifySpaceAccess } from "../../../lib/spaces";
+import { getProjectActivity } from "../../../lib/activity";
+import { normalizeVideoPhase, type ScriptStatus, type VideoPhase } from "../../../types";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/dashboard");
+
+const db = createDb(env.DB);
+const videoResult = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
+if (videoResult.length === 0) return Astro.redirect("/dashboard");
+
+const video = videoResult[0];
+const role = await verifySpaceAccess(db, user.id, video.spaceId);
+if (!role) return Astro.redirect("/dashboard");
+
+const isOwner = role === "owner";
+const shareLinkResult = await db.select().from(shareLinks).where(eq(shareLinks.videoId, id)).limit(1);
+const shareLink = shareLinkResult[0] || null;
+const commentsWithNames = await getCommentsWithNames(db, id);
+const appUrl = new URL(Astro.request.url).origin;
+const spaceResult = await db
+  .select({ id: spaces.id, name: spaces.name, pipelineEnabled: spaces.pipelineEnabled })
+  .from(spaces)
+  .where(eq(spaces.id, video.spaceId))
+  .limit(1);
+const videoSpace = spaceResult[0] ?? { id: video.spaceId, name: "Space", pipelineEnabled: false };
+const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
+const scriptResult = await db.select().from(scripts).where(eq(scripts.videoId, video.id)).limit(1);
+const script = scriptResult[0] || null;
+const scriptStatus = (script?.status || "writing") as ScriptStatus;
+const projectActivity = await getProjectActivity(db, video.id);
+const canChangePhase = videoSpace.pipelineEnabled && (role === "owner" || video.uploadedBy === user.id);
+const isPublished = video.phase === "published";
+const hasVideo = !!video.streamVideoId;
+const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
+const scriptPrimaryAction = !isPublished && !hasVideo
+  ? { type: "link" as const, label: "Upload Video", href: `/videos/${video.id}/upload?space=${video.spaceId}` }
+  : null;
+const enabledSteps = isPublished
+  ? ["script", "review", "published"]
+  : hasVideo
+    ? ["script", "review"]
+    : ["script", "review"];
+const isScriptLocked = isPublished || hasVideo;
+---
+
+<Layout title={`${video.title} Script`} user={user} selectedSpaceId={video.spaceId}>
+  <div class="mx-auto max-w-[1280px] px-4 py-6 sm:px-8 sm:py-8">
+    <VideoHeader
+      client:load
+      videoId={video.id}
+      shareLink={shareLink}
+      appUrl={appUrl}
+      spaceId={video.spaceId}
+      backHref={backHref}
+      spaceName={videoSpace.name}
+    />
+
+    {videoSpace.pipelineEnabled && (
+      <div class="mb-6">
+        <ProjectPhaseControls
+          client:load
+          videoId={video.id}
+          initialPhase={normalizeVideoPhase(video.phase || "script") as VideoPhase}
+          initialStep="script"
+          enabledSteps={enabledSteps}
+          lockedStepMessages={isScriptLocked ? { script: scriptLockedMessage } : undefined}
+          primaryAction={scriptPrimaryAction}
+        />
+      </div>
+    )}
+
+    <div class="space-y-6">
+      {isPublished && (
+        <div class="rounded-lg border border-accent-secondary/30 bg-accent-secondary/10 px-4 py-2 text-sm text-accent-secondary">
+          This project is published. The script is read-only.
+        </div>
+      )}
+
+      <ScriptWorkspace
+        client:load
+        videoId={video.id}
+        spaceId={video.spaceId}
+        initialContent={script?.content || ""}
+        initialComments={commentsWithNames}
+        currentUserId={user.id}
+        currentUserName={user.displayName}
+        readOnly={isScriptLocked}
+        scriptStatus={scriptStatus}
+      />
+
+      <div class="space-y-3">
+        {videoSpace.pipelineEnabled && (
+          <div class="text-xs text-text-tertiary">
+            <TargetDateEditor client:load videoId={video.id} initialTargetDate={video.targetDate} canEdit={canChangePhase} />
+          </div>
+        )}
+        <div class="flex flex-wrap items-center gap-3">
+          <InlineEditor
+            client:load
+            value={video.title}
+            field="title"
+            videoId={video.id}
+            isOwner={isOwner && !isPublished}
+            as="h1"
+            className="min-w-0 break-words text-xl font-bold text-text-primary sm:text-2xl"
+          />
+        </div>
+        <InlineEditor
+          client:load
+          value={video.description || ""}
+          field="description"
+          videoId={video.id}
+          isOwner={isOwner && !isPublished}
+          placeholder="Add a description..."
+          className="break-words text-sm text-text-secondary"
+        />
+      </div>
+
+      {videoSpace.pipelineEnabled && <ProjectActivityTimeline client:load activity={projectActivity} />}
+    </div>
+  </div>
+</Layout>

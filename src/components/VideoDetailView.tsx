@@ -5,15 +5,20 @@ import { InlineEditor } from "./InlineEditor";
 import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
 import { AnnotationOverlay } from "./AnnotationOverlay";
-import { UploadVersionModal } from "./UploadVersionModal";
 import { TranscriptPanel } from "./TranscriptPanel";
 import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
+import { ProjectPhaseControls } from "./ProjectPhaseControls";
+import { TargetDateEditor } from "./TargetDateEditor";
+import { ProjectActivityTimeline } from "./ProjectActivityTimeline";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
-import type { Annotation, Comment } from "../types";
+import { normalizeVideoPhase, type Annotation, type Comment, type VideoPhase } from "../types";
+import type { ProjectActivityItem } from "../lib/activity";
 import type { AnnotationTool } from "./AnnotationOverlay";
+import type { PipelineStep } from "./PhaseStepper";
 
 interface VideoDetailViewProps {
   videoId: string;
+  spaceId: string;
   streamVideoId: string | null;
   status: string;
   duration: number | null;
@@ -25,10 +30,23 @@ interface VideoDetailViewProps {
   isOwner: boolean;
   uploadDate: string;
   fileName: string | null;
+  targetDate: string | null;
   transcriptsEnabled: boolean;
   uploadedBy: string | null;
   /** Null when the space has requiredApprovals = 0; the section is hidden. */
   initialApprovalStatus: ApprovalStatus | null;
+  /** Current pipeline phase of the video. */
+  initialPhase: string;
+  /** Whether the space has pipeline mode enabled. */
+  pipelineEnabled: boolean;
+  /** Current user's role in the space (owner/member). */
+  userRole: string;
+  /** Workflow history for this project. */
+  initialActivity: ProjectActivityItem[];
+  /** UI step selected in the stepper when multiple steps share a route. */
+  initialStep?: PipelineStep;
+  /** Steps the user can currently navigate to in the guided workflow. */
+  enabledSteps?: PipelineStep[];
 }
 
 function formatDate(dateStr: string): string {
@@ -48,11 +66,13 @@ function formatDuration(seconds: number | null): string {
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
+    draft: "bg-accent-primary/15 text-accent-primary",
     processing: "bg-accent-warning/15 text-accent-warning",
     ready: "bg-accent-secondary/15 text-accent-secondary",
     failed: "bg-accent-danger/15 text-accent-danger",
   };
   const labels: Record<string, string> = {
+    draft: "Draft",
     processing: "Processing",
     ready: "Ready",
     failed: "Failed",
@@ -71,6 +91,7 @@ function StatusBadge({ status }: { status: string }) {
 
 export function VideoDetailView({
   videoId,
+  spaceId,
   streamVideoId,
   status,
   duration,
@@ -81,13 +102,34 @@ export function VideoDetailView({
   description,
   isOwner,
   uploadDate,
-  fileName,
+  targetDate,
   transcriptsEnabled,
   uploadedBy,
   initialApprovalStatus,
+  initialPhase,
+  pipelineEnabled,
+  userRole,
+  initialActivity,
+  initialStep,
+  enabledSteps,
 }: VideoDetailViewProps) {
+  const initialReviewComments = initialComments.filter((comment) => comment.phase !== "script");
   const [processingStatus, setProcessingStatus] = useState(status);
-  const [liveComments, setLiveComments] = useState(initialComments);
+  const [currentPhase, setCurrentPhase] = useState<VideoPhase>(() => normalizeVideoPhase(initialPhase));
+  const [approvalStatus, setApprovalStatus] = useState(initialApprovalStatus);
+  const [liveComments, setLiveComments] = useState(initialReviewComments);
+  const isPublished = currentPhase === "published";
+  const canChangePhase = pipelineEnabled && (userRole === "owner" || uploadedBy === currentUserId);
+  const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
+  const canMarkAsPublished = !isPublished && canChangePhase && (!approvalStatus || approvalStatus.isApproved);
+  const primaryAction = canMarkAsPublished
+    ? {
+        type: "phase" as const,
+        label: "Mark as Published",
+        phase: "published" as const,
+        confirmMessage: "Publishing locks the video. Comments and versions become read-only.",
+      }
+    : null;
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
   const [activeTool, setActiveTool] = useState<AnnotationTool>("none");
   const [pendingAnnotation, setPendingAnnotation] = useState<Annotation | null>(null);
@@ -160,6 +202,30 @@ export function VideoDetailView({
     />
   ) : undefined;
 
+  const topContent = pipelineEnabled ? (
+    <div className="space-y-6">
+      <ProjectPhaseControls
+        videoId={videoId}
+        initialPhase={currentPhase}
+        initialStep={initialStep ?? (currentPhase === "published" ? "published" : "review")}
+        enabledSteps={enabledSteps}
+        lockedStepMessages={streamVideoId ? { script: scriptLockedMessage } : undefined}
+        onPhaseChange={setCurrentPhase}
+        primaryAction={primaryAction}
+      />
+
+      {isPublished && (
+        <div className="flex items-center gap-2 rounded-lg border border-accent-secondary/30 bg-accent-secondary/10 px-4 py-2 text-sm text-accent-secondary">
+          <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0110 0v4" />
+          </svg>
+          <span>This video is published. Comments and versions are locked.</span>
+        </div>
+      )}
+    </div>
+  ) : undefined;
+
   const leftColumn = (
     <>
       <VideoPlayer
@@ -180,47 +246,39 @@ export function VideoDetailView({
         />
       )}
 
-      {/* Metadata: upload date, duration, filename */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-tertiary">
-        <span className="inline-flex items-center gap-1">
-          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-          Uploaded {formatDate(uploadDate)}
-        </span>
-        {videoDuration > 0 && (
-          <span className="inline-flex items-center gap-1">
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-            {formatDuration(videoDuration)}
-          </span>
-        )}
-        {fileName && (
-          <span className="inline-flex w-full items-center gap-1 truncate sm:w-auto sm:max-w-[260px]">
-            <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
-            {fileName}
-          </span>
-        )}
-        {isOwner && (
-          <span className="w-full py-2 sm:w-auto sm:py-0">
-            <UploadVersionModal
-              videoId={videoId}
-              title={title}
-              description={description}
-              transcriptsEnabled={transcriptsEnabled}
-            />
-          </span>
-        )}
-      </div>
-
       {/* Title */}
       <div className="flex flex-wrap items-center gap-3">
         <InlineEditor
           value={title}
           field="title"
           videoId={videoId}
-          isOwner={isOwner}
+          isOwner={isOwner && !isPublished}
           as="h1"
           className="min-w-0 break-words text-xl font-bold text-text-primary sm:text-2xl"
         />
         {processingStatus !== "ready" && <StatusBadge status={processingStatus} />}
+      </div>
+
+      {/* Metadata: compact supporting details under the title. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-tertiary">
+        <span className="inline-flex items-center gap-1.5">
+          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+          Uploaded {formatDate(uploadDate)}
+        </span>
+        {videoDuration > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+            {formatDuration(videoDuration)}
+          </span>
+        )}
+        {pipelineEnabled && (
+          <TargetDateEditor
+            videoId={videoId}
+            initialTargetDate={targetDate}
+            canEdit={canChangePhase}
+            variant="metadata"
+          />
+        )}
       </div>
 
       {/* Description */}
@@ -228,33 +286,38 @@ export function VideoDetailView({
         value={description}
         field="description"
         videoId={videoId}
-        isOwner={isOwner}
+        isOwner={isOwner && !isPublished}
         placeholder="Add a description..."
         className="break-words text-sm text-text-secondary"
       />
 
-      {/* Approval status — only when the space has the workflow enabled. */}
-      {initialApprovalStatus && (
+      {/* Approval status — shown inside Video when the space requires signoff. */}
+      {approvalStatus && (
         <ApprovalSection
           videoId={videoId}
-          initialStatus={initialApprovalStatus}
+          initialStatus={approvalStatus}
           currentUserId={currentUserId}
           isSpaceMember={true}
           uploadedBy={uploadedBy}
           viewerName={currentUserName}
+          readOnly={isPublished}
+          onStatusChange={setApprovalStatus}
         />
       )}
     </>
   );
 
-  const transcriptSection = (
-    <TranscriptPanel videoId={videoId} videoTitle={title} transcriptsEnabled={transcriptsEnabled} />
+  const bottomContent = (
+    <div className="space-y-6">
+      <TranscriptPanel videoId={videoId} videoTitle={title} transcriptsEnabled={transcriptsEnabled} />
+      {pipelineEnabled && <ProjectActivityTimeline activity={initialActivity} />}
+    </div>
   );
 
   const rightColumn = (
     <CommentThread
       videoId={videoId}
-      initialComments={initialComments}
+      initialComments={initialReviewComments}
       currentUserId={currentUserId}
       currentUserName={currentUserName}
       isAuthenticated={true}
@@ -270,8 +333,9 @@ export function VideoDetailView({
       onCommentHover={setHighlightedCommentId}
       activeTool={activeTool}
       onToolChange={setActiveTool}
+      readOnly={isPublished}
     />
   );
 
-  return <VideoPageLayout leftColumn={leftColumn} rightColumn={rightColumn} bottomContent={transcriptSection} />;
+  return <VideoPageLayout topContent={topContent} leftColumn={leftColumn} rightColumn={rightColumn} bottomContent={bottomContent} />;
 }

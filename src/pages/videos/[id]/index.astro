@@ -1,0 +1,33 @@
+---
+import { env } from "cloudflare:workers";
+import { eq } from "drizzle-orm";
+import { createDb } from "../../../db";
+import { scripts, videos } from "../../../db/schema";
+import { verifySpaceAccess } from "../../../lib/spaces";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/dashboard");
+
+const db = createDb(env.DB);
+const videoResult = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
+const video = videoResult[0];
+if (!video) return Astro.redirect("/dashboard");
+
+const role = await verifySpaceAccess(db, user.id, video.spaceId);
+if (!role) return Astro.redirect("/dashboard");
+
+if (video.phase === "script") {
+  return Astro.redirect(`/videos/${id}/script${Astro.url.search}`);
+}
+
+if (video.status === "draft" && !video.streamVideoId) {
+  const scriptResult = await db.select({ status: scripts.status }).from(scripts).where(eq(scripts.videoId, id)).limit(1);
+  const scriptStatus = scriptResult[0]?.status ?? "writing";
+  return Astro.redirect(scriptStatus === "review" ? `/videos/${id}/upload${Astro.url.search}` : `/videos/${id}/script${Astro.url.search}`);
+}
+
+return Astro.redirect(`/videos/${id}/review${Astro.url.search}`);
+---

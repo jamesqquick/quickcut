@@ -7,6 +7,7 @@ import { deleteVideo as deleteStreamVideo } from "../../../../lib/stream";
 import { videoUpdateSchema } from "../../../../lib/validation";
 import { verifySpaceAccess } from "../../../../lib/spaces";
 import { getApprovalStatus } from "../../../../lib/approvals";
+import { logProjectActivity } from "../../../../lib/activity";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
@@ -135,11 +136,26 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
     });
   }
 
-  const updates: { title?: string; description?: string } = {};
+  const targetDateOnly =
+    parsed.data.targetDate !== undefined &&
+    parsed.data.title === undefined &&
+    parsed.data.description === undefined &&
+    parsed.data.folderId === undefined;
+
+  // Published videos stay locked, but launch-date scheduling remains editable.
+  if (videoResult[0].phase === "published" && !targetDateOnly) {
+    return new Response(JSON.stringify({ error: "Cannot edit published videos" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const updates: { title?: string; description?: string; targetDate?: string | null } = {};
   let folderUpdate: string | null | undefined;
 
   if (parsed.data.title !== undefined) updates.title = parsed.data.title.trim();
   if (parsed.data.description !== undefined) updates.description = parsed.data.description.trim();
+  if (parsed.data.targetDate !== undefined) updates.targetDate = parsed.data.targetDate;
   if (parsed.data.folderId !== undefined) {
     const folderId = parsed.data.folderId ?? null;
 
@@ -175,6 +191,17 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
       .update(videos)
       .set({ ...updates, updatedAt: now })
       .where(eq(videos.id, id));
+
+    if (parsed.data.targetDate !== undefined && parsed.data.targetDate !== videoResult[0].targetDate) {
+      await logProjectActivity(db, {
+        videoId: id,
+        actorUserId: locals.user.id,
+        actorDisplayName: locals.user.displayName,
+        type: "target_date.changed",
+        data: { from: videoResult[0].targetDate, to: parsed.data.targetDate },
+        createdAt: now,
+      });
+    }
   }
 
   if (folderUpdate !== undefined) {

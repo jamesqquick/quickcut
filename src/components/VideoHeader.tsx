@@ -15,9 +15,12 @@ interface VideoHeaderProps {
   appUrl: string;
   spaceId: string;
   backHref: string;
+  showScriptLink?: boolean;
+  spaceName?: string;
+  uploadVersionHref?: string | null;
 }
 
-export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref }: VideoHeaderProps) {
+export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, showScriptLink = false, spaceName, uploadVersionHref = null }: VideoHeaderProps) {
   const [shareLink, setShareLink] = useState(initialLink);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -151,25 +154,36 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
     if (!shareLink && !loading) {
       createOrRegenerate();
     }
+    setMoreMenuOpen(false);
     setPopoverOpen((o) => !o);
   };
 
   return (
     <>
     <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-      <a
-        href={backHref}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"
-        aria-label="Back to library"
-      >
-        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path
-            fillRule="evenodd"
-            d="M12.707 4.293a1 1 0 010 1.414L8.414 10l4.293 4.293a1 1 0 01-1.414 1.414l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 0z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </a>
+      <div className="flex min-w-0 items-center gap-2">
+        <a
+          href={backHref}
+          className="inline-flex h-9 items-center gap-2 rounded-lg px-2 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary sm:px-3"
+          aria-label="Back to videos"
+        >
+          <svg className="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path
+              fillRule="evenodd"
+              d="M12.707 4.293a1 1 0 010 1.414L8.414 10l4.293 4.293a1 1 0 01-1.414 1.414l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span className="hidden text-sm font-medium sm:inline">Back to videos</span>
+        </a>
+
+        {spaceName && (
+          <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border-default bg-bg-secondary px-3 py-1.5 text-sm text-text-secondary">
+            <span className="text-text-tertiary">Space</span>
+            <span className="truncate font-medium text-text-primary">{spaceName}</span>
+          </span>
+        )}
+      </div>
 
       <div className="ml-auto flex items-center gap-2">
         <VersionSwitcher videoId={videoId} />
@@ -191,8 +205,52 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
           {moreMenuOpen && (
             <div
               role="menu"
-              className="fixed left-1/2 top-24 z-50 w-44 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:translate-x-0"
+              className="fixed left-1/2 top-24 z-50 w-48 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:translate-x-0"
             >
+              {showScriptLink && (
+                <a
+                  role="menuitem"
+                  href={`/videos/${videoId}/script?space=${spaceId}`}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="8" y1="13" x2="16" y2="13" />
+                    <line x1="8" y1="17" x2="13" y2="17" />
+                  </svg>
+                  View script
+                </a>
+              )}
+              <button
+                role="menuitem"
+                type="button"
+                onClick={handleShareClick}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+                Share
+              </button>
+              {uploadVersionHref && (
+                <a
+                  role="menuitem"
+                  href={uploadVersionHref}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  Upload new version
+                </a>
+              )}
               <button
                 role="menuitem"
                 onClick={requestDeleteVideo}
@@ -206,20 +264,10 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
               </button>
             </div>
           )}
-        </div>
 
-        <div className="relative" ref={popoverRef}>
-          <button
-            onClick={handleShareClick}
-            className="rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover"
-            aria-haspopup="dialog"
-            aria-expanded={popoverOpen}
-          >
-            Share
-          </button>
-
-        {popoverOpen && (
+          {popoverOpen && (
           <div
+            ref={popoverRef}
             role="dialog"
             aria-label="Share video"
             className="fixed left-1/2 top-24 z-50 max-h-[70vh] w-[calc(100vw-2rem)] -translate-x-1/2 overflow-y-auto rounded-xl border border-border-default bg-bg-secondary p-4 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-80 sm:translate-x-0"

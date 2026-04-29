@@ -14,6 +14,12 @@ const rectAnnotationSchema = z.object({
   h: z.number().min(0).max(1),
 });
 
+export const textRangeSchema = z.object({
+  from: z.number().int().min(0),
+  to: z.number().int().min(0),
+  quote: z.string().max(1000),
+});
+
 export const annotationSchema = z.discriminatedUnion("type", [
   pointAnnotationSchema,
   rectAnnotationSchema,
@@ -53,6 +59,8 @@ export const commentSchema = z.object({
   timestamp: z.number().nullable().optional(),
   annotation: annotationSchema.nullable().optional(),
   urgency: urgencySchema.optional().default("suggestion"),
+  phase: z.enum(["script", "review"]).optional().default("review"),
+  textRange: textRangeSchema.nullable().optional(),
 });
 
 export const anonymousCommentSchema = z.object({
@@ -68,6 +76,40 @@ export const videoUpdateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(2000).optional(),
   folderId: z.string().uuid().nullable().optional(),
+  targetDate: z.string().date().nullable().optional(),
+});
+
+// ---------------------------------------------------------------------------
+// Pipeline phases
+// ---------------------------------------------------------------------------
+
+export const VIDEO_PHASES = ["script", "review", "published"] as const;
+export type VideoPhase = (typeof VIDEO_PHASES)[number];
+
+export const phaseSchema = z.enum(VIDEO_PHASES);
+
+export const phaseUpdateSchema = z.object({
+  phase: phaseSchema,
+});
+
+export const SCRIPT_STATUSES = ["writing", "review"] as const;
+export const scriptStatusSchema = z.enum(SCRIPT_STATUSES);
+
+export const scriptStatusUpdateSchema = z.object({
+  status: scriptStatusSchema,
+});
+
+export const projectCreateSchema = z.object({
+  title: z.string().trim().min(1, "Project title is required").max(200),
+  description: z.string().trim().max(2000).optional(),
+  spaceId: z.string().uuid(),
+  folderId: z.string().uuid().nullable().optional(),
+  targetDate: z.string().date().nullable().optional(),
+});
+
+export const scriptUpdateSchema = z.object({
+  content: z.string().max(200_000),
+  plainText: z.string().max(200_000).optional(),
 });
 
 export const folderCreateSchema = z.object({
@@ -93,6 +135,7 @@ export const spaceCreateSchema = z.object({
 export const spaceUpdateSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   requiredApprovals: z.number().int().min(0).max(100).optional(),
+  pipelineEnabled: z.boolean().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -110,4 +153,3 @@ export const inviteCreateSchema = z.object({
 export const approveVideoSchema = z.object({
   comment: z.string().max(500).optional(),
 });
-

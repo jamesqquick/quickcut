@@ -80,6 +80,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
       isResolved: resolved,
       resolvedBy: resolved ? locals.user.id : null,
       resolvedAt: resolved ? new Date().toISOString() : null,
+      resolvedReason: resolved ? "manual" : null,
     })
     .where(eq(comments.id, commentId));
 

@@ -14,7 +14,7 @@ interface Props {
   title: string;
   thumbnailUrl: string | null;
   duration: number | null;
-  status: "processing" | "ready" | "failed";
+  status: "draft" | "processing" | "ready" | "failed";
   createdAt: string;
   commentCount: number;
   urgencyCounts?: UrgencyCounts;
@@ -26,6 +26,10 @@ interface Props {
   requiredApprovals?: number;
   /** Number of approvals recorded so far. */
   approvalCount?: number;
+  /** Pipeline phase, shown when pipeline is enabled for the space. */
+  phase?: string | null;
+  /** Whether to show the pipeline phase badge. */
+  pipelineEnabled?: boolean;
 }
 
 const {
@@ -43,7 +47,20 @@ const {
   spaceId = null,
   requiredApprovals = 0,
   approvalCount = 0,
+  phase = null,
+  pipelineEnabled = false,
 } = Astro.props;
+
+const phaseStyles: Record<string, string> = {
+  script: "bg-accent-primary/15 text-accent-primary",
+  review: "bg-accent-info/15 text-accent-info",
+  published: "bg-accent-secondary/15 text-accent-secondary",
+};
+const phaseLabels: Record<string, string> = {
+  script: "Script",
+  review: "Video",
+  published: "Published",
+};
 
 const showApprovalBadge = requiredApprovals > 0;
 const isApproved = showApprovalBadge && approvalCount >= requiredApprovals;
@@ -109,6 +126,11 @@ function formatDate(dateStr: string): string {
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
             </svg>
             {commentCount}
+          </span>
+        )}
+        {pipelineEnabled && phase && (
+          <span class={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${phaseStyles[phase] || "bg-bg-tertiary text-text-tertiary"}`}>
+            {phaseLabels[phase] || phase}
           </span>
         )}
         {showApprovalBadge && (
