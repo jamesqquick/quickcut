@@ -44,19 +44,39 @@ const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId
 const scriptResult = await db.select().from(scripts).where(eq(scripts.videoId, video.id)).limit(1);
 const script = scriptResult[0] || null;
 const scriptStatus = (script?.status || "writing") as ScriptStatus;
+const hasScriptContent = !!script?.plainText?.trim();
 const projectActivity = await getProjectActivity(db, video.id);
 const canChangePhase = videoSpace.pipelineEnabled && (role === "owner" || video.uploadedBy === user.id);
 const isPublished = video.phase === "published";
 const hasVideo = !!video.streamVideoId;
 const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
-const scriptPrimaryAction = !isPublished && !hasVideo
-  ? { type: "link" as const, label: "Upload Video", href: `/videos/${video.id}/upload?space=${video.spaceId}` }
-  : null;
+const submitScriptEventName = `submit-script-${video.id}`;
+const scriptPrimaryAction = isPublished
+  ? { type: "link" as const, label: "View Published Video", href: `/videos/${video.id}/review?space=${video.spaceId}` }
+  : hasVideo
+    ? { type: "link" as const, label: "Review Video", href: `/videos/${video.id}/review?space=${video.spaceId}` }
+    : hasScriptContent && scriptStatus === "review"
+      ? { type: "link" as const, label: "Upload Video", href: `/videos/${video.id}/upload?space=${video.spaceId}` }
+      : hasScriptContent
+        ? { type: "event" as const, label: "Submit Script", eventName: submitScriptEventName }
+        : null;
+const workflowTitle = isPublished ? "Published" : hasVideo ? "Video" : "Script";
+const workflowDescription = isPublished
+  ? "This project is locked. You can still reference the script."
+  : hasVideo
+    ? "The script is locked now that a video has been uploaded."
+    : hasScriptContent
+      ? scriptStatus === "review"
+        ? "The script is ready. Upload the first cut when you are ready."
+        : "Keep shaping the script, then submit it when it is ready for review."
+      : "Add a script before uploading the first cut.";
 const enabledSteps = isPublished
   ? ["script", "review", "published"]
   : hasVideo
     ? ["script", "review"]
-    : ["script", "review"];
+    : scriptStatus === "review"
+      ? ["script", "review"]
+      : ["script"];
 const isScriptLocked = isPublished || hasVideo;
 ---
 
@@ -78,9 +98,10 @@ const isScriptLocked = isPublished || hasVideo;
           client:load
           videoId={video.id}
           initialPhase={normalizeVideoPhase(video.phase || "script") as VideoPhase}
-          initialStep="script"
+          title={workflowTitle}
+          description={workflowDescription}
           enabledSteps={enabledSteps}
-          lockedStepMessages={isScriptLocked ? { script: scriptLockedMessage } : undefined}
+          lockedStepMessages={isScriptLocked ? { script: scriptLockedMessage } : scriptStatus !== "review" ? { review: "Add and submit the script before moving to video." } : undefined}
           primaryAction={scriptPrimaryAction}
         />
       </div>
@@ -103,6 +124,7 @@ const isScriptLocked = isPublished || hasVideo;
         currentUserName={user.displayName}
         readOnly={isScriptLocked}
         scriptStatus={scriptStatus}
+        submitForReviewEventName={submitScriptEventName}
       />
 
       <div class="space-y-3">

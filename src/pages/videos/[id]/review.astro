@@ -47,7 +47,6 @@ const spaceResult = await db
 const videoSpace = spaceResult[0] ?? { id: video.spaceId, name: "Space", pipelineEnabled: false };
 const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
 const projectActivity = await getProjectActivity(db, video.id);
-const initialStep = video.phase === "published" ? "published" : "review";
 const isPublishable = approvalStatus.requiredApprovals <= 0 || approvalStatus.isApproved;
 const enabledSteps = video.phase === "published" || isPublishable
   ? ["script", "review", "published"]
@@ -92,7 +91,6 @@ const enabledSteps = video.phase === "published" || isPublishable
       userRole={role}
       spaceId={video.spaceId}
       initialActivity={projectActivity}
-      initialStep={initialStep}
       enabledSteps={enabledSteps}
     />
   </div>

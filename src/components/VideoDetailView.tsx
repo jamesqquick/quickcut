@@ -43,8 +43,6 @@ interface VideoDetailViewProps {
   userRole: string;
   /** Workflow history for this project. */
   initialActivity: ProjectActivityItem[];
-  /** UI step selected in the stepper when multiple steps share a route. */
-  initialStep?: PipelineStep;
   /** Steps the user can currently navigate to in the guided workflow. */
   enabledSteps?: PipelineStep[];
 }
@@ -110,7 +108,6 @@ export function VideoDetailView({
   pipelineEnabled,
   userRole,
   initialActivity,
-  initialStep,
   enabledSteps,
 }: VideoDetailViewProps) {
   const initialReviewComments = initialComments.filter((comment) => comment.phase !== "script");
@@ -125,11 +122,17 @@ export function VideoDetailView({
   const primaryAction = canMarkAsPublished
     ? {
         type: "phase" as const,
-        label: "Mark as Published",
+        label: "Publish",
         phase: "published" as const,
         confirmMessage: "Publishing locks the video. Comments and versions become read-only.",
       }
     : null;
+  const workflowTitle = isPublished ? "Published" : "Video";
+  const workflowDescription = isPublished
+    ? "This project is locked and ready to share."
+    : approvalStatus && !approvalStatus.isApproved
+      ? "Review the current cut and collect the required approvals before publishing."
+      : "Review the current cut, collect feedback, and publish when ready.";
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
   const [activeTool, setActiveTool] = useState<AnnotationTool>("none");
   const [pendingAnnotation, setPendingAnnotation] = useState<Annotation | null>(null);
@@ -207,7 +210,8 @@ export function VideoDetailView({
       <ProjectPhaseControls
         videoId={videoId}
         initialPhase={currentPhase}
-        initialStep={initialStep ?? (currentPhase === "published" ? "published" : "review")}
+        title={workflowTitle}
+        description={workflowDescription}
         enabledSteps={enabledSteps}
         lockedStepMessages={streamVideoId ? { script: scriptLockedMessage } : undefined}
         onPhaseChange={setCurrentPhase}

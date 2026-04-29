@@ -10,7 +10,8 @@ type PrimaryAction =
 interface ProjectPhaseControlsProps {
   videoId: string;
   initialPhase: VideoPhase;
-  initialStep?: PipelineStep;
+  title?: string;
+  description?: string;
   enabledSteps?: PipelineStep[];
   lockedStepMessages?: Partial<Record<PipelineStep, string>>;
   onPhaseChange?: (phase: VideoPhase) => void;
@@ -20,19 +21,18 @@ interface ProjectPhaseControlsProps {
 export function ProjectPhaseControls({
   videoId,
   initialPhase,
-  initialStep,
+  title,
+  description,
   enabledSteps,
   lockedStepMessages,
   onPhaseChange,
   primaryAction,
 }: ProjectPhaseControlsProps) {
   const [currentPhase, setCurrentPhase] = useState(() => normalizeVideoPhase(initialPhase));
-  const [currentStep, setCurrentStep] = useState<PipelineStep | undefined>(initialStep);
   const [savingPrimaryAction, setSavingPrimaryAction] = useState(false);
 
   const handlePhaseChange = (phase: VideoPhase) => {
     setCurrentPhase(phase);
-    setCurrentStep(phase);
     onPhaseChange?.(phase);
   };
 
@@ -64,15 +64,22 @@ export function ProjectPhaseControls({
   };
 
   return (
-    <div className="flex w-full flex-col gap-3 rounded-xl border border-border-default bg-bg-secondary/70 p-3 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 justify-center px-1 py-1">
-        <PhaseStepper
-          currentPhase={currentPhase}
-          currentStep={currentStep}
-          enabledSteps={enabledSteps}
-          lockedStepMessages={lockedStepMessages}
-          videoId={videoId}
-        />
+    <div className="flex w-full flex-col gap-4 rounded-xl border border-border-default bg-bg-secondary/70 p-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="min-w-0 space-y-3">
+        {(title || description) && (
+          <div className="text-center lg:text-left">
+            {title && <h2 className="text-sm font-semibold text-text-primary">{title}</h2>}
+            {description && <p className="mt-1 text-xs text-text-tertiary">{description}</p>}
+          </div>
+        )}
+        <div className="flex min-w-0 justify-center px-1 py-1 lg:justify-start">
+          <PhaseStepper
+            currentPhase={currentPhase}
+            enabledSteps={enabledSteps}
+            lockedStepMessages={lockedStepMessages}
+            videoId={videoId}
+          />
+        </div>
       </div>
       {primaryAction && (
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto lg:justify-end">

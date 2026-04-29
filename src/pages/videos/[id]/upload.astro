@@ -61,7 +61,8 @@ const scriptLockedMessage = "This script is read-only because a video has been u
           client:load
           videoId={video.id}
           initialPhase={normalizeVideoPhase(isFirstCut ? "review" : video.phase || "review") as VideoPhase}
-          initialStep="review"
+          title="Video"
+          description="Upload the first cut when the script is ready."
           enabledSteps={enabledSteps}
           lockedStepMessages={!isFirstCut ? { script: scriptLockedMessage } : undefined}
         />

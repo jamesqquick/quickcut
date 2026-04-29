@@ -1,9 +1,16 @@
 ---
+import Layout from "../../../layouts/Layout.astro";
+import { ProjectActivityTimeline } from "../../../components/ProjectActivityTimeline";
+import { ProjectPhaseControls } from "../../../components/ProjectPhaseControls";
+import { VideoHeader } from "../../../components/VideoHeader";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { createDb } from "../../../db";
-import { scripts, videos } from "../../../db/schema";
+import { scripts, shareLinks, spaces, videos } from "../../../db/schema";
+import { getApprovalStatus } from "../../../lib/approvals";
+import { getProjectActivity } from "../../../lib/activity";
 import { verifySpaceAccess } from "../../../lib/spaces";
+import { normalizeVideoPhase, PHASE_LABELS, type VideoPhase } from "../../../types";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -19,15 +26,155 @@ if (!video) return Astro.redirect("/dashboard");
 const role = await verifySpaceAccess(db, user.id, video.spaceId);
 if (!role) return Astro.redirect("/dashboard");
 
-if (video.phase === "script") {
-  return Astro.redirect(`/videos/${id}/script${Astro.url.search}`);
-}
-
-if (video.status === "draft" && !video.streamVideoId) {
-  const scriptResult = await db.select({ status: scripts.status }).from(scripts).where(eq(scripts.videoId, id)).limit(1);
-  const scriptStatus = scriptResult[0]?.status ?? "writing";
-  return Astro.redirect(scriptStatus === "review" ? `/videos/${id}/upload${Astro.url.search}` : `/videos/${id}/script${Astro.url.search}`);
-}
-
-return Astro.redirect(`/videos/${id}/review${Astro.url.search}`);
+const shareLinkResult = await db.select().from(shareLinks).where(eq(shareLinks.videoId, id)).limit(1);
+const shareLink = shareLinkResult[0] || null;
+const appUrl = new URL(Astro.request.url).origin;
+const spaceResult = await db
+  .select({ id: spaces.id, name: spaces.name, pipelineEnabled: spaces.pipelineEnabled })
+  .from(spaces)
+  .where(eq(spaces.id, video.spaceId))
+  .limit(1);
+const videoSpace = spaceResult[0] ?? { id: video.spaceId, name: "Space", pipelineEnabled: false };
+const scriptResult = await db.select({ status: scripts.status, plainText: scripts.plainText }).from(scripts).where(eq(scripts.videoId, video.id)).limit(1);
+const script = scriptResult[0] || null;
+const hasScriptContent = !!script?.plainText?.trim();
+const approvalStatus = await getApprovalStatus(db, video.id, video.spaceId);
+const projectActivity = await getProjectActivity(db, video.id);
+const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
+const phase = normalizeVideoPhase(video.phase) as VideoPhase;
+const isPublished = phase === "published";
+const hasVideo = !!video.streamVideoId;
+const isPublishable = approvalStatus.requiredApprovals <= 0 || approvalStatus.isApproved;
+const canChangePhase = videoSpace.pipelineEnabled && (role === "owner" || video.uploadedBy === user.id);
+const canMarkAsPublished = !isPublished && hasVideo && canChangePhase && isPublishable;
+const enabledSteps = isPublished || (hasVideo && isPublishable)
+  ? ["script", "review", "published"]
+  : hasVideo || script?.status === "review"
+    ? ["script", "review"]
+    : ["script"];
+const primaryAction = isPublished
+  ? { type: "link" as const, label: "View Published Video", href: `/videos/${video.id}/review?space=${video.spaceId}` }
+  : canMarkAsPublished
+    ? {
+        type: "phase" as const,
+        label: "Publish",
+        phase: "published" as const,
+        confirmMessage: "Publishing locks the video. Comments and versions become read-only.",
+      }
+    : !hasScriptContent
+      ? { type: "link" as const, label: "Add Script", href: `/videos/${video.id}/script?space=${video.spaceId}` }
+      : !hasVideo && script?.status === "review"
+        ? { type: "link" as const, label: "Upload Video", href: `/videos/${video.id}/upload?space=${video.spaceId}` }
+        : !hasVideo
+          ? { type: "link" as const, label: "Continue Script", href: `/videos/${video.id}/script?space=${video.spaceId}` }
+          : { type: "link" as const, label: "Review Video", href: `/videos/${video.id}/review?space=${video.spaceId}` };
+const workflowTitle = isPublished ? "Published" : hasVideo ? "Video" : "Script";
+const workflowDescription = isPublished
+  ? "This project is locked and ready to share."
+  : hasVideo
+    ? "Review the current cut and collect feedback before publishing."
+    : hasScriptContent
+      ? script?.status === "review"
+        ? "The script is ready. Upload the first cut when you are ready to move into video review."
+        : "Keep shaping the script before uploading the first cut."
+      : "Add a script before uploading the first cut.";
+const scriptDescription = script?.plainText?.trim()
+  ? `${script.plainText.trim().slice(0, 140)}${script.plainText.trim().length > 140 ? "..." : ""}`
+  : "Open the script workspace to draft, review, or reference the approved script.";
+const videoDescription = hasVideo
+  ? isPublished
+    ? "Watch the final cut and review the locked feedback history."
+    : "Review the current cut, comments, approvals, transcript, and versions."
+  : "Upload the first cut when the script is ready.";
 ---
+
+<Layout title={`${video.title} Overview`} user={user} selectedSpaceId={video.spaceId}>
+  <div class="mx-auto max-w-[1180px] px-4 py-6 sm:px-8 sm:py-8">
+    <VideoHeader
+      client:load
+      videoId={video.id}
+      shareLink={shareLink}
+      appUrl={appUrl}
+      spaceId={video.spaceId}
+      backHref={backHref}
+      showScriptLink={videoSpace.pipelineEnabled}
+      spaceName={videoSpace.name}
+      uploadVersionHref={!isPublished && hasVideo && role === "owner" ? `/videos/${video.id}/upload?space=${video.spaceId}` : null}
+    />
+
+    <div class="space-y-6">
+      {videoSpace.pipelineEnabled && (
+        <ProjectPhaseControls
+          client:load
+          videoId={video.id}
+          initialPhase={phase}
+          title={workflowTitle}
+          description={workflowDescription}
+          enabledSteps={enabledSteps}
+          lockedStepMessages={!hasVideo && script?.status !== "review" ? { review: "Add and submit the script before moving to video." } : undefined}
+          primaryAction={primaryAction}
+        />
+      )}
+
+      <section class="rounded-2xl border border-border-default bg-bg-secondary p-5 sm:p-6">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Project overview</p>
+            <h1 class="mt-2 break-words text-2xl font-bold text-text-primary sm:text-3xl">{video.title}</h1>
+            {video.description && <p class="mt-2 max-w-2xl text-sm text-text-secondary">{video.description}</p>}
+          </div>
+          <div class="rounded-xl border border-border-default bg-bg-primary px-4 py-3 text-sm">
+            <p class="text-xs text-text-tertiary">Project status</p>
+            <p class="mt-1 font-semibold text-text-primary">{PHASE_LABELS[phase]}</p>
+          </div>
+        </div>
+
+        {isPublished && (
+          <div class="mt-5 rounded-lg border border-accent-secondary/30 bg-accent-secondary/10 px-4 py-2 text-sm text-accent-secondary">
+            This project is published. Script, comments, and versions are read-only, but you can still view each artifact.
+          </div>
+        )}
+      </section>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <a href={`/videos/${video.id}/script?space=${video.spaceId}`} class="group rounded-xl border border-border-default bg-bg-secondary p-5 transition-colors hover:border-border-hover hover:bg-bg-tertiary/50">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-text-primary">Script</p>
+              <p class="mt-2 text-sm text-text-secondary">{scriptDescription}</p>
+            </div>
+            <span class="rounded-full border border-border-default px-2.5 py-1 text-xs text-text-tertiary">
+              {script?.status === "review" ? "In review" : "Writing"}
+            </span>
+          </div>
+          <p class="mt-4 text-xs font-medium text-accent-primary group-hover:text-accent-hover">View script</p>
+        </a>
+
+        <a href={hasVideo ? `/videos/${video.id}/review?space=${video.spaceId}` : `/videos/${video.id}/upload?space=${video.spaceId}`} class="group rounded-xl border border-border-default bg-bg-secondary p-5 transition-colors hover:border-border-hover hover:bg-bg-tertiary/50">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-text-primary">Video</p>
+              <p class="mt-2 text-sm text-text-secondary">{videoDescription}</p>
+            </div>
+            <span class="rounded-full border border-border-default px-2.5 py-1 text-xs text-text-tertiary">
+              {hasVideo ? video.status === "ready" ? "Ready" : "Processing" : "Not uploaded"}
+            </span>
+          </div>
+          <p class="mt-4 text-xs font-medium text-accent-primary group-hover:text-accent-hover">{hasVideo ? "View video" : "Upload video"}</p>
+        </a>
+      </div>
+
+      {approvalStatus.requiredApprovals > 0 && (
+        <section class="rounded-xl border border-border-default bg-bg-secondary p-5">
+          <p class="text-sm font-semibold text-text-primary">Approvals</p>
+          <p class="mt-2 text-sm text-text-secondary">
+            {approvalStatus.currentApprovals} of {approvalStatus.requiredApprovals} approvals complete.
+            {approvalStatus.isApproved ? " This project is cleared to publish." : " Publishing is locked until approvals are complete."}
+          </p>
+        </section>
+      )}
+
+      {videoSpace.pipelineEnabled && <ProjectActivityTimeline client:load activity={projectActivity} />}
+    </div>
+  </div>
+</Layout>
