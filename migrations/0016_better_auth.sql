@@ -24,8 +24,8 @@ CREATE TABLE `users` (
   `email` text NOT NULL,
   `email_verified` integer DEFAULT false NOT NULL,
   `image` text,
-  `created_at` text DEFAULT (datetime('now')) NOT NULL,
-  `updated_at` text DEFAULT (datetime('now')) NOT NULL
+  `created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+  `updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL
 );
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
 
@@ -34,11 +34,11 @@ CREATE TABLE `sessions` (
   `id` text PRIMARY KEY NOT NULL,
   `user_id` text NOT NULL REFERENCES `users`(`id`) ON DELETE CASCADE,
   `token` text NOT NULL,
-  `expires_at` text NOT NULL,
+  `expires_at` integer NOT NULL,
   `ip_address` text,
   `user_agent` text,
-  `created_at` text DEFAULT (datetime('now')) NOT NULL,
-  `updated_at` text DEFAULT (datetime('now')) NOT NULL
+  `created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+  `updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL
 );
 CREATE UNIQUE INDEX `sessions_token_unique` ON `sessions` (`token`);
 
@@ -50,13 +50,13 @@ CREATE TABLE `accounts` (
   `provider_id` text NOT NULL,
   `access_token` text,
   `refresh_token` text,
-  `access_token_expires_at` text,
-  `refresh_token_expires_at` text,
+  `access_token_expires_at` integer,
+  `refresh_token_expires_at` integer,
   `scope` text,
   `id_token` text,
   `password` text,
-  `created_at` text DEFAULT (datetime('now')) NOT NULL,
-  `updated_at` text DEFAULT (datetime('now')) NOT NULL
+  `created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+  `updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL
 );
 
 -- New: verifications table (Better Auth schema)
@@ -64,9 +64,9 @@ CREATE TABLE `verifications` (
   `id` text PRIMARY KEY NOT NULL,
   `identifier` text NOT NULL,
   `value` text NOT NULL,
-  `expires_at` text NOT NULL,
-  `created_at` text DEFAULT (datetime('now')) NOT NULL,
-  `updated_at` text DEFAULT (datetime('now')) NOT NULL
+  `expires_at` integer NOT NULL,
+  `created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+  `updated_at` integer DEFAULT (unixepoch() * 1000) NOT NULL
 );
 
 -- Recreate all dependent tables (same schema as before)

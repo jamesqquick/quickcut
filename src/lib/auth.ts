@@ -163,7 +163,7 @@ export async function verifyVideoAccess(
   const sessionToken = cookies["better-auth.session_token"];
 
   if (sessionToken) {
-    const now = new Date().toISOString();
+    const now = new Date();
     const sessionRow = await db
       .select({ userId: sessions.userId, expiresAt: sessions.expiresAt })
       .from(sessions)
