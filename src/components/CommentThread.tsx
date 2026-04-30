@@ -8,9 +8,11 @@ import type { AnnotationTool } from "./AnnotationOverlay";
 import type {
   Annotation,
   Comment,
+  CommentReactionEmoji,
   CommentUrgency,
   FocusRequest,
 } from "../types";
+import { COMMENT_REACTION_EMOJIS } from "../types";
 
 /**
  * Visual + display config for each urgency level. The colored dot is the
@@ -51,6 +53,116 @@ const URGENCY_OPTIONS: CommentUrgency[] = [
   "important",
   "critical",
 ];
+
+function ReactionBar({
+  comment,
+  disabled,
+  onToggle,
+}: {
+  comment: Comment;
+  disabled: boolean;
+  onToggle: (commentId: string, emoji: CommentReactionEmoji) => void;
+}) {
+  const reactions = comment.reactions ?? [];
+
+  if (reactions.length === 0) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {reactions.map((reaction) => (
+        <button
+          key={reaction.emoji}
+          type="button"
+          disabled={disabled}
+          onClick={() => onToggle(comment.id, reaction.emoji)}
+          className={`inline-flex h-7 items-center gap-1 rounded-full border px-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+            reaction.reactedByMe
+              ? "border-accent-primary bg-accent-primary/15 text-text-primary"
+              : "border-border-default bg-bg-tertiary text-text-secondary hover:bg-bg-input"
+          }`}
+          aria-pressed={reaction.reactedByMe}
+          title={`${reaction.count} reaction${reaction.count === 1 ? "" : "s"}`}
+        >
+          <span>{reaction.emoji}</span>
+          <span>{reaction.count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ReactionAddButton({
+  comment,
+  disabled,
+  onToggle,
+}: {
+  comment: Comment;
+  disabled: boolean;
+  onToggle: (commentId: string, emoji: CommentReactionEmoji) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const reactions = comment.reactions ?? [];
+  const visibleEmoji = new Set(reactions.map((reaction) => reaction.emoji));
+  const hiddenOptions = COMMENT_REACTION_EMOJIS.filter(
+    (emoji) => !visibleEmoji.has(emoji),
+  );
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onClick = (event: MouseEvent) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  if (disabled || hiddenOptions.length === 0) return null;
+
+  return (
+    <span ref={containerRef} className="relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setOpen((next) => !next)}
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-default text-xs leading-none text-text-tertiary transition-colors hover:border-accent-primary hover:bg-bg-tertiary hover:text-text-primary focus:border-accent-primary focus:outline-none"
+        aria-label="Add reaction"
+        aria-expanded={open}
+      >
+        +
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-20 mt-1 flex gap-1 rounded-full border border-border-default bg-bg-secondary p-1 shadow-lg">
+          {hiddenOptions.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => {
+                onToggle(comment.id, emoji);
+                setOpen(false);
+              }}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-sm transition-colors hover:bg-bg-tertiary"
+              aria-label={`React with ${emoji}`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+}
 
 /**
  * Compact urgency picker: shows a colored dot + label (label hides on
@@ -328,12 +440,13 @@ export function CommentThread({
   // Polling for new comments. Acts as a fallback when the WebSocket
   // connection is briefly unavailable; the WS path is primary when liveEnabled.
   useEffect(() => {
-    const interval = setInterval(async () => {
+    const refreshComments = async () => {
       try {
         const baseUrl = shareToken
           ? `/api/share/${shareToken}/comments`
           : `/api/videos/${videoId}/comments`;
-        const res = await fetch(`${baseUrl}?since=${encodeURIComponent(lastFetchRef.current)}`);
+        const pollUrl = new URL(baseUrl, window.location.origin);
+        const res = await fetch(pollUrl.toString());
         if (res.ok) {
           const data = await res.json();
           if (data.comments && data.comments.length > 0) {
@@ -358,7 +471,10 @@ export function CommentThread({
       } catch {
         // Ignore polling errors
       }
-    }, 10000);
+    };
+
+    refreshComments();
+    const interval = setInterval(refreshComments, 10000);
 
     return () => clearInterval(interval);
   }, [videoId, shareToken]);
@@ -387,6 +503,23 @@ export function CommentThread({
         onPresence: (incomingViewers) => {
           setViewers(incomingViewers);
           setPresenceLoading(false);
+        },
+        onCommentReactions: (update) => {
+          setComments((prev) =>
+            prev.map((comment) =>
+              comment.id === update.commentId
+                ? {
+                    ...comment,
+                    reactions: update.reactions.map((reaction) => ({
+                      ...reaction,
+                      reactedByMe:
+                        comment.reactions?.find((r) => r.emoji === reaction.emoji)
+                          ?.reactedByMe ?? false,
+                    })),
+                  }
+                : comment,
+            ),
+          );
         },
       },
     );
@@ -592,6 +725,37 @@ export function CommentThread({
     setDeleting(null);
   };
 
+  const toggleReaction = async (
+    commentId: string,
+    emoji: CommentReactionEmoji,
+  ) => {
+    if (readOnly || !isAuthenticated) return;
+
+    try {
+      const res = await fetch(`/api/comments/${commentId}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emoji }),
+      });
+
+      if (res.ok) {
+        const update = await res.json();
+        setComments((prev) =>
+          prev.map((comment) =>
+            comment.id === update.commentId
+              ? { ...comment, reactions: update.reactions }
+              : comment,
+          ),
+        );
+      } else {
+        const data = await res.json();
+        setError(data.error || "Failed to update reaction.");
+      }
+    } catch {
+      setError("Failed to update reaction.");
+    }
+  };
+
   const canDelete = (comment: Comment) => {
     if (!isAuthenticated || !currentUserId) return false;
     return comment.authorType === "user" && comment.authorUserId === currentUserId;
@@ -733,14 +897,24 @@ export function CommentThread({
                     <p className="mt-1 text-sm text-text-secondary whitespace-pre-wrap">
                       {comment.text}
                     </p>
+                    <ReactionBar
+                      comment={comment}
+                      disabled={readOnly || !isAuthenticated}
+                      onToggle={toggleReaction}
+                    />
                     <div className="mt-2 flex gap-3">
+                      <ReactionAddButton
+                        comment={comment}
+                        disabled={readOnly || !isAuthenticated}
+                        onToggle={toggleReaction}
+                      />
                       <button
                         onClick={() =>
                           setReplyingTo(
                             replyingTo === comment.id ? null : comment.id,
                           )
                         }
-                         className="text-xs text-text-tertiary transition-colors hover:text-text-primary"
+                        className="text-xs text-text-tertiary transition-colors hover:text-text-primary"
                       >
                         Reply
                       </button>
@@ -787,15 +961,29 @@ export function CommentThread({
                           <p className="mt-0.5 text-sm text-text-secondary whitespace-pre-wrap">
                             {reply.text}
                           </p>
-                          {canDelete(reply) && (
-                            <button
-                              onClick={() => deleteComment(reply.id)}
-                              disabled={deleting === reply.id}
-                              className="mt-1 text-xs text-text-tertiary transition-colors hover:text-accent-danger disabled:opacity-50"
-                            >
-                              {deleting === reply.id ? "Deleting..." : "Delete"}
-                            </button>
-                          )}
+                          <ReactionBar
+                            comment={reply}
+                            disabled={readOnly || !isAuthenticated}
+                            onToggle={toggleReaction}
+                          />
+                          {(!readOnly && isAuthenticated) || canDelete(reply) ? (
+                            <div className="mt-1 flex gap-3">
+                              <ReactionAddButton
+                                comment={reply}
+                                disabled={readOnly || !isAuthenticated}
+                                onToggle={toggleReaction}
+                              />
+                              {canDelete(reply) && (
+                                <button
+                                  onClick={() => deleteComment(reply.id)}
+                                  disabled={deleting === reply.id}
+                                  className="text-xs text-text-tertiary transition-colors hover:text-accent-danger disabled:opacity-50"
+                                >
+                                  {deleting === reply.id ? "Deleting..." : "Delete"}
+                                </button>
+                              )}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     ))}

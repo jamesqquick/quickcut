@@ -33,6 +33,15 @@ export const COMMENT_URGENCIES: CommentUrgency[] = [
   "critical",
 ];
 
+export const COMMENT_REACTION_EMOJIS = ["👍", "👀", "❤️", "😂", "🎉"] as const;
+export type CommentReactionEmoji = (typeof COMMENT_REACTION_EMOJIS)[number];
+
+export interface CommentReactionSummary {
+  emoji: CommentReactionEmoji;
+  count: number;
+  reactedByMe: boolean;
+}
+
 export interface Comment {
   id: string;
   videoId: string;
@@ -52,6 +61,7 @@ export interface Comment {
   textRange: TextRange | null;
   createdAt: string;
   displayName: string;
+  reactions: CommentReactionSummary[];
 }
 
 export interface FocusRequest {

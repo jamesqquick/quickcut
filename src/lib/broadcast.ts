@@ -1,6 +1,7 @@
 import type {
 	BroadcastApprovalStatus,
 	BroadcastComment,
+	BroadcastCommentReactions,
 	BroadcastPhaseChange,
 } from "../durable-objects/VideoRoom";
 
@@ -38,6 +39,19 @@ export async function broadcastApprovalUpdate(
 		await stub.broadcastApproval(approvalStatus);
 	} catch (err) {
 		console.error("VideoRoom approval broadcast failed", { videoId, err });
+	}
+}
+
+export async function broadcastCommentReactions(
+	env: Env,
+	videoId: string,
+	update: BroadcastCommentReactions,
+): Promise<void> {
+	try {
+		const stub = env.VIDEO_ROOM.getByName(videoId);
+		await stub.broadcastCommentReactions(update);
+	} catch (err) {
+		console.error("VideoRoom reaction broadcast failed", { videoId, err });
 	}
 }
 

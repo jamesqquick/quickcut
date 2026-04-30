@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import type { Annotation, CommentUrgency, TextRange } from "../types";
+import type { Annotation, CommentReactionSummary, CommentUrgency, TextRange } from "../types";
 
 /**
  * Shape of comments broadcast to connected clients.
@@ -23,6 +23,12 @@ export interface BroadcastComment {
 	textRange: TextRange | null;
 	createdAt: string;
 	displayName: string;
+	reactions: CommentReactionSummary[];
+}
+
+export interface BroadcastCommentReactions {
+	commentId: string;
+	reactions: CommentReactionSummary[];
 }
 
 /**
@@ -68,6 +74,7 @@ type ServerMessage =
 	| { type: "comment.new"; comment: BroadcastComment }
 	| { type: "presence.sync"; viewers: Viewer[] }
 	| { type: "approval.update"; approvalStatus: BroadcastApprovalStatus }
+	| { type: "comment.reactions.update"; update: BroadcastCommentReactions }
 	| { type: "phase.update"; phaseChange: BroadcastPhaseChange };
 
 /**
@@ -188,6 +195,27 @@ export class VideoRoom extends DurableObject<Env> {
 		const message: ServerMessage = {
 			type: "approval.update",
 			approvalStatus,
+		};
+		const payload = JSON.stringify(message);
+
+		for (const ws of this.ctx.getWebSockets()) {
+			try {
+				ws.send(payload);
+			} catch {
+				// ignore
+			}
+		}
+	}
+
+	/**
+	 * Push the freshly recomputed reaction aggregate for one comment.
+	 */
+	async broadcastCommentReactions(
+		update: BroadcastCommentReactions,
+	): Promise<void> {
+		const message: ServerMessage = {
+			type: "comment.reactions.update",
+			update,
 		};
 		const payload = JSON.stringify(message);
 

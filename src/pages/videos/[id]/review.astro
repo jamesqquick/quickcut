@@ -33,7 +33,11 @@ if (video.status === "draft" && !video.streamVideoId) {
 const isOwner = role === "owner";
 const shareLinkResult = await db.select().from(shareLinks).where(eq(shareLinks.videoId, id)).limit(1);
 const shareLink = shareLinkResult[0] || null;
-const commentsWithNames = await getCommentsWithNames(db, id);
+
+const commentsWithNames = await getCommentsWithNames(db, id, {
+  userId: user.id,
+  displayName: user.displayName,
+});
 const appUrl = new URL(Astro.request.url).origin;
 const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
 const approvalStatus = await getApprovalStatus(db, video.id, video.spaceId);
