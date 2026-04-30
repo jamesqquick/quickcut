@@ -44,7 +44,7 @@ export function ProjectStatusControls({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor="project-status" className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+      <label htmlFor="project-status" className="sr-only">
         Status
       </label>
       <div className="flex items-center gap-2">
