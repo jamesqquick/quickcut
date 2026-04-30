@@ -1,6 +1,7 @@
 ---
 import Layout from "../../../layouts/Layout.astro";
 import { ProjectStatusControls } from "../../../components/ProjectStatusControls";
+import { InlineEditor } from "../../../components/InlineEditor";
 import { ScriptWorkspace } from "../../../components/ScriptWorkspace";
 import { UploadView } from "../../../components/UploadView";
 import { VideoDetailView } from "../../../components/VideoDetailView";
@@ -14,7 +15,7 @@ import { getCommentsWithNames } from "../../../lib/comments";
 import { isTranscriptGenerationEnabled } from "../../../lib/flags";
 import { getProjectActivity } from "../../../lib/activity";
 import { verifySpaceAccess } from "../../../lib/spaces";
-import { normalizeVideoPhase, PROJECT_STATUS_LABELS } from "../../../types";
+import { normalizeVideoPhase } from "../../../types";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -52,6 +53,12 @@ const hasVideo = !!video.streamVideoId;
 const isOwner = role === "owner";
 const canEditStatus = !isPublished && (role === "owner" || video.uploadedBy === user.id);
 const showApprovals = approvalStatus.requiredApprovals > 0;
+const activeTab = Astro.url.searchParams.get("tab") === "video" ? "video" : "script";
+const tabHref = (tab: "script" | "video") => {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set("tab", tab);
+  return `/videos/${video.id}?${params.toString()}`;
+};
 ---
 
 <Layout title={video.title} user={user} selectedSpaceId={video.spaceId}>
@@ -65,20 +72,35 @@ const showApprovals = approvalStatus.requiredApprovals > 0;
       spaceId={video.spaceId}
       backHref={backHref}
       spaceName={videoSpace.name}
-      uploadVersionHref={!isPublished && hasVideo && role === "owner" ? `/videos/${video.id}#upload-version` : null}
+      uploadVersionHref={!isPublished && hasVideo && role === "owner" ? `${tabHref("video")}#upload-version` : null}
     />
 
     <div class="space-y-6">
       <section class="rounded-2xl border border-border-default bg-bg-secondary p-5 sm:p-6">
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div class="min-w-0 flex-1 space-y-3">
             <p class="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Project overview</p>
-            <h1 class="mt-2 break-words text-2xl font-bold text-text-primary sm:text-3xl">{video.title}</h1>
-            {video.description && <p class="mt-2 max-w-2xl text-sm text-text-secondary">{video.description}</p>}
+            <InlineEditor
+              client:load
+              value={video.title}
+              field="title"
+              videoId={video.id}
+              isOwner={isOwner && !isPublished}
+              as="h1"
+              className="min-w-0 break-words text-2xl font-bold text-text-primary sm:text-3xl"
+            />
+            <InlineEditor
+              client:load
+              value={video.description || ""}
+              field="description"
+              videoId={video.id}
+              isOwner={isOwner && !isPublished}
+              placeholder="Add a description..."
+              className="max-w-2xl break-words text-sm text-text-secondary"
+            />
           </div>
-          <div class="rounded-xl border border-border-default bg-bg-primary px-4 py-3 text-sm">
-            <p class="text-xs text-text-tertiary">Project status</p>
-            <p class="mt-1 font-semibold text-text-primary">{PROJECT_STATUS_LABELS[phase]}</p>
+          <div class="shrink-0">
+            <ProjectStatusControls client:load videoId={video.id} initialStatus={phase} canEdit={canEditStatus} />
           </div>
         </div>
 
@@ -89,10 +111,26 @@ const showApprovals = approvalStatus.requiredApprovals > 0;
         )}
       </section>
 
-      <ProjectStatusControls client:load videoId={video.id} initialStatus={phase} canEdit={canEditStatus} />
+      <div class="border-b border-border-default">
+        <nav class="flex gap-2" aria-label="Project sections">
+          <a
+            href={tabHref("script")}
+            class={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "script" ? "border-b-2 border-accent-primary text-text-primary" : "text-text-tertiary hover:text-text-secondary"}`}
+            aria-current={activeTab === "script" ? "page" : undefined}
+          >
+            Script
+          </a>
+          <a
+            href={tabHref("video")}
+            class={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "video" ? "border-b-2 border-accent-primary text-text-primary" : "text-text-tertiary hover:text-text-secondary"}`}
+            aria-current={activeTab === "video" ? "page" : undefined}
+          >
+            Video
+          </a>
+        </nav>
+      </div>
 
-      <section id="script" class="space-y-3">
-        <h2 class="text-lg font-semibold text-text-primary">Script</h2>
+      {activeTab === "script" ? (
         <ScriptWorkspace
           client:load
           videoId={video.id}
@@ -103,11 +141,7 @@ const showApprovals = approvalStatus.requiredApprovals > 0;
           currentUserName={user.displayName}
           readOnly={isPublished}
         />
-      </section>
-
-      <section id="video" class="space-y-3">
-        <h2 class="text-lg font-semibold text-text-primary">Video</h2>
-        {hasVideo ? (
+      ) : hasVideo ? (
           <div class="space-y-6">
             <VideoDetailView
               client:load
@@ -160,7 +194,6 @@ const showApprovals = approvalStatus.requiredApprovals > 0;
             transcriptsEnabled={transcriptsEnabled}
           />
         )}
-      </section>
 
       {approvalStatus.requiredApprovals > 0 && (
         <section class="rounded-xl border border-border-default bg-bg-secondary p-5">

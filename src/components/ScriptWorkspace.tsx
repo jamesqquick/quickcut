@@ -11,24 +11,28 @@ import { PresenceBar } from "./PresenceBar";
 
 const EMPTY_DOC: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
 
-const URGENCY_META: Record<CommentUrgency, { label: string; description: string; dot: string }> = {
+const URGENCY_META: Record<CommentUrgency, { label: string; selectLabel: string; description: string; dot: string }> = {
   idea: {
     label: "Idea",
+    selectLabel: "🟣 Idea",
     description: "Concept to consider",
     dot: "bg-accent-primary",
   },
   suggestion: {
     label: "Suggestion",
+    selectLabel: "🔵 Suggestion",
     description: "Optional, nice-to-have",
     dot: "bg-accent-info",
   },
   important: {
     label: "Important",
+    selectLabel: "🟡 Important",
     description: "Should be addressed",
     dot: "bg-accent-warning",
   },
   critical: {
     label: "Critical",
+    selectLabel: "🔴 Critical",
     description: "Must be fixed",
     dot: "bg-accent-danger",
   },
@@ -415,8 +419,8 @@ export function ScriptWorkspace({
               className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
             />
             <p className="text-[11px] text-text-tertiary">Press Shift + Enter to submit.</p>
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-text-secondary" htmlFor="script-feedback-urgency">
+            <div>
+              <label className="sr-only" htmlFor="script-feedback-urgency">
                 Feedback type
               </label>
               <div className="flex items-center gap-2">
@@ -430,7 +434,7 @@ export function ScriptWorkspace({
                 >
                   {URGENCY_OPTIONS.map((urgency) => (
                     <option key={urgency} value={urgency}>
-                      {URGENCY_META[urgency].label}
+                      {URGENCY_META[urgency].selectLabel}
                     </option>
                   ))}
                 </select>

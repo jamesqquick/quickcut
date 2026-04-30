@@ -43,16 +43,13 @@ export function ProjectStatusControls({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border-default bg-bg-secondary/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Project status</p>
-        <p className="mt-1 text-sm text-text-secondary">
-          Status is a lightweight label. Only Published makes the project read-only.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor="project-status" className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+        Status
+      </label>
+      <div className="flex items-center gap-2">
         <select
+          id="project-status"
           value={status}
           onChange={(event) => updateStatus(event.target.value as ProjectStatus)}
           disabled={!canEdit || saving || isPublished}
@@ -64,16 +61,7 @@ export function ProjectStatusControls({
             </option>
           ))}
         </select>
-        {!isPublished && canEdit && (
-          <button
-            type="button"
-            onClick={() => updateStatus("published")}
-            disabled={saving}
-            className="rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Mark Published"}
-          </button>
-        )}
+        {saving && <span className="text-xs text-text-tertiary">Saving...</span>}
       </div>
     </div>
   );
