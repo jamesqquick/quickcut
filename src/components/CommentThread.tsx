@@ -101,20 +101,42 @@ function ReactionAddButton({
   onToggle: (commentId: string, emoji: CommentReactionEmoji) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLSpanElement>(null);
   const reactions = comment.reactions ?? [];
   const visibleEmoji = new Set(reactions.map((reaction) => reaction.emoji));
   const hiddenOptions = COMMENT_REACTION_EMOJIS.filter(
     (emoji) => !visibleEmoji.has(emoji),
   );
 
+  useEffect(() => {
+    if (!open) return;
+
+    const onClick = (event: MouseEvent) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   if (disabled || hiddenOptions.length === 0) return null;
 
   return (
-    <span className="relative inline-flex">
+    <span ref={containerRef} className="relative inline-flex">
       <button
         type="button"
         onClick={() => setOpen((next) => !next)}
-        className="text-xs text-text-tertiary transition-colors hover:text-text-primary"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border-default text-xs leading-none text-text-tertiary transition-colors hover:border-accent-primary hover:bg-bg-tertiary hover:text-text-primary focus:border-accent-primary focus:outline-none"
         aria-label="Add reaction"
         aria-expanded={open}
       >
