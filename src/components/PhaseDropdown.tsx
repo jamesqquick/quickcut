@@ -94,7 +94,7 @@ export function PhaseDropdown({
           {confirmPublish ? (
             <div className="p-3">
               <p className="text-xs text-text-secondary">
-                Publishing locks the video. Comments and versions become read-only.
+                Marking this project as published locks the script, comments, and versions. This assumes you have published the video manually elsewhere.
               </p>
               <div className="mt-2 flex gap-2">
                 <button

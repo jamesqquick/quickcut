@@ -45,7 +45,10 @@ const scriptResult = await db.select().from(scripts).where(eq(scripts.videoId, v
 const script = scriptResult[0] || null;
 const approvalStatus = await getApprovalStatus(db, video.id, video.spaceId);
 const projectActivity = await getProjectActivity(db, video.id);
-const commentsWithNames = await getCommentsWithNames(db, id);
+const commentsWithNames = await getCommentsWithNames(db, id, {
+  userId: user.id,
+  displayName: user.displayName,
+});
 const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
 const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
 const phase = normalizeVideoPhase(video.phase);
@@ -144,56 +147,55 @@ const tabHref = (tab: "script" | "video") => {
           readOnly={isPublished}
         />
       ) : hasVideo ? (
-          <div class="space-y-6">
-            <VideoDetailView
-              client:load
-              videoId={video.id}
-              streamVideoId={video.streamVideoId}
-              status={video.status}
-              duration={video.duration}
-              initialComments={commentsWithNames}
-              currentUserId={user.id}
-              currentUserName={user.displayName}
-              title={video.title}
-              uploadDate={video.createdAt}
-              fileName={video.fileName}
-              targetDate={video.targetDate}
-              transcriptsEnabled={transcriptsEnabled}
-              uploadedBy={video.uploadedBy}
-              initialApprovalStatus={showApprovals ? approvalStatus : null}
-              initialPhase={phase}
-              pipelineEnabled={false}
-              userRole={role}
-              spaceId={video.spaceId}
-              initialActivity={projectActivity}
-            />
-            {!isPublished && isOwner && (
-              <div class="flex justify-end">
-                <UploadVersionModal
-                  client:load
-                  videoId={video.id}
-                  title={video.title}
-                  description={video.description || ""}
-                  isFirstCut={false}
-                  transcriptsEnabled={transcriptsEnabled}
-                />
-              </div>
-            )}
-          </div>
-        ) : isPublished ? (
-          <div class="rounded-xl border border-border-default bg-bg-secondary p-5 text-sm text-text-secondary">
-            This project was published without a video upload.
-          </div>
-        ) : (
-          <UploadView
+        <div class="space-y-6">
+          <VideoDetailView
             client:load
             videoId={video.id}
+            streamVideoId={video.streamVideoId}
+            status={video.status}
+            duration={video.duration}
+            initialComments={commentsWithNames}
+            currentUserId={user.id}
+            currentUserName={user.displayName}
             title={video.title}
-            description={video.description || ""}
-            isFirstCut={true}
+            uploadDate={video.createdAt}
+            fileName={video.fileName}
+            targetDate={video.targetDate}
             transcriptsEnabled={transcriptsEnabled}
+            uploadedBy={video.uploadedBy}
+            initialApprovalStatus={showApprovals ? approvalStatus : null}
+            initialPhase={phase}
+            pipelineEnabled={false}
+            userRole={role}
+            spaceId={video.spaceId}
+            initialActivity={projectActivity}
           />
-        )}
+          {!isPublished && isOwner && (
+            <div class="flex justify-end">
+              <UploadVersionModal
+                client:load
+                videoId={video.id}
+                title={video.title}
+                description={video.description || ""}
+                transcriptsEnabled={transcriptsEnabled}
+              />
+            </div>
+          )}
+        </div>
+      ) : isPublished ? (
+        <div class="rounded-xl border border-border-default bg-bg-secondary p-5 text-sm text-text-secondary">
+          This project was published without a video upload.
+        </div>
+      ) : (
+        <UploadView
+          client:load
+          videoId={video.id}
+          title={video.title}
+          description={video.description || ""}
+          isFirstCut={true}
+          transcriptsEnabled={transcriptsEnabled}
+        />
+      )}
 
       {approvalStatus.requiredApprovals > 0 && (
         <section class="rounded-xl border border-border-default bg-bg-secondary p-5">

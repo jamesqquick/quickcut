@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const users = sqliteTable("users", {
@@ -299,3 +299,26 @@ export const comments = sqliteTable("comments", {
     .notNull()
     .default(sql`(datetime('now'))`),
 });
+
+export const commentReactions = sqliteTable(
+  "comment_reactions",
+  {
+    id: text("id").primaryKey(),
+    commentId: text("comment_id")
+      .notNull()
+      .references(() => comments.id, { onDelete: "cascade" }),
+    emoji: text("emoji").notNull(),
+    reactorUserId: text("reactor_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reactorDisplayName: text("reactor_display_name"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex("comment_reactions_user_unique")
+      .on(table.commentId, table.emoji, table.reactorUserId)
+      .where(sql`${table.reactorUserId} IS NOT NULL`),
+  ],
+);

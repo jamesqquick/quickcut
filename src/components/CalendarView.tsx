@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { PHASE_LABELS, type VideoPhase } from "../types";
+import { DatePicker } from "./DatePicker";
 import type { DashboardVideo } from "./dashboard-types";
 
 interface CalendarViewProps {
@@ -158,16 +159,17 @@ export function CalendarView({ initialVideos, spaceId }: CalendarViewProps) {
                             </div>
                           </div>
                         </a>
-                        <label className="mt-2 block text-[10px] text-text-tertiary">
-                          Reschedule
-                          <input
-                            type="date"
+                        <div className="mt-2 text-[10px] text-text-tertiary">
+                          <span>Reschedule</span>
+                          <DatePicker
                             value={video.targetDate || ""}
-                            onChange={(event) => updateTargetDate(video, event.target.value || null)}
+                            onChange={(value) => updateTargetDate(video, value || null)}
                             disabled={savingId === video.id}
-                            className="mt-1 w-full rounded border border-border-default bg-bg-input px-1.5 py-1 text-xs text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+                            placeholder="Set date"
+                            ariaLabel={`Reschedule ${video.title}`}
+                            className="mt-1 w-full rounded border border-border-default bg-bg-input px-1.5 py-1 text-left text-xs text-text-primary transition-colors hover:border-border-hover focus:border-accent-primary focus:outline-none disabled:opacity-50"
                           />
-                        </label>
+                        </div>
                       </article>
                     );
                   })}
@@ -188,16 +190,17 @@ export function CalendarView({ initialVideos, spaceId }: CalendarViewProps) {
                   {video.title}
                 </a>
                 <p className="mt-1 text-xs text-text-tertiary">{PHASE_LABELS[video.phase]}</p>
-                <label className="mt-2 block text-xs text-text-tertiary">
-                  Set launch date
-                  <input
-                    type="date"
+                <div className="mt-2 text-xs text-text-tertiary">
+                  <span>Set launch date</span>
+                  <DatePicker
                     value=""
-                    onChange={(event) => updateTargetDate(video, event.target.value || null)}
+                    onChange={(value) => updateTargetDate(video, value || null)}
                     disabled={savingId === video.id}
-                    className="mt-1 w-full rounded border border-border-default bg-bg-input px-2 py-1.5 text-xs text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+                    placeholder="Set date"
+                    ariaLabel={`Set launch date for ${video.title}`}
+                    className="mt-1 w-full rounded border border-border-default bg-bg-input px-2 py-1.5 text-left text-xs text-text-primary transition-colors hover:border-border-hover focus:border-accent-primary focus:outline-none disabled:opacity-50"
                   />
-                </label>
+                </div>
               </article>
             ))}
           </div>

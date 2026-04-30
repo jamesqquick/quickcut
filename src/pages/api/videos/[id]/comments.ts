@@ -5,6 +5,7 @@ import { comments, users, videos } from "../../../../db/schema";
 import { eq, asc, gt, and } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { verifySpaceAccess } from "../../../../lib/spaces";
+import { addReactionSummaries } from "../../../../lib/comments";
 import { commentSchema } from "../../../../lib/validation";
 
 export const GET: APIRoute = async ({ params, locals, url }) => {
@@ -72,15 +73,22 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     userMap = Object.fromEntries(usersResult.map((u) => [u.id, u.displayName]));
   }
 
-  const commentsWithNames = allComments.map((c) => ({
-    ...c,
-    annotation: c.annotation ? JSON.parse(c.annotation) : null,
-    textRange: c.textRange ? JSON.parse(c.textRange) : null,
-    displayName:
-      c.authorType === "user" && c.authorUserId
-        ? userMap[c.authorUserId] || "Unknown"
-        : c.authorDisplayName || "Anonymous",
-  }));
+  const commentsWithNames = await addReactionSummaries(
+    db,
+    allComments.map((c) => ({
+      ...c,
+      annotation: c.annotation ? JSON.parse(c.annotation) : null,
+      textRange: c.textRange ? JSON.parse(c.textRange) : null,
+      displayName:
+        c.authorType === "user" && c.authorUserId
+          ? userMap[c.authorUserId] || "Unknown"
+          : c.authorDisplayName || "Anonymous",
+    })),
+    {
+      userId: locals.user.id,
+      displayName: locals.user.displayName,
+    },
+  );
 
   return new Response(JSON.stringify({ comments: commentsWithNames }), {
     headers: { "Content-Type": "application/json" },
@@ -172,6 +180,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     textRange: textRange || null,
     createdAt: new Date().toISOString(),
     displayName: locals.user.displayName,
+    reactions: [],
   };
 
   await broadcastNewComment(env, id, responseComment);

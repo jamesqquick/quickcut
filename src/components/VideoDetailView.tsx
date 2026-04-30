@@ -8,10 +8,8 @@ import { TranscriptPanel } from "./TranscriptPanel";
 import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { ProjectPhaseControls } from "./ProjectPhaseControls";
 import { TargetDateEditor } from "./TargetDateEditor";
-import { ProjectActivityTimeline } from "./ProjectActivityTimeline";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
 import { normalizeVideoPhase, type Annotation, type Comment, type VideoPhase } from "../types";
-import type { ProjectActivityItem } from "../lib/activity";
 import type { AnnotationTool } from "./AnnotationOverlay";
 import type { PipelineStep } from "./PhaseStepper";
 
@@ -38,8 +36,8 @@ interface VideoDetailViewProps {
   pipelineEnabled: boolean;
   /** Current user's role in the space (owner/member). */
   userRole: string;
-  /** Workflow history for this project. */
-  initialActivity: ProjectActivityItem[];
+  /** UI step selected in the stepper for the current route. */
+  currentStep?: PipelineStep;
   /** Steps the user can currently navigate to in the guided workflow. */
   enabledSteps?: PipelineStep[];
 }
@@ -77,7 +75,7 @@ export function VideoDetailView({
   initialPhase,
   pipelineEnabled,
   userRole,
-  initialActivity,
+  currentStep,
   enabledSteps,
 }: VideoDetailViewProps) {
   const initialReviewComments = initialComments.filter((comment) => comment.phase !== "script");
@@ -92,17 +90,11 @@ export function VideoDetailView({
   const primaryAction = canMarkAsPublished
     ? {
         type: "phase" as const,
-        label: "Publish",
+        label: "Mark as Published",
         phase: "published" as const,
-        confirmMessage: "Publishing locks the video. Comments and versions become read-only.",
+        confirmMessage: "Marking this project as published locks the script, comments, and versions. This assumes you have published the video manually elsewhere.",
       }
     : null;
-  const workflowTitle = isPublished ? "Published" : "Video";
-  const workflowDescription = isPublished
-    ? "This project is locked and ready to share."
-    : approvalStatus && !approvalStatus.isApproved
-      ? "Review the current cut and collect the required approvals before publishing."
-      : "Review the current cut, collect feedback, and publish when ready.";
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
   const [activeTool, setActiveTool] = useState<AnnotationTool>("none");
   const [pendingAnnotation, setPendingAnnotation] = useState<Annotation | null>(null);
@@ -180,8 +172,7 @@ export function VideoDetailView({
       <ProjectPhaseControls
         videoId={videoId}
         initialPhase={currentPhase}
-        title={workflowTitle}
-        description={workflowDescription}
+        currentStep={currentStep}
         enabledSteps={enabledSteps}
         lockedStepMessages={streamVideoId ? { script: scriptLockedMessage } : undefined}
         onPhaseChange={setCurrentPhase}
@@ -194,7 +185,7 @@ export function VideoDetailView({
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0110 0v4" />
           </svg>
-          <span>This video is published. Comments and versions are locked.</span>
+          <span>This project has been marked as published. Comments and versions are locked.</span>
         </div>
       )}
     </div>
@@ -261,7 +252,6 @@ export function VideoDetailView({
   const bottomContent = (
     <div className="space-y-6">
       <TranscriptPanel videoId={videoId} videoTitle={title} transcriptsEnabled={transcriptsEnabled} />
-      {pipelineEnabled && <ProjectActivityTimeline activity={initialActivity} />}
     </div>
   );
 

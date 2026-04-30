@@ -15,7 +15,7 @@ interface Props {
 }
 
 const { title, description, user, selectedSpaceId } = Astro.props;
-const metaDescription = description ?? "QuickCut - Collaborative video review";
+const metaDescription = description ?? "Quick Cuts - Collaborative video review";
 const db = createDb(env.DB);
 const userSpaces = user ? await getUserSpaces(db, user.id) : [];
 const pendingInviteCount = user ? (await getPendingInvitesForUser(db, user.email)).length : 0;
@@ -28,20 +28,21 @@ const headerSpaceId = selectedSpaceId ?? Astro.url.searchParams.get("space") ?? 
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={metaDescription} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap"
       rel="stylesheet"
     />
-    <title>{title} | QuickCut</title>
+    <title>{title} | Quick Cuts</title>
   </head>
   <body class="min-h-screen bg-bg-primary font-sans antialiased">
     {
       user && (
         <header class="sticky top-0 z-50 flex h-14 items-center border-b border-border-default bg-bg-primary px-8">
           <a href={headerSpaceId ? `/dashboard?space=${headerSpaceId}` : "/dashboard"} class="text-lg font-bold text-text-primary">
-            QuickCut
+            Quick Cuts
           </a>
           <div class="ml-auto flex items-center gap-3">
             <SpaceSwitcher client:load spaces={userSpaces} selectedSpaceId={headerSpaceId} />

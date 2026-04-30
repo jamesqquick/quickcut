@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
-import { videos, shareLinks, comments, folders, spaceMembers } from "../../../../db/schema";
-import { and, desc, eq, count } from "drizzle-orm";
+import { videos, shareLinks, comments, folders } from "../../../../db/schema";
+import { and, eq, count } from "drizzle-orm";
 import { deleteVideo as deleteStreamVideo } from "../../../../lib/stream";
 import { videoUpdateSchema } from "../../../../lib/validation";
 import { verifySpaceAccess } from "../../../../lib/spaces";
@@ -272,39 +272,32 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
     });
   }
 
-  // Best-effort delete from Cloudflare Stream. Don't block DB cleanup if it fails.
-  if (video.streamVideoId) {
+  const versionGroupId = video.versionGroupId || video.id;
+  const projectVersions = await db
+    .select({ id: videos.id, streamVideoId: videos.streamVideoId })
+    .from(videos)
+    .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)));
+
+  // Best-effort delete all project versions from Cloudflare Stream. Don't block DB cleanup if it fails.
+  for (const version of projectVersions) {
+    if (!version.streamVideoId) continue;
     try {
       await deleteStreamVideo(
         env.STREAM_ACCOUNT_ID,
         env.STREAM_API_TOKEN,
-        video.streamVideoId,
+        version.streamVideoId,
       );
     } catch (err) {
       console.error("Failed to delete video from Cloudflare Stream:", err);
     }
   }
 
-  const versionGroupId = video.versionGroupId || video.id;
-  const remainingVersions = await db
-    .select({ id: videos.id, versionNumber: videos.versionNumber })
-    .from(videos)
-    .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)))
-    .orderBy(desc(videos.versionNumber));
-
-  const replacement = remainingVersions.find((version) => version.id !== id) || null;
-
-  // Delete the video row. share_links and comments cascade via FK constraints.
-  await db.delete(videos).where(eq(videos.id, id));
-
-  if (video.isCurrentVersion && replacement) {
-    await db
-      .update(videos)
-      .set({ isCurrentVersion: true, updatedAt: new Date().toISOString() })
-      .where(eq(videos.id, replacement.id));
+  // Delete every version in the project. Related rows cascade via FK constraints.
+  for (const version of projectVersions) {
+    await db.delete(videos).where(eq(videos.id, version.id));
   }
 
-  return new Response(JSON.stringify({ success: true, redirectVideoId: replacement?.id || null }), {
+  return new Response(JSON.stringify({ success: true, redirectVideoId: null }), {
     headers: { "Content-Type": "application/json" },
   });
 };

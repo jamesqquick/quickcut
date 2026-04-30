@@ -207,6 +207,16 @@ function parseInitialContent(content: string): JSONContent {
   };
 }
 
+function getTextFromContent(content: JSONContent): string {
+  const text = typeof content.text === "string" ? content.text : "";
+  const childText = content.content?.map(getTextFromContent).join(" ") ?? "";
+  return `${text} ${childText}`.trim();
+}
+
+function initialContentHasText(content: string): boolean {
+  return getTextFromContent(parseInitialContent(content)).trim().length > 0;
+}
+
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -234,6 +244,7 @@ export function ScriptWorkspace({
   const [replyText, setReplyText] = useState("");
   const [submittingReply, setSubmittingReply] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
+  const [hasScriptText, setHasScriptText] = useState(() => initialContentHasText(initialContent));
   const [viewers, setViewers] = useState<Viewer[]>([]);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
@@ -323,6 +334,7 @@ export function ScriptWorkspace({
     },
     onUpdate({ editor }) {
       if (readOnly) return;
+      setHasScriptText(editor.getText().trim().length > 0);
       setSaveState("saving");
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
