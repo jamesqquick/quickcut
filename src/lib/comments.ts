@@ -8,9 +8,10 @@ import {
   type CommentReactionSummary,
 } from "../types";
 
-export type CommentReactor =
-  | { type: "user"; userId: string; displayName: string }
-  | { type: "anonymous"; anonymousId: string; displayName: string };
+export interface CommentReactor {
+  userId: string;
+  displayName: string;
+}
 
 export function isCommentReactionEmoji(
   emoji: string,
@@ -109,7 +110,6 @@ export async function getReactionSummaries(
       commentId: commentReactions.commentId,
       emoji: commentReactions.emoji,
       reactorUserId: commentReactions.reactorUserId,
-      anonymousReactorId: commentReactions.anonymousReactorId,
     })
     .from(commentReactions)
     .where(inArray(commentReactions.commentId, commentIds));
@@ -122,12 +122,7 @@ export async function getReactionSummaries(
     const key = `${row.commentId}:${row.emoji}`;
     counts.set(key, (counts.get(key) ?? 0) + 1);
 
-    const reactedByMe =
-      reactor?.type === "user"
-        ? row.reactorUserId === reactor.userId
-        : reactor?.type === "anonymous"
-          ? row.anonymousReactorId === reactor.anonymousId
-          : false;
+    const reactedByMe = reactor ? row.reactorUserId === reactor.userId : false;
     if (reactedByMe) mine.add(key);
   }
 
@@ -156,11 +151,7 @@ export async function toggleCommentReaction(
     eq(commentReactions.emoji, emoji),
   ];
 
-  if (reactor.type === "user") {
-    conditions.push(eq(commentReactions.reactorUserId, reactor.userId));
-  } else {
-    conditions.push(eq(commentReactions.anonymousReactorId, reactor.anonymousId));
-  }
+  conditions.push(eq(commentReactions.reactorUserId, reactor.userId));
 
   const existing = await db
     .select({ id: commentReactions.id })
@@ -178,10 +169,7 @@ export async function toggleCommentReaction(
         id: crypto.randomUUID(),
         commentId,
         emoji,
-        reactorType: reactor.type,
-        reactorUserId: reactor.type === "user" ? reactor.userId : null,
-        anonymousReactorId:
-          reactor.type === "anonymous" ? reactor.anonymousId : null,
+        reactorUserId: reactor.userId,
         reactorDisplayName: reactor.displayName,
       });
     } catch (err) {

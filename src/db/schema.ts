@@ -308,11 +308,9 @@ export const commentReactions = sqliteTable(
       .notNull()
       .references(() => comments.id, { onDelete: "cascade" }),
     emoji: text("emoji").notNull(),
-    reactorType: text("reactor_type", { enum: ["user", "anonymous"] }).notNull(),
-    reactorUserId: text("reactor_user_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
-    anonymousReactorId: text("anonymous_reactor_id"),
+    reactorUserId: text("reactor_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     reactorDisplayName: text("reactor_display_name"),
     createdAt: text("created_at")
       .notNull()
@@ -322,8 +320,5 @@ export const commentReactions = sqliteTable(
     uniqueIndex("comment_reactions_user_unique")
       .on(table.commentId, table.emoji, table.reactorUserId)
       .where(sql`${table.reactorUserId} IS NOT NULL`),
-    uniqueIndex("comment_reactions_anonymous_unique")
-      .on(table.commentId, table.emoji, table.anonymousReactorId)
-      .where(sql`${table.anonymousReactorId} IS NOT NULL`),
   ],
 );

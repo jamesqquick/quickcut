@@ -32,8 +32,6 @@ export const GET: APIRoute = async ({ params, url }) => {
 
   const videoId = shareLinkResult[0].videoId;
   const since = url.searchParams.get("since");
-  const anonymousReactorId = url.searchParams.get("anonymousReactorId");
-  const displayName = url.searchParams.get("displayName") || "Anonymous";
 
   let conditions = eq(comments.videoId, videoId);
   if (since) {
@@ -70,9 +68,6 @@ export const GET: APIRoute = async ({ params, url }) => {
           ? userMap[c.authorUserId] || "Unknown"
           : c.authorDisplayName || "Anonymous",
     })),
-    anonymousReactorId
-      ? { type: "anonymous", anonymousId: anonymousReactorId, displayName }
-      : undefined,
   );
 
   return new Response(JSON.stringify({ comments: commentsWithNames }), {

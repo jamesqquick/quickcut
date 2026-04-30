@@ -85,7 +85,6 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
           : c.authorDisplayName || "Anonymous",
     })),
     {
-      type: "user",
       userId: locals.user.id,
       displayName: locals.user.displayName,
     },

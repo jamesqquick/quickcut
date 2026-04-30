@@ -50,13 +50,19 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   }
 
   const videoRow = await db
-    .select({ spaceId: videos.spaceId })
+    .select({ spaceId: videos.spaceId, phase: videos.phase })
     .from(videos)
     .where(eq(videos.id, comment[0].videoId))
     .limit(1);
   if (videoRow.length === 0) {
     return new Response(JSON.stringify({ error: "Video not found" }), {
       status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  if (videoRow[0].phase === "published") {
+    return new Response(JSON.stringify({ error: "Cannot react on published videos" }), {
+      status: 403,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -70,7 +76,6 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   }
 
   const reactions = await toggleCommentReaction(db, commentId, emoji, {
-    type: "user",
     userId: locals.user.id,
     displayName: locals.user.displayName,
   });

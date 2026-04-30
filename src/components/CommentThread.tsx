@@ -54,19 +54,6 @@ const URGENCY_OPTIONS: CommentUrgency[] = [
   "critical",
 ];
 
-const ANONYMOUS_REACTOR_KEY = "quickcut_anonymous_reactor_id";
-
-function getAnonymousReactorId() {
-  if (typeof window === "undefined") return "";
-
-  const existing = localStorage.getItem(ANONYMOUS_REACTOR_KEY);
-  if (existing) return existing;
-
-  const next = crypto.randomUUID();
-  localStorage.setItem(ANONYMOUS_REACTOR_KEY, next);
-  return next;
-}
-
 function ReactionBar({
   comment,
   disabled,
@@ -403,9 +390,6 @@ export function CommentThread({
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Viewer[]>([]);
   const [presenceLoading, setPresenceLoading] = useState(!!liveEnabled);
-  const [anonymousReactorId] = useState(() =>
-    shareToken ? getAnonymousReactorId() : "",
-  );
   const lastFetchRef = useRef<string>(new Date().toISOString());
   const threadRef = useRef<HTMLDivElement>(null);
   const commentRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -424,10 +408,6 @@ export function CommentThread({
           ? `/api/share/${shareToken}/comments`
           : `/api/videos/${videoId}/comments`;
         const pollUrl = new URL(baseUrl, window.location.origin);
-        if (shareToken && anonymousReactorId) {
-          pollUrl.searchParams.set("anonymousReactorId", anonymousReactorId);
-          if (anonymousName) pollUrl.searchParams.set("displayName", anonymousName);
-        }
         const res = await fetch(pollUrl.toString());
         if (res.ok) {
           const data = await res.json();
@@ -459,7 +439,7 @@ export function CommentThread({
     const interval = setInterval(refreshComments, 10000);
 
     return () => clearInterval(interval);
-  }, [videoId, shareToken, anonymousName, anonymousReactorId]);
+  }, [videoId, shareToken]);
 
   // Live updates via the per-video VideoRoom Durable Object. Dedupe on id so
   // the poster's own client doesn't double-render when the broadcast echoes.
@@ -711,26 +691,13 @@ export function CommentThread({
     commentId: string,
     emoji: CommentReactionEmoji,
   ) => {
-    if (readOnly) return;
-    if (shareToken && !anonymousName) {
-      onNameRequired?.();
-      return;
-    }
+    if (readOnly || !isAuthenticated) return;
 
     try {
-      const url = shareToken
-        ? `/api/share/${shareToken}/comments/${commentId}/reactions`
-        : `/api/comments/${commentId}/reactions`;
-      const body: Record<string, unknown> = { emoji };
-      if (shareToken) {
-        body.anonymousReactorId = anonymousReactorId;
-        body.displayName = anonymousName;
-      }
-
-      const res = await fetch(url, {
+      const res = await fetch(`/api/comments/${commentId}/reactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ emoji }),
       });
 
       if (res.ok) {
@@ -894,7 +861,7 @@ export function CommentThread({
                     </p>
                     <ReactionBar
                       comment={comment}
-                      disabled={readOnly}
+                      disabled={readOnly || !isAuthenticated}
                       onToggle={toggleReaction}
                     />
                     <div className="mt-2 flex gap-3">
@@ -953,7 +920,7 @@ export function CommentThread({
                           </p>
                           <ReactionBar
                             comment={reply}
-                            disabled={readOnly}
+                            disabled={readOnly || !isAuthenticated}
                             onToggle={toggleReaction}
                           />
                           {canDelete(reply) && (
