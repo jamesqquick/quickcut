@@ -1,0 +1,84 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { ProjectPhaseControls } from "../../../components/ProjectPhaseControls";
+import { UploadView } from "../../../components/UploadView";
+import { VideoHeader } from "../../../components/VideoHeader";
+import { createDb } from "../../../db";
+import { shareLinks, spaces, videos } from "../../../db/schema";
+import { eq } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+import { isTranscriptGenerationEnabled } from "../../../lib/flags";
+import { verifySpaceAccess } from "../../../lib/spaces";
+import { normalizeVideoPhase, type VideoPhase } from "../../../types";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/dashboard");
+
+const db = createDb(env.DB);
+const videoResult = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
+if (videoResult.length === 0) return Astro.redirect("/dashboard");
+
+const video = videoResult[0];
+const role = await verifySpaceAccess(db, user.id, video.spaceId);
+if (!role) return Astro.redirect("/dashboard");
+if (video.phase === "published") return Astro.redirect(`/videos/${id}/review${Astro.url.search}`);
+
+const shareLinkResult = await db.select().from(shareLinks).where(eq(shareLinks.videoId, id)).limit(1);
+const shareLink = shareLinkResult[0] || null;
+const appUrl = new URL(Astro.request.url).origin;
+const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
+const spaceResult = await db
+  .select({ id: spaces.id, name: spaces.name, pipelineEnabled: spaces.pipelineEnabled })
+  .from(spaces)
+  .where(eq(spaces.id, video.spaceId))
+  .limit(1);
+const videoSpace = spaceResult[0] ?? { id: video.spaceId, name: "Space", pipelineEnabled: false };
+const backHref = `/videos/${video.id}?space=${video.spaceId}`;
+const isFirstCut = video.status === "draft" && !video.streamVideoId;
+const enabledSteps = ["overview", "script", "review"];
+const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
+---
+
+<Layout title={`${video.title} Upload`} user={user} selectedSpaceId={video.spaceId}>
+  <div class="mx-auto max-w-[1180px] px-4 py-6 sm:px-8 sm:py-8">
+    <VideoHeader
+      client:load
+      videoId={video.id}
+      shareLink={shareLink}
+      appUrl={appUrl}
+      spaceId={video.spaceId}
+      backHref={backHref}
+      backLabel="Back to project"
+      spaceName={videoSpace.name}
+    />
+
+    {videoSpace.pipelineEnabled && (
+      <div class="mb-6">
+        <ProjectPhaseControls
+          client:load
+          videoId={video.id}
+          initialPhase={normalizeVideoPhase(isFirstCut ? "review" : video.phase || "review") as VideoPhase}
+          title="Video"
+          description="Upload the first cut when the script is ready."
+          currentStep="review"
+          enabledSteps={enabledSteps}
+          lockedStepMessages={!isFirstCut ? { script: scriptLockedMessage } : undefined}
+        />
+      </div>
+    )}
+
+    <div class="space-y-6">
+      <UploadView
+        client:load
+        videoId={video.id}
+        title={video.title}
+        description={video.description || ""}
+        isFirstCut={isFirstCut}
+        transcriptsEnabled={transcriptsEnabled}
+      />
+    </div>
+  </div>
+</Layout>

@@ -24,6 +24,50 @@
     transform: translateY(0);
     opacity: 1;
   }
+
+  .script-editor .ProseMirror h1 {
+    margin: 0.75rem 0 0.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .script-editor .ProseMirror h2 {
+    margin: 0.75rem 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .script-editor .ProseMirror h3 {
+    margin: 0.75rem 0 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .script-editor .ProseMirror p {
+    margin: 0.5rem 0;
+  }
+
+  .script-editor .ProseMirror ul,
+  .script-editor .ProseMirror ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+  }
+
+  .script-editor .ProseMirror ul {
+    list-style: disc;
+  }
+
+  .script-editor .ProseMirror ol {
+    list-style: decimal;
+  }
+
+  .script-editor .ProseMirror p.is-editor-empty:first-child::before {
+    color: var(--color-text-tertiary);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
 }
 
 @theme {

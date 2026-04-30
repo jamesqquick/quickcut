@@ -5,6 +5,7 @@ import { comments, users, videos } from "../../../../db/schema";
 import { eq, asc, gt, and } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { verifySpaceAccess } from "../../../../lib/spaces";
+import { commentSchema } from "../../../../lib/validation";
 
 export const GET: APIRoute = async ({ params, locals, url }) => {
   if (!locals.user) {
@@ -74,6 +75,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   const commentsWithNames = allComments.map((c) => ({
     ...c,
     annotation: c.annotation ? JSON.parse(c.annotation) : null,
+    textRange: c.textRange ? JSON.parse(c.textRange) : null,
     displayName:
       c.authorType === "user" && c.authorUserId
         ? userMap[c.authorUserId] || "Unknown"
@@ -101,27 +103,15 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     });
   }
 
-  const body = await request.json();
-  const { text, timestamp, annotation, urgency } = body;
-
-  if (!text || !text.trim()) {
-    return new Response(JSON.stringify({ error: "Comment text is required" }), {
+  const parsed = commentSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return new Response(JSON.stringify({ error: parsed.error.issues[0]?.message || "Invalid input" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  // Validate urgency; default to "suggestion" if not provided.
-  const allowedUrgencies = [
-    "idea",
-    "suggestion",
-    "important",
-    "critical",
-  ] as const;
-  type Urgency = (typeof allowedUrgencies)[number];
-  const commentUrgency: Urgency = allowedUrgencies.includes(urgency as Urgency)
-    ? (urgency as Urgency)
-    : "suggestion";
+  const { text, timestamp, annotation, urgency, phase, textRange } = parsed.data;
 
   const db = createDb(env.DB);
 
@@ -137,6 +127,15 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  // Block comments on published videos
+  if (video[0].phase === "published") {
+    return new Response(JSON.stringify({ error: "Cannot comment on published videos" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const postRole = await verifySpaceAccess(db, locals.user.id, video[0].spaceId);
   if (!postRole) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -158,8 +157,11 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     isResolved: false,
     resolvedBy: null,
     resolvedAt: null,
+    resolvedReason: null,
     annotation: annotation ? JSON.stringify(annotation) : null,
-    urgency: commentUrgency,
+    urgency,
+    phase,
+    textRange: textRange ? JSON.stringify(textRange) : null,
   };
 
   await db.insert(comments).values(newComment);
@@ -167,6 +169,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   const responseComment = {
     ...newComment,
     annotation: annotation || null,
+    textRange: textRange || null,
     createdAt: new Date().toISOString(),
     displayName: locals.user.displayName,
   };

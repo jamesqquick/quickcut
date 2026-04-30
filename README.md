@@ -1,4 +1,4 @@
-# QuickCut
+# Quick Cuts
 
 Collaborative video review, built on Cloudflare. Organize work into team spaces, upload up to 5GB, stack new versions, share a link, and collect timestamped feedback from your team or clients — no account required for external reviewers.
 
@@ -30,7 +30,7 @@ Collaborative video review, built on Cloudflare. Organize work into team spaces,
 
 ## Cloudflare Usage
 
-QuickCut runs end-to-end on Cloudflare's network. No origin servers, no separate CDN.
+Quick Cuts runs end-to-end on Cloudflare's network. No origin servers, no separate CDN.
 
 ### Workers
 The entire Astro app — auth, API routes, page rendering — is deployed as a single Worker via `@astrojs/cloudflare`. Sub-50ms cold starts in 300+ cities mean reviewers never wait on the network.

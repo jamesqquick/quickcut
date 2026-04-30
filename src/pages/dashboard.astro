@@ -4,10 +4,13 @@ import VideoCard from "../components/VideoCard.astro";
 import FolderCard from "../components/FolderCard.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import { CreateFolderDialog } from "../components/CreateFolderDialog";
+import { NewProjectDialog } from "../components/NewProjectDialog";
+import { PipelineBoard } from "../components/PipelineBoard";
+import { CalendarView } from "../components/CalendarView";
 import EmptyState from "../components/EmptyState.astro";
 import { createDb } from "../db";
-import { folders, videos, comments, spaceMembers, approvals } from "../db/schema";
-import { and, asc, desc, count, eq, inArray, isNull, sql } from "drizzle-orm";
+import { folders, videos, comments, spaceMembers, approvals, scripts } from "../db/schema";
+import { and, asc, desc, count, eq, inArray, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getUserSpaces } from "../lib/spaces";
 
@@ -17,6 +20,7 @@ if (!user) return Astro.redirect("/login");
 const db = createDb(env.DB);
 const currentFolderId = Astro.url.searchParams.get("folderId");
 const requestedSpaceId = Astro.url.searchParams.get("space");
+const requestedView = Astro.url.searchParams.get("view");
 
 const userSpaces = await getUserSpaces(db, user.id);
 const defaultSpace = userSpaces[0] ?? null;
@@ -28,6 +32,15 @@ if (requestedSpaceId && requestedSpaceId !== selectedSpaceId) {
   return Astro.redirect(`/dashboard?space=${selectedSpaceId}`);
 }
 const dashboardHref = `/dashboard?space=${selectedSpaceId}`;
+const activeView = selectedSpace.pipelineEnabled && (requestedView === "pipeline" || requestedView === "calendar")
+  ? requestedView
+  : "grid";
+const viewHref = (view: "grid" | "pipeline" | "calendar") => {
+  const params = new URLSearchParams({ space: selectedSpaceId });
+  if (view !== "grid") params.set("view", view);
+  if (view === "grid" && currentFolderId) params.set("folderId", currentFolderId);
+  return `/dashboard?${params.toString()}`;
+};
 
 const currentFolder = currentFolderId
   ? await db
@@ -88,15 +101,16 @@ if (childFolderIds.length > 0) {
   }, {});
 }
 
-const userVideos = await db
+const allSpaceVideos = await db
   .select()
   .from(videos)
-  .where(
-    currentFolderId
-      ? and(eq(videos.spaceId, selectedSpaceId), eq(videos.folderId, currentFolderId), eq(videos.isCurrentVersion, true))
-      : and(eq(videos.spaceId, selectedSpaceId), isNull(videos.folderId), eq(videos.isCurrentVersion, true)),
-  )
+  .where(and(eq(videos.spaceId, selectedSpaceId), eq(videos.isCurrentVersion, true)))
   .orderBy(desc(videos.createdAt));
+
+const userVideos = allSpaceVideos.filter((video) => {
+  if (currentFolderId) return video.folderId === currentFolderId;
+  return video.folderId === null;
+});
 
 // Get comment counts (per video) + urgency breakdown for top-level,
 // unresolved comments. Replies and resolved comments are excluded from the
@@ -109,8 +123,8 @@ type UrgencyCounts = {
   critical: number;
 };
 let urgencyCounts: Record<string, UrgencyCounts> = {};
-if (userVideos.length > 0) {
-  const videoIds = userVideos.map((v) => v.id);
+if (allSpaceVideos.length > 0) {
+  const videoIds = allSpaceVideos.map((v) => v.id);
   const counts = await db
     .select({
       videoId: comments.videoId,
@@ -151,8 +165,8 @@ if (userVideos.length > 0) {
 }
 
 let versionCounts: Record<string, number> = {};
-if (userVideos.length > 0) {
-  const versionGroupIds = userVideos.map((video) => video.versionGroupId || video.id);
+if (allSpaceVideos.length > 0) {
+  const versionGroupIds = allSpaceVideos.map((video) => video.versionGroupId || video.id);
   const counts = await db
     .select({ versionGroupId: videos.versionGroupId, count: count() })
     .from(videos)
@@ -164,8 +178,8 @@ if (userVideos.length > 0) {
 
 // Approval badges only render when the selected space enables approvals.
 const approvalCountsByVideo: Record<string, number> = {};
-if (userVideos.length > 0 && selectedSpace.requiredApprovals > 0) {
-  const videoIds = userVideos.map((v) => v.id);
+if (allSpaceVideos.length > 0 && selectedSpace.requiredApprovals > 0) {
+  const videoIds = allSpaceVideos.map((v) => v.id);
   const counts = await db
     .select({ videoId: approvals.videoId, count: count() })
     .from(approvals)
@@ -182,6 +196,16 @@ const memberCountRows = await db
   .where(eq(spaceMembers.spaceId, selectedSpaceId));
 const memberCount = memberCountRows[0]?.count ?? 0;
 
+let scriptStatuses: Record<string, "writing" | "review"> = {};
+if (allSpaceVideos.length > 0 && selectedSpace.pipelineEnabled) {
+  const videoIds = allSpaceVideos.map((v) => v.id);
+  const scriptRows = await db
+    .select({ videoId: scripts.videoId, status: scripts.status })
+    .from(scripts)
+    .where(sql`${scripts.videoId} IN (${sql.join(videoIds.map((id) => sql`${id}`), sql`, `)})`);
+  scriptStatuses = Object.fromEntries(scriptRows.map((script) => [script.videoId, script.status]));
+}
+
 const uploadHref = currentFolderId
   ? `/upload?space=${selectedSpaceId}&folderId=${currentFolderId}`
   : `/upload?space=${selectedSpaceId}`;
@@ -190,6 +214,21 @@ const emptyHeading = currentFolderRecord ? "This folder is empty" : "No videos y
 const emptyDescription = currentFolderRecord
   ? "Add videos or create a nested folder here"
   : "Upload one to get started.";
+
+const pipelineVideos = allSpaceVideos.map((video) => ({
+  id: video.id,
+  title: video.title,
+  status: video.status as "draft" | "processing" | "ready" | "failed",
+  phase: (video.phase || "review") as "script" | "review" | "published",
+  scriptStatus: scriptStatuses[video.id] || null,
+  thumbnailUrl: video.thumbnailUrl,
+  duration: video.duration,
+  createdAt: video.createdAt,
+  targetDate: video.targetDate,
+  commentCount: commentCounts[video.id] || 0,
+  approvalCount: approvalCountsByVideo[video.id] || 0,
+  requiredApprovals: selectedSpace.requiredApprovals,
+}));
 ---
 
 <Layout title={currentFolderRecord ? currentFolderRecord.name : selectedSpace.name} user={user} selectedSpaceId={selectedSpaceId}>
@@ -202,6 +241,9 @@ const emptyDescription = currentFolderRecord
         </h1>
       </div>
       <div class="flex items-center gap-2 sm:gap-3">
+        {selectedSpace.pipelineEnabled && (
+          <NewProjectDialog client:load folderId={currentFolderId} spaceId={selectedSpaceId} />
+        )}
         <CreateFolderDialog client:load parentId={currentFolderId} spaceId={selectedSpaceId} />
         <a
           href={uploadHref}
@@ -226,7 +268,52 @@ const emptyDescription = currentFolderRecord
       </div>
     )}
 
-    {userVideos.length === 0 && childFolders.length === 0 ? (
+    {selectedSpace.pipelineEnabled && (
+      <div class="mb-6 inline-flex rounded-lg border border-border-default bg-bg-secondary p-1">
+        <a
+          href={viewHref("grid")}
+          class={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeView === "grid" ? "bg-accent-primary text-white" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"}`}
+        >
+          Grid
+        </a>
+        <a
+          href={viewHref("pipeline")}
+          class={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeView === "pipeline" ? "bg-accent-primary text-white" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"}`}
+        >
+          Pipeline
+        </a>
+        <a
+          href={viewHref("calendar")}
+          class={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${activeView === "calendar" ? "bg-accent-primary text-white" : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"}`}
+        >
+          Calendar
+        </a>
+      </div>
+    )}
+
+    {activeView === "pipeline" ? (
+      pipelineVideos.length === 0 ? (
+        <EmptyState
+          heading="No projects yet"
+          description="Create a project or upload a video to start building your pipeline."
+          actionText="Upload Video"
+          actionHref={uploadHref}
+        />
+      ) : (
+        <PipelineBoard client:load initialVideos={pipelineVideos} spaceId={selectedSpaceId} />
+      )
+    ) : activeView === "calendar" ? (
+      pipelineVideos.length === 0 ? (
+        <EmptyState
+          heading="No projects yet"
+          description="Create a project or upload a video to start scheduling launches."
+          actionText="Upload Video"
+          actionHref={uploadHref}
+        />
+      ) : (
+        <CalendarView client:load initialVideos={pipelineVideos} spaceId={selectedSpaceId} />
+      )
+    ) : userVideos.length === 0 && childFolders.length === 0 ? (
       <EmptyState
         heading={emptyHeading}
         description={emptyDescription}
@@ -253,7 +340,7 @@ const emptyDescription = currentFolderRecord
             spaceId={selectedSpaceId}
             thumbnailUrl={video.thumbnailUrl}
             duration={video.duration}
-            status={video.status as "processing" | "ready" | "failed"}
+            status={video.status as "draft" | "processing" | "ready" | "failed"}
             createdAt={video.createdAt}
             commentCount={commentCounts[video.id] || 0}
             urgencyCounts={urgencyCounts[video.id] || { idea: 0, suggestion: 0, important: 0, critical: 0 }}
@@ -261,6 +348,8 @@ const emptyDescription = currentFolderRecord
             versionCount={versionCounts[video.versionGroupId || video.id] || 1}
             requiredApprovals={selectedSpace.requiredApprovals}
             approvalCount={approvalCountsByVideo[video.id] || 0}
+            phase={video.phase}
+            pipelineEnabled={selectedSpace.pipelineEnabled}
           />
         ))}
       </div>

@@ -96,12 +96,13 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
     });
   }
 
-  const updates: { name?: string; requiredApprovals?: number; updatedAt: string } = {
+  const updates: { name?: string; requiredApprovals?: number; pipelineEnabled?: boolean; updatedAt: string } = {
     updatedAt: new Date().toISOString(),
   };
 
   if (parsed.data.name !== undefined) updates.name = parsed.data.name;
   if (parsed.data.requiredApprovals !== undefined) updates.requiredApprovals = parsed.data.requiredApprovals;
+  if (parsed.data.pipelineEnabled !== undefined) updates.pipelineEnabled = parsed.data.pipelineEnabled;
 
   await db.update(spaces).set(updates).where(eq(spaces.id, id));
   const updated = await db.select().from(spaces).where(eq(spaces.id, id)).limit(1);

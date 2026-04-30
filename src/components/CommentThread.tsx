@@ -266,6 +266,8 @@ interface CommentThreadProps {
   activeTool?: AnnotationTool;
   /** Callback to change the active annotation tool. */
   onToolChange?: (tool: AnnotationTool) => void;
+  /** When true, the comment form is hidden (e.g. published videos). */
+  readOnly?: boolean;
 }
 
 type FilterType = "all" | "unresolved" | "resolved";
@@ -299,6 +301,7 @@ export function CommentThread({
   onCommentHover,
   activeTool = "none",
   onToolChange,
+  readOnly = false,
 }: CommentThreadProps) {
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [filter, setFilter] = useState<FilterType>("all");
@@ -336,12 +339,13 @@ export function CommentThread({
           if (data.comments && data.comments.length > 0) {
             setComments((prev) => {
               const existingIds = new Set(prev.map((c) => c.id));
+              const reviewComments = data.comments.filter((c: Comment) => c.phase !== "script");
               const newOnes = data.comments.filter(
-                (c: Comment) => !existingIds.has(c.id),
+                (c: Comment) => c.phase !== "script" && !existingIds.has(c.id),
               );
               // Also update resolved status for existing comments
               const updated = prev.map((existing) => {
-                const updatedComment = data.comments.find(
+                const updatedComment = reviewComments.find(
                   (c: Comment) => c.id === existing.id,
                 );
                 return updatedComment || existing;
@@ -373,6 +377,7 @@ export function CommentThread({
       },
       {
         onComment: (incoming) => {
+          if (incoming.phase === "script") return;
           setComments((prev) => {
             if (prev.some((c) => c.id === incoming.id)) return prev;
             return sortComments([...prev, incoming as unknown as Comment]);
@@ -735,7 +740,7 @@ export function CommentThread({
                             replyingTo === comment.id ? null : comment.id,
                           )
                         }
-                        className="text-xs text-text-tertiary transition-colors hover:text-text-primary"
+                         className="text-xs text-text-tertiary transition-colors hover:text-text-primary"
                       >
                         Reply
                       </button>
@@ -829,6 +834,11 @@ export function CommentThread({
       </div>
 
       {/* New comment input */}
+      {readOnly ? (
+        <div className="border-t border-border-default px-4 py-3 text-center text-xs text-text-tertiary">
+          Comments are locked on published videos.
+        </div>
+      ) : (
       <div className="min-w-0 border-t border-border-default p-4">
         {error && (
           <div className="mb-2 text-xs text-accent-danger">{error}</div>
@@ -885,7 +895,7 @@ export function CommentThread({
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (e.key === "Enter") {
                 e.preventDefault();
                 submitComment();
               }
@@ -908,6 +918,7 @@ export function CommentThread({
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 }

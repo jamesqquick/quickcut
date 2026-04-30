@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import type { Annotation, CommentUrgency } from "../types";
+import type { Annotation, CommentUrgency, TextRange } from "../types";
 
 /**
  * Shape of comments broadcast to connected clients.
@@ -19,6 +19,8 @@ export interface BroadcastComment {
 	resolvedAt: string | null;
 	annotation: Annotation | null;
 	urgency: CommentUrgency;
+	phase: "script" | "review";
+	textRange: TextRange | null;
 	createdAt: string;
 	displayName: string;
 }
@@ -41,6 +43,16 @@ export interface BroadcastApprovalStatus {
 	}>;
 }
 
+/**
+ * Snapshot of a video's phase change, broadcast when a member moves the
+ * video to a different pipeline phase.
+ */
+export interface BroadcastPhaseChange {
+	videoId: string;
+	phase: string;
+	changedBy: string;
+}
+
 /** A viewer currently connected to the room. */
 export interface Viewer {
 	name: string;
@@ -55,7 +67,8 @@ interface SocketMeta {
 type ServerMessage =
 	| { type: "comment.new"; comment: BroadcastComment }
 	| { type: "presence.sync"; viewers: Viewer[] }
-	| { type: "approval.update"; approvalStatus: BroadcastApprovalStatus };
+	| { type: "approval.update"; approvalStatus: BroadcastApprovalStatus }
+	| { type: "phase.update"; phaseChange: BroadcastPhaseChange };
 
 /**
  * VideoRoom coordinates real-time updates for a single video review session.
@@ -175,6 +188,28 @@ export class VideoRoom extends DurableObject<Env> {
 		const message: ServerMessage = {
 			type: "approval.update",
 			approvalStatus,
+		};
+		const payload = JSON.stringify(message);
+
+		for (const ws of this.ctx.getWebSockets()) {
+			try {
+				ws.send(payload);
+			} catch {
+				// ignore
+			}
+		}
+	}
+
+	/**
+	 * RPC method called by API routes after a video's pipeline phase has
+	 * been changed. Pushes the new phase to every connected socket.
+	 */
+	async broadcastPhaseChange(
+		phaseChange: BroadcastPhaseChange,
+	): Promise<void> {
+		const message: ServerMessage = {
+			type: "phase.update",
+			phaseChange,
 		};
 		const payload = JSON.stringify(message);
 

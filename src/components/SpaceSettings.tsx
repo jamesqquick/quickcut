@@ -6,6 +6,7 @@ interface Space {
   name: string;
   ownerId: string;
   requiredApprovals: number;
+  pipelineEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,9 +57,9 @@ export function SpaceSettings({
   // Settings form state
   const [name, setName] = useState(space.name);
   const [requiredApprovals, setRequiredApprovals] = useState(space.requiredApprovals);
+  const [pipelineEnabled, setPipelineEnabled] = useState(space.pipelineEnabled);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState("");
-  const [settingsSuccess, setSettingsSuccess] = useState("");
 
   // Invite form state
   const [inviteEmail, setInviteEmail] = useState("");
@@ -72,13 +73,12 @@ export function SpaceSettings({
     e.preventDefault();
     setSettingsSaving(true);
     setSettingsError("");
-    setSettingsSuccess("");
 
     try {
       const res = await fetch(`/api/spaces/${space.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), requiredApprovals }),
+        body: JSON.stringify({ name: name.trim(), requiredApprovals, pipelineEnabled }),
       });
       const data = (await res.json().catch(() => null)) as {
         error?: string;
@@ -87,8 +87,7 @@ export function SpaceSettings({
 
       if (!res.ok) throw new Error(data?.error || "Failed to update settings");
       if (data?.space) setSpace(data.space);
-      setSettingsSuccess("Settings saved");
-      setTimeout(() => setSettingsSuccess(""), 3000);
+      showToast("Settings saved");
     } catch (err) {
       setSettingsError(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -235,17 +234,39 @@ export function SpaceSettings({
               </p>
             </div>
 
+            <div className="flex items-start gap-3">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={pipelineEnabled}
+                onClick={() => setPipelineEnabled(!pipelineEnabled)}
+                disabled={settingsSaving}
+                className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                  pipelineEnabled ? "bg-accent-primary" : "bg-bg-tertiary"
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-200 ${
+                    pipelineEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
+                  }`}
+                />
+              </button>
+              <div>
+                <label className="block text-sm font-medium text-text-secondary">
+                  Pipeline Mode
+                </label>
+                <p className="mt-0.5 text-xs text-text-tertiary">
+                  Track videos through script, video, and published phases. Adds phase
+                  indicators and a pipeline view to the dashboard.
+                </p>
+              </div>
+            </div>
+
             {settingsError && (
               <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
                 {settingsError}
               </div>
             )}
-            {settingsSuccess && (
-              <div className="rounded-lg bg-accent-success/15 px-4 py-2 text-sm text-accent-success">
-                {settingsSuccess}
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={settingsSaving || !name.trim()}

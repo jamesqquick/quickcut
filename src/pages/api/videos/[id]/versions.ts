@@ -96,6 +96,11 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
 
   if (!baseVideo) return json({ error: "Video not found" }, 404);
 
+  // Block new versions on published videos
+  if (baseVideo.phase === "published") {
+    return json({ error: "Cannot add versions to published videos" }, 403);
+  }
+
   const postRole = await verifySpaceAccess(db, locals.user.id, baseVideo.spaceId);
   if (!postRole) return json({ error: "Forbidden" }, 403);
 
