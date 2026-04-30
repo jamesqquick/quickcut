@@ -77,18 +77,23 @@ const tabHref = (tab: "script" | "video") => {
 
     <div class="space-y-6">
       <section class="rounded-2xl border border-border-default bg-bg-secondary p-5 sm:p-6">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div class="min-w-0 flex-1 space-y-3">
+        <div class="min-w-0">
+          <div class="min-w-0">
             <p class="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Project overview</p>
-            <InlineEditor
-              client:load
-              value={video.title}
-              field="title"
-              videoId={video.id}
-              isOwner={isOwner && !isPublished}
-              as="h1"
-              className="min-w-0 break-words text-2xl font-bold text-text-primary sm:text-3xl"
-            />
+            <div class="mt-2 flex flex-wrap items-start gap-x-6 gap-y-3">
+              <InlineEditor
+                client:load
+                value={video.title}
+                field="title"
+                videoId={video.id}
+                isOwner={isOwner && !isPublished}
+                as="h1"
+                className="min-w-0 break-words text-2xl font-bold text-text-primary sm:text-3xl"
+              />
+              <ProjectStatusControls client:load videoId={video.id} initialStatus={phase} canEdit={canEditStatus} />
+            </div>
+          </div>
+          <div class="mt-4">
             <InlineEditor
               client:load
               value={video.description || ""}
@@ -98,9 +103,6 @@ const tabHref = (tab: "script" | "video") => {
               placeholder="Add a description..."
               className="max-w-2xl break-words text-sm text-text-secondary"
             />
-          </div>
-          <div class="shrink-0">
-            <ProjectStatusControls client:load videoId={video.id} initialStatus={phase} canEdit={canEditStatus} />
           </div>
         </div>
 
