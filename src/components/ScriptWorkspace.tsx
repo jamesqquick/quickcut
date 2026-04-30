@@ -393,10 +393,11 @@ export function ScriptWorkspace({
           ))}
         </div>
         <div className="p-4">
-          <h2 className="text-sm font-semibold text-text-primary">Script Feedback</h2>
-          <p className="mt-1 text-xs text-text-tertiary">
-            {selectedRange ? `Selected: “${selectedRange.quote.slice(0, 90)}${selectedRange.quote.length > 90 ? "..." : ""}”` : "Select script text to leave contextual feedback."}
-          </p>
+          {selectedRange && (
+            <p className="text-xs text-text-tertiary">
+              Selected: “{selectedRange.quote.slice(0, 90)}{selectedRange.quote.length > 90 ? "..." : ""}”
+            </p>
+          )}
 
           {!readOnly && (
             <div className="mt-4 space-y-3 rounded-lg border border-border-default bg-bg-primary p-3">
