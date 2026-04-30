@@ -52,7 +52,7 @@ export const videos = sqliteTable("videos", {
   }),
   title: text("title").notNull(),
   description: text("description"),
-  status: text("status", { enum: ["processing", "ready", "failed"] })
+  status: text("status", { enum: ["draft", "processing", "ready", "failed"] })
     .notNull()
     .default("processing"),
   versionGroupId: text("version_group_id"),
@@ -69,10 +69,61 @@ export const videos = sqliteTable("videos", {
   transcriptRequested: integer("transcript_requested", { mode: "boolean" })
     .notNull()
     .default(false),
+  phase: text("phase", {
+    enum: ["script", "review", "published"],
+  })
+    .notNull()
+    .default("review"),
+  targetDate: text("target_date"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),
   updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const scripts = sqliteTable("scripts", {
+  id: text("id").primaryKey(),
+  videoId: text("video_id")
+    .notNull()
+    .unique()
+    .references(() => videos.id, { onDelete: "cascade" }),
+  content: text("content").notNull().default(""),
+  plainText: text("plain_text").notNull().default(""),
+  status: text("status", { enum: ["writing", "review"] })
+    .notNull()
+    .default("writing"),
+  createdBy: text("created_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const projectActivity = sqliteTable("project_activity", {
+  id: text("id").primaryKey(),
+  videoId: text("video_id")
+    .notNull()
+    .references(() => videos.id, { onDelete: "cascade" }),
+  actorUserId: text("actor_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  actorDisplayName: text("actor_display_name").notNull(),
+  type: text("type", {
+    enum: [
+      "project.created",
+      "phase.changed",
+      "target_date.changed",
+      "first_cut.uploaded",
+    ],
+  }).notNull(),
+  data: text("data"),
+  createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),
 });
@@ -149,6 +200,9 @@ export const spaces = sqliteTable("spaces", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   requiredApprovals: integer("required_approvals").notNull().default(0),
+  pipelineEnabled: integer("pipeline_enabled", { mode: "boolean" })
+    .notNull()
+    .default(false),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),
@@ -228,12 +282,19 @@ export const comments = sqliteTable("comments", {
     onDelete: "set null",
   }),
   resolvedAt: text("resolved_at"),
+  resolvedReason: text("resolved_reason", { enum: ["manual", "text_edited"] }),
   annotation: text("annotation"),
   urgency: text("urgency", {
     enum: ["idea", "suggestion", "important", "critical"],
   })
     .notNull()
     .default("suggestion"),
+  phase: text("comment_phase", {
+    enum: ["script", "review"],
+  })
+    .notNull()
+    .default("review"),
+  textRange: text("text_range"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),

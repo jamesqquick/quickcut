@@ -3,7 +3,7 @@
 ## Status
 
 Planning. This document captures the agreed-upon design for adding multi-user
-collaboration to QuickCut. No implementation yet beyond the schema additions
+collaboration to Quick Cuts. No implementation yet beyond the schema additions
 in this PR.
 
 ## Goals

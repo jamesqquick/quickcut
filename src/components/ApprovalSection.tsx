@@ -31,6 +31,8 @@ interface ApprovalSectionProps {
   viewerName?: string;
   /** Share-link token, if connecting on behalf of an anonymous viewer. */
   shareToken?: string;
+  /** Notifies parent UI when approval status changes. */
+  onStatusChange?: (status: ApprovalStatus) => void;
 }
 
 function formatTimeAgo(iso: string): string {
@@ -87,10 +89,15 @@ export function ApprovalSection({
   readOnly = false,
   viewerName,
   shareToken,
+  onStatusChange,
 }: ApprovalSectionProps) {
   const [status, setStatus] = useState<ApprovalStatus>(initialStatus);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    onStatusChange?.(status);
+  }, [status, onStatusChange]);
 
   // Subscribe to realtime approval updates.
   useEffect(() => {
@@ -179,7 +186,7 @@ export function ApprovalSection({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-text-primary">Approvals</h2>
+            <h2 className="text-sm font-semibold text-text-primary">Approval status</h2>
             {status.isApproved ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-accent-secondary/15 px-2 py-0.5 text-xs font-medium text-accent-secondary">
                 <CheckIcon className="h-3.5 w-3.5" />

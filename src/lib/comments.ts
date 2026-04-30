@@ -36,8 +36,11 @@ export async function getCommentsWithNames(
       isResolved: comments.isResolved,
       resolvedBy: comments.resolvedBy,
       resolvedAt: comments.resolvedAt,
+      resolvedReason: comments.resolvedReason,
       annotation: comments.annotation,
       urgency: comments.urgency,
+      phase: comments.phase,
+      textRange: comments.textRange,
       createdAt: comments.createdAt,
     })
     .from(comments)
@@ -65,6 +68,7 @@ export async function getCommentsWithNames(
     allComments.map((c) => ({
       ...c,
       annotation: c.annotation ? JSON.parse(c.annotation) : null,
+      textRange: c.textRange ? JSON.parse(c.textRange) : null,
       displayName:
         c.authorType === "user" && c.authorUserId
           ? userMap[c.authorUserId] || "Unknown"

@@ -9,6 +9,7 @@ export interface SpaceWithRole {
   name: string;
   ownerId: string;
   requiredApprovals: number;
+  pipelineEnabled: boolean;
   role: SpaceRole;
   createdAt: string;
   updatedAt: string;
@@ -25,6 +26,7 @@ export async function getUserSpaces(
       name: spaces.name,
       ownerId: spaces.ownerId,
       requiredApprovals: spaces.requiredApprovals,
+      pipelineEnabled: spaces.pipelineEnabled,
       role: spaceMembers.role,
       createdAt: spaces.createdAt,
       updatedAt: spaces.updatedAt,

@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { FullscreenOverlay } from "./FullscreenOverlay";
 
 type ModalSize = "sm" | "md" | "lg";
 
@@ -32,68 +31,17 @@ export function Modal({
   ariaLabel,
   ariaLabelledBy,
 }: ModalProps) {
-  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  // Track client-side mount so SSR doesn't try to render through createPortal.
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Body scroll lock + focus restore
-  useEffect(() => {
-    if (!isOpen) return;
-
-    // Save the element that had focus before opening so we can restore it on close.
-    previouslyFocusedRef.current =
-      (document.activeElement as HTMLElement | null) ?? null;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      const toFocus = previouslyFocusedRef.current;
-      if (toFocus && document.contains(toFocus)) {
-        // Defer focus restore to next tick so the closing element doesn't
-        // steal focus back during its own unmount.
-        requestAnimationFrame(() => toFocus.focus());
-      }
-    };
-  }, [isOpen]);
-
-  // Escape key handling
-  useEffect(() => {
-    if (!isOpen || !closeOnEscape) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [isOpen, closeOnEscape, onClose]);
-
-  if (!isOpen || !mounted) return null;
-
-  const handleBackdropClick = () => {
-    if (closeOnBackdropClick) onClose();
-  };
-
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={ariaLabelledBy ? undefined : ariaLabel}
-      aria-labelledby={ariaLabelledBy}
-      onMouseDown={handleBackdropClick}
-      className="fixed inset-0 z-50 flex h-screen w-screen items-center justify-center overflow-y-auto bg-black/85 backdrop-blur-sm"
+  return (
+    <FullscreenOverlay
+      isOpen={isOpen}
+      onClose={onClose}
+      closeOnBackdropClick={closeOnBackdropClick}
+      closeOnEscape={closeOnEscape}
+      ariaLabel={ariaLabel}
+      ariaLabelledBy={ariaLabelledBy}
+      className="bg-black/85 backdrop-blur-sm"
+      contentClassName={`relative m-4 w-full ${SIZE_CLASS[size]} rounded-2xl border border-border-default bg-bg-secondary p-6 shadow-2xl`}
     >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className={`relative m-4 w-full ${SIZE_CLASS[size]} rounded-2xl border border-border-default bg-bg-secondary p-6 shadow-2xl`}
-      >
         {showCloseButton && (
           <button
             type="button"
@@ -116,8 +64,6 @@ export function Modal({
           </button>
         )}
         {children}
-      </div>
-    </div>,
-    document.body,
+    </FullscreenOverlay>
   );
 }

@@ -2,6 +2,7 @@ import type {
 	BroadcastApprovalStatus,
 	BroadcastComment,
 	BroadcastCommentReactions,
+	BroadcastPhaseChange,
 } from "../durable-objects/VideoRoom";
 
 /**
@@ -51,5 +52,22 @@ export async function broadcastCommentReactions(
 		await stub.broadcastCommentReactions(update);
 	} catch (err) {
 		console.error("VideoRoom reaction broadcast failed", { videoId, err });
+	}
+}
+
+/**
+ * Best-effort fan-out of a pipeline phase change to every viewer
+ * connected to the per-video Durable Object room.
+ */
+export async function broadcastPhaseChange(
+	env: Env,
+	videoId: string,
+	phaseChange: BroadcastPhaseChange,
+): Promise<void> {
+	try {
+		const stub = env.VIDEO_ROOM.getByName(videoId);
+		await stub.broadcastPhaseChange(phaseChange);
+	} catch (err) {
+		console.error("VideoRoom phase broadcast failed", { videoId, err });
 	}
 }

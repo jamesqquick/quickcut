@@ -1,17 +1,19 @@
 ---
 interface Props {
-  status: "processing" | "ready" | "failed";
+  status: "draft" | "processing" | "ready" | "failed";
 }
 
 const { status } = Astro.props;
 
 const styles = {
+  draft: "bg-accent-primary/15 text-accent-primary",
   processing: "bg-accent-warning/15 text-accent-warning",
   ready: "bg-accent-secondary/15 text-accent-secondary",
   failed: "bg-accent-danger/15 text-accent-danger",
 };
 
 const labels = {
+  draft: "Draft",
   processing: "Processing",
   ready: "Ready",
   failed: "Failed",

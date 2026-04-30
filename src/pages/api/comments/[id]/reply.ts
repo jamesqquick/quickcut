@@ -83,8 +83,11 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     isResolved: false,
     resolvedBy: null,
     resolvedAt: null,
+    resolvedReason: null,
     annotation: null,
     urgency: "suggestion" as const,
+    phase: parent[0].phase,
+    textRange: null,
   };
 
   await db.insert(comments).values(newReply);

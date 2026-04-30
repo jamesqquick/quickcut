@@ -57,6 +57,27 @@
       "when": 1777300000000,
       "tag": "0008_spaces_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1777400000000,
+      "tag": "0010_add_pipeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1777400000001,
+      "tag": "0011_create_scripts",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1777400000002,
+      "tag": "0012_project_activity",
+      "breakpoints": true
     }
   ]
 }

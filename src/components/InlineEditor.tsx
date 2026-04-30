@@ -118,13 +118,14 @@ export function InlineEditor({
 
   const descriptionStyles =
     field === "description"
-      ? "w-full min-h-[2.5rem] whitespace-pre-wrap border border-accent-primary/25 hover:border-accent-primary/50"
+      ? "w-full min-h-[5.25rem] whitespace-pre-wrap border border-accent-primary/25 py-2 hover:border-accent-primary/50"
       : "";
+  const displayPadding = field === "description" ? "px-3" : "px-0 py-0";
 
   return (
     <Tag
       onClick={() => setIsEditing(true)}
-      className={`cursor-pointer rounded-lg px-3 ${field === "description" ? "py-2" : "py-1"} transition-colors hover:bg-bg-tertiary ${descriptionStyles} ${className} ${!value ? "text-text-tertiary italic" : ""}`}
+      className={`cursor-pointer rounded-lg ${displayPadding} transition-colors hover:bg-bg-tertiary ${descriptionStyles} ${className} ${!value ? "text-text-tertiary italic" : ""}`}
       title="Click to edit"
     >
       {value || placeholder}

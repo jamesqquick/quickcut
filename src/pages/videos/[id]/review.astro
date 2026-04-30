@@ -1,15 +1,15 @@
 ---
-import Layout from "../../layouts/Layout.astro";
-import { VideoDetailView } from "../../components/VideoDetailView";
-import { VideoHeader } from "../../components/VideoHeader";
-import { createDb } from "../../db";
-import { videos, shareLinks, spaces } from "../../db/schema";
+import Layout from "../../../layouts/Layout.astro";
+import { VideoDetailView } from "../../../components/VideoDetailView";
+import { VideoHeader } from "../../../components/VideoHeader";
+import { createDb } from "../../../db";
+import { scripts, shareLinks, spaces, videos } from "../../../db/schema";
 import { eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
-import { getCommentsWithNames } from "../../lib/comments";
-import { isTranscriptGenerationEnabled } from "../../lib/flags";
-import { verifySpaceAccess } from "../../lib/spaces";
-import { getApprovalStatus } from "../../lib/approvals";
+import { getCommentsWithNames } from "../../../lib/comments";
+import { isTranscriptGenerationEnabled } from "../../../lib/flags";
+import { verifySpaceAccess } from "../../../lib/spaces";
+import { getApprovalStatus } from "../../../lib/approvals";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -18,48 +18,44 @@ const { id } = Astro.params;
 if (!id) return Astro.redirect("/dashboard");
 
 const db = createDb(env.DB);
-
 const videoResult = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
 if (videoResult.length === 0) return Astro.redirect("/dashboard");
 
 const video = videoResult[0];
 const role = await verifySpaceAccess(db, user.id, video.spaceId);
 if (!role) return Astro.redirect("/dashboard");
-const isOwner = role === "owner";
+if (video.status === "draft" && !video.streamVideoId) {
+  const scriptResult = await db.select({ status: scripts.status }).from(scripts).where(eq(scripts.videoId, video.id)).limit(1);
+  const scriptStatus = scriptResult[0]?.status ?? "writing";
+  return Astro.redirect(scriptStatus === "review" ? `/videos/${id}/upload${Astro.url.search}` : `/videos/${id}/script${Astro.url.search}`);
+}
 
-// Get share link
+const isOwner = role === "owner";
 const shareLinkResult = await db.select().from(shareLinks).where(eq(shareLinks.videoId, id)).limit(1);
 const shareLink = shareLinkResult[0] || null;
 
-// Get comments with user info
 const commentsWithNames = await getCommentsWithNames(db, id, {
   type: "user",
   userId: user.id,
   displayName: user.displayName,
 });
-
 const appUrl = new URL(Astro.request.url).origin;
 const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
-
-// Compute the approval state up front. We hand it to the React view as a
-// snapshot; the component then keeps it fresh via the realtime channel.
-// Only render the approval section when the space actually has the
-// workflow enabled (requiredApprovals > 0).
 const approvalStatus = await getApprovalStatus(db, video.id, video.spaceId);
 const showApprovals = approvalStatus.requiredApprovals > 0;
-
 const spaceResult = await db
-  .select({ id: spaces.id, name: spaces.name })
+  .select({ id: spaces.id, name: spaces.name, pipelineEnabled: spaces.pipelineEnabled })
   .from(spaces)
   .where(eq(spaces.id, video.spaceId))
   .limit(1);
-const videoSpace = spaceResult[0] ?? { id: video.spaceId, name: "Space" };
-const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
+const videoSpace = spaceResult[0] ?? { id: video.spaceId, name: "Space", pipelineEnabled: false };
+const backHref = `/videos/${video.id}?space=${video.spaceId}`;
+const enabledSteps = ["overview", "script", "review"];
 ---
 
 <Layout title={video.title} user={user} selectedSpaceId={video.spaceId}>
   <script src="https://embed.cloudflarestream.com/embed/sdk.latest.js" is:inline></script>
-  <div class="mx-auto max-w-[1280px] px-4 py-6 sm:px-8 sm:py-8">
+  <div class="mx-auto max-w-[1180px] px-4 py-6 sm:px-8 sm:py-8">
     <VideoHeader
       client:load
       videoId={video.id}
@@ -67,14 +63,10 @@ const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId
       appUrl={appUrl}
       spaceId={video.spaceId}
       backHref={backHref}
+      backLabel="Back to project"
+      spaceName={videoSpace.name}
+      uploadVersionHref={isOwner && video.phase !== "published" ? `/videos/${video.id}/upload?space=${video.spaceId}` : null}
     />
-
-    <div class="mb-4 inline-flex items-center gap-2 rounded-full border border-border-default bg-bg-secondary px-3 py-1.5 text-sm text-text-secondary">
-      <span class="text-text-tertiary">Space</span>
-      <a href={`/dashboard?space=${videoSpace.id}`} class="font-medium text-text-primary transition-colors hover:text-accent-primary">
-        {videoSpace.name}
-      </a>
-    </div>
 
     <VideoDetailView
       client:load
@@ -86,13 +78,18 @@ const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId
       currentUserId={user.id}
       currentUserName={user.displayName}
       title={video.title}
-      description={video.description || ""}
-      isOwner={isOwner}
       uploadDate={video.createdAt}
       fileName={video.fileName}
+      targetDate={video.targetDate}
       transcriptsEnabled={transcriptsEnabled}
       uploadedBy={video.uploadedBy}
       initialApprovalStatus={showApprovals ? approvalStatus : null}
+      initialPhase={video.phase || "review"}
+      pipelineEnabled={videoSpace.pipelineEnabled ?? false}
+      userRole={role}
+      spaceId={video.spaceId}
+      currentStep="review"
+      enabledSteps={enabledSteps}
     />
   </div>
 </Layout>
