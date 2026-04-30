@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { DatePicker } from "./DatePicker";
 import { ToastViewport, useToast } from "./Toast";
 
 interface TargetDateEditorProps {
   videoId: string;
   initialTargetDate: string | null;
   canEdit: boolean;
-  variant?: "default" | "metadata";
+  variant?: "default" | "metadata" | "plain";
 }
 
 function formatTargetDate(date: string) {
@@ -95,6 +96,28 @@ export function TargetDateEditor({ videoId, initialTargetDate, canEdit, variant 
   }, [open]);
 
   if (!canEdit && !targetDate) return null;
+
+  if (variant === "plain") {
+    return (
+      <>
+        {canEdit ? (
+          <DatePicker
+            value={targetDate}
+            onChange={(value) => saveTargetDate(value)}
+            disabled={saving}
+            ariaLabel="Target publish date"
+            placeholder="Set target publish date"
+            className="inline-flex w-auto min-w-48 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-left text-sm text-text-primary transition-colors hover:border-border-hover focus:border-accent-primary focus:outline-none disabled:opacity-50"
+          />
+        ) : (
+          <span className="text-sm text-text-secondary">{formatTargetDate(targetDate)}</span>
+        )}
+        {saving && <span className="mt-1 block text-xs text-text-tertiary">Saving...</span>}
+        {error && <span className="mt-1 block text-xs text-accent-danger">{error}</span>}
+        <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+      </>
+    );
+  }
 
   if (variant === "metadata") {
     const selectedDateKey = targetDate || null;
@@ -223,17 +246,17 @@ export function TargetDateEditor({ videoId, initialTargetDate, canEdit, variant 
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
         {canEdit ? (
-          <label className="inline-flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5">
             <span>Launch</span>
-            <input
-              type="date"
+            <DatePicker
               value={targetDate}
-              onChange={(event) => saveTargetDate(event.target.value)}
+              onChange={(value) => saveTargetDate(value)}
               disabled={saving}
-              aria-label="Target launch date"
-              className="rounded border border-border-default bg-bg-input px-2 py-1 text-xs text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+              ariaLabel="Target launch date"
+              placeholder="Set date"
+              className="rounded border border-border-default bg-bg-input px-2 py-1 text-left text-xs text-text-primary transition-colors hover:border-border-hover focus:border-accent-primary focus:outline-none disabled:opacity-50"
             />
-          </label>
+          </span>
         ) : (
           <span>Launch {formatTargetDate(targetDate)}</span>
         )}

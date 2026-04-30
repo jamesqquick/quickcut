@@ -34,7 +34,7 @@ export const POST: APIRoute = async ({ request, redirect }) => {
   }
 
   if (!email.endsWith("@cloudflare.com")) {
-    return redirect("/register?error=QuickCut is currently limited to Cloudflare email addresses");
+    return redirect("/register?error=Quick Cuts is currently limited to Cloudflare email addresses");
   }
 
   if (password.length < 8) {

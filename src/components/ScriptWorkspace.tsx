@@ -94,6 +94,16 @@ function parseInitialContent(content: string): JSONContent {
   };
 }
 
+function getTextFromContent(content: JSONContent): string {
+  const text = typeof content.text === "string" ? content.text : "";
+  const childText = content.content?.map(getTextFromContent).join(" ") ?? "";
+  return `${text} ${childText}`.trim();
+}
+
+function initialContentHasText(content: string): boolean {
+  return getTextFromContent(parseInitialContent(content)).trim().length > 0;
+}
+
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -125,6 +135,7 @@ export function ScriptWorkspace({
   const [submittingReply, setSubmittingReply] = useState(false);
   const [submittingForReview, setSubmittingForReview] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
+  const [hasScriptText, setHasScriptText] = useState(() => initialContentHasText(initialContent));
   const [viewers, setViewers] = useState<Viewer[]>([]);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
@@ -215,6 +226,7 @@ export function ScriptWorkspace({
     },
     onUpdate({ editor }) {
       if (readOnly) return;
+      setHasScriptText(editor.getText().trim().length > 0);
       hasEditedRef.current = true;
       setSaveState("saving");
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -348,7 +360,7 @@ export function ScriptWorkspace({
   };
 
   const submitForReview = async () => {
-    if (submittingForReview) return;
+    if (submittingForReview || !hasScriptText) return;
     setSubmittingForReview(true);
     try {
       if (editor && hasEditedRef.current) {
@@ -429,11 +441,6 @@ export function ScriptWorkspace({
           ))}
         </div>
         <div className="p-4">
-          <h2 className="text-sm font-semibold text-text-primary">Script Feedback</h2>
-          <p className="mt-1 text-xs text-text-tertiary">
-            {selectedRange ? `Selected: “${selectedRange.quote.slice(0, 90)}${selectedRange.quote.length > 90 ? "..." : ""}”` : "Select script text to leave contextual feedback."}
-          </p>
-
           {!readOnly && (
             <div className="mt-4 space-y-3 rounded-lg border border-border-default bg-bg-primary p-3">
             <label className="block text-xs font-medium text-text-secondary" htmlFor="script-feedback-comment">

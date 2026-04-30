@@ -1,44 +1,48 @@
 import { normalizeVideoPhase, type VideoPhase } from "../types";
 
-export type PipelineStep = "script" | "review" | "published";
+export type PipelineStep = "overview" | "script" | "review";
 
 const PIPELINE_STEPS: Array<{ key: PipelineStep; label: string }> = [
+  { key: "overview", label: "Overview" },
   { key: "script", label: "Script" },
   { key: "review", label: "Video" },
-  { key: "published", label: "Published" },
 ];
 
 interface PhaseStepperProps {
   currentPhase: VideoPhase;
+  currentStep?: PipelineStep;
   enabledSteps?: PipelineStep[];
   lockedStepMessages?: Partial<Record<PipelineStep, string>>;
   videoId?: string;
 }
 
 function getStepHref(videoId: string, step: PipelineStep) {
+  if (step === "overview") return `/videos/${videoId}`;
   if (step === "script") return `/videos/${videoId}/script`;
-  if (step === "published") return `/videos/${videoId}`;
   return `/videos/${videoId}/review`;
 }
 
 function getStepForPhase(phase: VideoPhase): PipelineStep {
   const normalizedPhase = normalizeVideoPhase(phase);
   if (normalizedPhase === "script") return "script";
-  return normalizedPhase;
+  return "review";
 }
 
-export function PhaseStepper({ currentPhase, enabledSteps, lockedStepMessages, videoId }: PhaseStepperProps) {
+export function PhaseStepper({ currentPhase, currentStep, enabledSteps, lockedStepMessages, videoId }: PhaseStepperProps) {
   const visibleSteps = PIPELINE_STEPS;
   const statusStep = getStepForPhase(currentPhase);
-  const statusIdx = visibleSteps.findIndex((step) => step.key === statusStep);
+  const statusIdx = currentPhase === "published" ? visibleSteps.length : visibleSteps.findIndex((step) => step.key === statusStep);
+  const activeStep = currentStep ?? (currentPhase === "published" ? "review" : statusStep);
+  const activeIdx = visibleSteps.findIndex((step) => step.key === activeStep);
   const enabledStepSet = new Set(enabledSteps ?? visibleSteps.map((step) => step.key));
 
   return (
     <div className="flex min-w-max items-center gap-1">
       {visibleSteps.map(({ key, label }, idx) => {
         const isComplete = idx < statusIdx;
-        const isStatus = idx === statusIdx;
-        const isPublished = key === "published" && isStatus;
+        const isStatus = currentPhase !== "published" && idx === statusIdx;
+        const isActive = idx === activeIdx;
+        const showComplete = isComplete && !isActive;
         const isEnabled = enabledStepSet.has(key);
         const stepHref = videoId && isEnabled ? getStepHref(videoId, key) : undefined;
         const StepElement = stepHref ? "a" : "span";
@@ -55,35 +59,28 @@ export function PhaseStepper({ currentPhase, enabledSteps, lockedStepMessages, v
             )}
             <StepElement
               href={stepHref}
-              aria-current={isStatus ? "step" : undefined}
+              aria-current={isActive ? "page" : undefined}
               aria-disabled={!isEnabled ? "true" : undefined}
               title={!isEnabled ? "Complete the previous step first" : undefined}
-              className={`group relative flex items-center gap-1.5 rounded-lg px-1 py-1 transition-colors ${stepHref ? "hover:bg-bg-tertiary" : "cursor-not-allowed opacity-50"}`}
+              className={`group relative flex items-center gap-1.5 rounded-lg px-1 py-1 transition-colors ${isActive ? "ring-1 ring-accent-primary/50" : ""} ${stepHref ? "hover:bg-bg-tertiary" : "cursor-not-allowed opacity-50"}`}
             >
               {/* Step indicator */}
               <div
                 className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
-                  isPublished
-                    ? "bg-accent-secondary text-white"
-                    : isStatus
+                  isStatus || (isActive && !isComplete)
                       ? "bg-accent-primary text-white"
-                      : isComplete
+                      : showComplete
                         ? "bg-accent-primary/20 text-accent-primary"
                         : "bg-bg-tertiary text-text-tertiary"
                 }`}
               >
-                {isComplete ? (
+                {showComplete ? (
                   <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                     <path
                       fillRule="evenodd"
                       d="M16.704 5.296a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L8 12.586l7.29-7.29a1 1 0 011.414 0z"
                       clipRule="evenodd"
                     />
-                  </svg>
-                ) : isPublished ? (
-                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0110 0v4" />
                   </svg>
                 ) : (
                   <span>{idx + 1}</span>
@@ -92,7 +89,7 @@ export function PhaseStepper({ currentPhase, enabledSteps, lockedStepMessages, v
               {/* Label */}
               <span
                 className={`hidden text-xs font-medium sm:inline ${
-                  isStatus ? "text-text-primary" : isComplete ? "text-text-secondary" : "text-text-tertiary"
+                  isActive ? "text-text-primary" : isComplete ? "text-text-secondary" : "text-text-tertiary"
                 }`}
               >
                 {label}

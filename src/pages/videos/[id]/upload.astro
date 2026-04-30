@@ -36,14 +36,14 @@ const spaceResult = await db
   .where(eq(spaces.id, video.spaceId))
   .limit(1);
 const videoSpace = spaceResult[0] ?? { id: video.spaceId, name: "Space", pipelineEnabled: false };
-const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
+const backHref = `/videos/${video.id}?space=${video.spaceId}`;
 const isFirstCut = video.status === "draft" && !video.streamVideoId;
-const enabledSteps = ["script", "review"];
+const enabledSteps = ["overview", "script", "review"];
 const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
 ---
 
 <Layout title={`${video.title} Upload`} user={user} selectedSpaceId={video.spaceId}>
-  <div class="mx-auto max-w-[960px] px-4 py-6 sm:px-8 sm:py-8">
+  <div class="mx-auto max-w-[1180px] px-4 py-6 sm:px-8 sm:py-8">
     <VideoHeader
       client:load
       videoId={video.id}
@@ -51,7 +51,7 @@ const scriptLockedMessage = "This script is read-only because a video has been u
       appUrl={appUrl}
       spaceId={video.spaceId}
       backHref={backHref}
-      showScriptLink={videoSpace.pipelineEnabled}
+      backLabel="Back to project"
       spaceName={videoSpace.name}
     />
 
@@ -63,6 +63,7 @@ const scriptLockedMessage = "This script is read-only because a video has been u
           initialPhase={normalizeVideoPhase(isFirstCut ? "review" : video.phase || "review") as VideoPhase}
           title="Video"
           description="Upload the first cut when the script is ready."
+          currentStep="review"
           enabledSteps={enabledSteps}
           lockedStepMessages={!isFirstCut ? { script: scriptLockedMessage } : undefined}
         />

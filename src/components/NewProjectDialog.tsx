@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { Button } from "./Button";
+import { DatePicker } from "./DatePicker";
 import { Modal } from "./Modal";
 
 interface NewProjectDialogProps {
@@ -105,13 +106,12 @@ export function NewProjectDialog({ spaceId, folderId = null }: NewProjectDialogP
             <label className="mb-1 block text-sm font-medium text-text-secondary" htmlFor="project-target-date">
               Target launch date <span className="text-text-tertiary">(optional)</span>
             </label>
-            <input
-              id="project-target-date"
-              type="date"
+            <DatePicker
               value={targetDate}
-              onChange={(event) => setTargetDate(event.target.value)}
+              onChange={setTargetDate}
               disabled={saving}
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+              placeholder="Select launch date"
+              ariaLabel="Target launch date"
             />
           </div>
 

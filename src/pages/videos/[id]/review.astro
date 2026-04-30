@@ -10,7 +10,6 @@ import { getCommentsWithNames } from "../../../lib/comments";
 import { isTranscriptGenerationEnabled } from "../../../lib/flags";
 import { verifySpaceAccess } from "../../../lib/spaces";
 import { getApprovalStatus } from "../../../lib/approvals";
-import { getProjectActivity } from "../../../lib/activity";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -45,17 +44,13 @@ const spaceResult = await db
   .where(eq(spaces.id, video.spaceId))
   .limit(1);
 const videoSpace = spaceResult[0] ?? { id: video.spaceId, name: "Space", pipelineEnabled: false };
-const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
-const projectActivity = await getProjectActivity(db, video.id);
-const isPublishable = approvalStatus.requiredApprovals <= 0 || approvalStatus.isApproved;
-const enabledSteps = video.phase === "published" || isPublishable
-  ? ["script", "review", "published"]
-  : ["script", "review"];
+const backHref = `/videos/${video.id}?space=${video.spaceId}`;
+const enabledSteps = ["overview", "script", "review"];
 ---
 
 <Layout title={video.title} user={user} selectedSpaceId={video.spaceId}>
   <script src="https://embed.cloudflarestream.com/embed/sdk.latest.js" is:inline></script>
-  <div class="mx-auto max-w-[1280px] px-4 py-6 sm:px-8 sm:py-8">
+  <div class="mx-auto max-w-[1180px] px-4 py-6 sm:px-8 sm:py-8">
     <VideoHeader
       client:load
       videoId={video.id}
@@ -63,7 +58,7 @@ const enabledSteps = video.phase === "published" || isPublishable
       appUrl={appUrl}
       spaceId={video.spaceId}
       backHref={backHref}
-      showScriptLink={videoSpace.pipelineEnabled}
+      backLabel="Back to project"
       spaceName={videoSpace.name}
       uploadVersionHref={isOwner && video.phase !== "published" ? `/videos/${video.id}/upload?space=${video.spaceId}` : null}
     />
@@ -78,8 +73,6 @@ const enabledSteps = video.phase === "published" || isPublishable
       currentUserId={user.id}
       currentUserName={user.displayName}
       title={video.title}
-      description={video.description || ""}
-      isOwner={isOwner}
       uploadDate={video.createdAt}
       fileName={video.fileName}
       targetDate={video.targetDate}
@@ -90,7 +83,7 @@ const enabledSteps = video.phase === "published" || isPublishable
       pipelineEnabled={videoSpace.pipelineEnabled ?? false}
       userRole={role}
       spaceId={video.spaceId}
-      initialActivity={projectActivity}
+      currentStep="review"
       enabledSteps={enabledSteps}
     />
   </div>

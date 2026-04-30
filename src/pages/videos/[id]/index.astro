@@ -1,7 +1,9 @@
 ---
 import Layout from "../../../layouts/Layout.astro";
+import { InlineEditor } from "../../../components/InlineEditor";
 import { ProjectActivityTimeline } from "../../../components/ProjectActivityTimeline";
 import { ProjectPhaseControls } from "../../../components/ProjectPhaseControls";
+import { TargetDateEditor } from "../../../components/TargetDateEditor";
 import { VideoHeader } from "../../../components/VideoHeader";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
@@ -10,7 +12,7 @@ import { scripts, shareLinks, spaces, videos } from "../../../db/schema";
 import { getApprovalStatus } from "../../../lib/approvals";
 import { getProjectActivity } from "../../../lib/activity";
 import { verifySpaceAccess } from "../../../lib/spaces";
-import { normalizeVideoPhase, PHASE_LABELS, type VideoPhase } from "../../../types";
+import { normalizeVideoPhase, type VideoPhase } from "../../../types";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -47,19 +49,17 @@ const hasVideo = !!video.streamVideoId;
 const isPublishable = approvalStatus.requiredApprovals <= 0 || approvalStatus.isApproved;
 const canChangePhase = videoSpace.pipelineEnabled && (role === "owner" || video.uploadedBy === user.id);
 const canMarkAsPublished = !isPublished && hasVideo && canChangePhase && isPublishable;
-const enabledSteps = isPublished || (hasVideo && isPublishable)
-  ? ["script", "review", "published"]
-  : hasVideo || script?.status === "review"
-    ? ["script", "review"]
-    : ["script"];
+const enabledSteps = isPublished || hasVideo || script?.status === "review"
+    ? ["overview", "script", "review"]
+    : ["overview", "script"];
 const primaryAction = isPublished
-  ? { type: "link" as const, label: "View Published Video", href: `/videos/${video.id}/review?space=${video.spaceId}` }
+  ? { type: "link" as const, label: "View Video", href: `/videos/${video.id}/review?space=${video.spaceId}` }
   : canMarkAsPublished
     ? {
         type: "phase" as const,
-        label: "Publish",
+        label: "Mark as Published",
         phase: "published" as const,
-        confirmMessage: "Publishing locks the video. Comments and versions become read-only.",
+        confirmMessage: "Marking this project as published locks the script, comments, and versions. This assumes you have published the video manually elsewhere.",
       }
     : !hasScriptContent
       ? { type: "link" as const, label: "Add Script", href: `/videos/${video.id}/script?space=${video.spaceId}` }
@@ -68,16 +68,6 @@ const primaryAction = isPublished
         : !hasVideo
           ? { type: "link" as const, label: "Continue Script", href: `/videos/${video.id}/script?space=${video.spaceId}` }
           : { type: "link" as const, label: "Review Video", href: `/videos/${video.id}/review?space=${video.spaceId}` };
-const workflowTitle = isPublished ? "Published" : hasVideo ? "Video" : "Script";
-const workflowDescription = isPublished
-  ? "This project is locked and ready to share."
-  : hasVideo
-    ? "Review the current cut and collect feedback before publishing."
-    : hasScriptContent
-      ? script?.status === "review"
-        ? "The script is ready. Upload the first cut when you are ready to move into video review."
-        : "Keep shaping the script before uploading the first cut."
-      : "Add a script before uploading the first cut.";
 const scriptDescription = script?.plainText?.trim()
   ? `${script.plainText.trim().slice(0, 140)}${script.plainText.trim().length > 140 ? "..." : ""}`
   : "Open the script workspace to draft, review, or reference the approved script.";
@@ -97,70 +87,93 @@ const videoDescription = hasVideo
       appUrl={appUrl}
       spaceId={video.spaceId}
       backHref={backHref}
-      showScriptLink={videoSpace.pipelineEnabled}
       spaceName={videoSpace.name}
       uploadVersionHref={!isPublished && hasVideo && role === "owner" ? `/videos/${video.id}/upload?space=${video.spaceId}` : null}
     />
 
-    <div class="space-y-6">
+    <div class="space-y-8">
       {videoSpace.pipelineEnabled && (
-        <ProjectPhaseControls
-          client:load
-          videoId={video.id}
-          initialPhase={phase}
-          title={workflowTitle}
-          description={workflowDescription}
-          enabledSteps={enabledSteps}
-          lockedStepMessages={!hasVideo && script?.status !== "review" ? { review: "Add and submit the script before moving to video." } : undefined}
-          primaryAction={primaryAction}
-        />
+        <div class="mb-10">
+          <ProjectPhaseControls
+            client:load
+            videoId={video.id}
+            initialPhase={phase}
+            currentStep="overview"
+            enabledSteps={enabledSteps}
+            lockedStepMessages={!hasVideo && script?.status !== "review" ? { review: "Add and submit the script before moving to video." } : undefined}
+            primaryAction={primaryAction}
+          />
+        </div>
       )}
 
       <section class="rounded-2xl border border-border-default bg-bg-secondary p-5 sm:p-6">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div class="space-y-6">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Project overview</p>
-            <h1 class="mt-2 break-words text-2xl font-bold text-text-primary sm:text-3xl">{video.title}</h1>
-            {video.description && <p class="mt-2 max-w-2xl text-sm text-text-secondary">{video.description}</p>}
+            <p class="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Metadata</p>
+            <InlineEditor
+              client:load
+              value={video.title}
+              field="title"
+              videoId={video.id}
+              isOwner={role === "owner" && !isPublished}
+              as="h1"
+              className="min-w-0 break-words text-2xl font-bold text-text-primary sm:text-3xl"
+            />
           </div>
-          <div class="rounded-xl border border-border-default bg-bg-primary px-4 py-3 text-sm">
-            <p class="text-xs text-text-tertiary">Project status</p>
-            <p class="mt-1 font-semibold text-text-primary">{PHASE_LABELS[phase]}</p>
+
+          <div class="space-y-2">
+            <p class="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Description</p>
+            <InlineEditor
+              client:load
+              value={video.description || ""}
+              field="description"
+              videoId={video.id}
+              isOwner={role === "owner" && !isPublished}
+              placeholder="Add a description..."
+              className="w-full break-words text-sm text-text-secondary"
+            />
+          </div>
+
+          <div class="max-w-sm space-y-2">
+            <p class="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Target publish date</p>
+            <TargetDateEditor client:load videoId={video.id} initialTargetDate={video.targetDate} canEdit={canChangePhase && !isPublished} variant="plain" />
           </div>
         </div>
-
-        {isPublished && (
-          <div class="mt-5 rounded-lg border border-accent-secondary/30 bg-accent-secondary/10 px-4 py-2 text-sm text-accent-secondary">
-            This project is published. Script, comments, and versions are read-only, but you can still view each artifact.
-          </div>
-        )}
       </section>
 
+      {isPublished && (
+        <section class="rounded-2xl border border-border-default bg-bg-secondary p-5 sm:p-6">
+          <div class="rounded-lg border border-accent-secondary/30 bg-accent-secondary/10 px-4 py-2 text-sm text-accent-secondary">
+            This project is published. Script, comments, and versions are read-only, but you can still view each artifact.
+          </div>
+        </section>
+      )}
+
       <div class="grid gap-4 md:grid-cols-2">
-        <a href={`/videos/${video.id}/script?space=${video.spaceId}`} class="group rounded-xl border border-border-default bg-bg-secondary p-5 transition-colors hover:border-border-hover hover:bg-bg-tertiary/50">
+        <a href={`/videos/${video.id}/script?space=${video.spaceId}`} class="group rounded-xl border border-border-default bg-bg-secondary p-5 transition-all hover:-translate-y-0.5 hover:border-accent-primary/50 hover:bg-bg-tertiary/60 hover:shadow-lg hover:shadow-black/20">
           <div class="flex items-start justify-between gap-4">
-            <div>
+            <div class="min-w-0 flex-1">
               <p class="text-sm font-semibold text-text-primary">Script</p>
               <p class="mt-2 text-sm text-text-secondary">{scriptDescription}</p>
             </div>
-            <span class="rounded-full border border-border-default px-2.5 py-1 text-xs text-text-tertiary">
+            <span class="shrink-0 whitespace-nowrap rounded-full border border-border-default px-2.5 py-1 text-xs text-text-tertiary">
               {script?.status === "review" ? "In review" : "Writing"}
             </span>
           </div>
-          <p class="mt-4 text-xs font-medium text-accent-primary group-hover:text-accent-hover">View script</p>
+          <p class="mt-4 inline-flex rounded-lg bg-accent-primary/10 px-3 py-1.5 text-xs font-semibold text-accent-primary transition-colors group-hover:bg-accent-primary group-hover:text-white">View script</p>
         </a>
 
-        <a href={hasVideo ? `/videos/${video.id}/review?space=${video.spaceId}` : `/videos/${video.id}/upload?space=${video.spaceId}`} class="group rounded-xl border border-border-default bg-bg-secondary p-5 transition-colors hover:border-border-hover hover:bg-bg-tertiary/50">
+        <a href={hasVideo ? `/videos/${video.id}/review?space=${video.spaceId}` : `/videos/${video.id}/upload?space=${video.spaceId}`} class="group rounded-xl border border-border-default bg-bg-secondary p-5 transition-all hover:-translate-y-0.5 hover:border-accent-primary/50 hover:bg-bg-tertiary/60 hover:shadow-lg hover:shadow-black/20">
           <div class="flex items-start justify-between gap-4">
-            <div>
+            <div class="min-w-0 flex-1">
               <p class="text-sm font-semibold text-text-primary">Video</p>
               <p class="mt-2 text-sm text-text-secondary">{videoDescription}</p>
             </div>
-            <span class="rounded-full border border-border-default px-2.5 py-1 text-xs text-text-tertiary">
+            <span class="shrink-0 whitespace-nowrap rounded-full border border-border-default px-2.5 py-1 text-xs text-text-tertiary">
               {hasVideo ? video.status === "ready" ? "Ready" : "Processing" : "Not uploaded"}
             </span>
           </div>
-          <p class="mt-4 text-xs font-medium text-accent-primary group-hover:text-accent-hover">{hasVideo ? "View video" : "Upload video"}</p>
+          <p class="mt-4 inline-flex rounded-lg bg-accent-primary/10 px-3 py-1.5 text-xs font-semibold text-accent-primary transition-colors group-hover:bg-accent-primary group-hover:text-white">{hasVideo ? "View video" : "Upload video"}</p>
         </a>
       </div>
 
