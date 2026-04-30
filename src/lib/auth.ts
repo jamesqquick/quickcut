@@ -55,15 +55,6 @@ export function createAuth(d1: D1Database, env: AuthEnv) {
     }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
-    user: {
-      modelName: "users",
-    },
-    session: {
-      modelName: "sessions",
-    },
-    account: {
-      modelName: "accounts",
-    },
     plugins: [
       emailOTP({
         expiresIn: 300,
