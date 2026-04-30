@@ -539,7 +539,6 @@ export function ScriptWorkspace({
               <label className="sr-only" htmlFor="script-feedback-urgency">
                 Feedback type
               </label>
-              <span className={`h-2 w-2 shrink-0 rounded-full ${URGENCY_META[commentUrgency].dot}`} aria-hidden="true" />
               <select
                 id="script-feedback-urgency"
                 value={commentUrgency}
