@@ -5,7 +5,7 @@ import type { Database } from "../db";
 export interface ApprovalRecord {
   id: string;
   userId: string;
-  displayName: string;
+  name: string;
   comment: string | null;
   createdAt: string;
 }
@@ -47,7 +47,7 @@ export async function getApprovalStatus(
     .select({
       id: approvals.id,
       userId: approvals.userId,
-      displayName: users.displayName,
+      name: users.name,
       comment: approvals.comment,
       createdAt: approvals.createdAt,
     })

@@ -25,18 +25,6 @@ export const annotationSchema = z.discriminatedUnion("type", [
   rectAnnotationSchema,
 ]);
 
-export const registerSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  displayName: z.string().min(1, "Display name is required").max(100),
-});
-
-export const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-  rememberMe: z.boolean().optional(),
-});
-
 export const uploadSchema = z.object({
   fileName: z.string().min(1, "File name is required"),
   fileSize: z.number().positive().max(5 * 1024 * 1024 * 1024, "File exceeds 5GB limit"),
@@ -66,7 +54,7 @@ export const commentSchema = z.object({
 export const anonymousCommentSchema = z.object({
   text: z.string().min(1, "Comment text is required").max(5000),
   timestamp: z.number().nullable().optional(),
-  displayName: z.string().min(1, "Display name is required").max(100),
+  name: z.string().min(1, "Name is required").max(100),
   parentId: z.string().optional(),
   annotation: annotationSchema.nullable().optional(),
   urgency: urgencySchema.optional().default("suggestion"),

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 interface UserMenuProps {
-  displayName: string;
+  name: string;
   email: string;
   notificationCount?: number;
 }
@@ -16,7 +16,7 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export function UserMenu({ displayName, email, notificationCount = 0 }: UserMenuProps) {
+export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(notificationCount);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -70,10 +70,10 @@ export function UserMenu({ displayName, email, notificationCount = 0 }: UserMenu
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Account menu for ${displayName}`}
+        aria-label={`Account menu for ${name}`}
         className="relative flex h-9 w-9 items-center justify-center rounded-full bg-accent-primary text-xs font-medium text-white transition-all duration-150 hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent-primary focus:ring-offset-2 focus:ring-offset-bg-primary"
       >
-        {getInitials(displayName)}
+        {getInitials(name)}
         {hasNotifications && (
           <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-accent-danger px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white ring-2 ring-bg-primary">
             {count > 99 ? "99+" : count}
@@ -88,7 +88,7 @@ export function UserMenu({ displayName, email, notificationCount = 0 }: UserMenu
         >
           <div className="px-4 py-3">
             <div className="truncate text-sm font-semibold text-text-primary">
-              {displayName}
+              {name}
             </div>
             <div className="mt-0.5 truncate text-xs text-text-tertiary">
               {email}

@@ -34,13 +34,13 @@ export const GET: APIRoute = async ({ params, request }) => {
 		forwardUrl.searchParams.set("viewer_id", access.identity.userId);
 		// Look up the display name for the authenticated user.
 		const userRow = await db
-			.select({ displayName: users.displayName })
+			.select({ name: users.name })
 			.from(users)
 			.where(eq(users.id, access.identity.userId))
 			.limit(1);
 		forwardUrl.searchParams.set(
 			"viewer_name",
-			userRow[0]?.displayName || "Unknown",
+			userRow[0]?.name || "Unknown",
 		);
 	} else {
 		// Anonymous viewers pass their name via the `viewer_name` query param

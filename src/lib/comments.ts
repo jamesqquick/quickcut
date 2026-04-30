@@ -10,7 +10,7 @@ import {
 
 export interface CommentReactor {
   userId: string;
-  displayName: string;
+  name: string;
 }
 
 export function isCommentReactionEmoji(
@@ -57,10 +57,10 @@ export async function getCommentsWithNames(
   let userMap: Record<string, string> = {};
   if (userIds.length > 0) {
     const usersResult = await db
-      .select({ id: users.id, displayName: users.displayName })
+      .select({ id: users.id, name: users.name })
       .from(users);
     userMap = Object.fromEntries(
-      usersResult.map((u) => [u.id, u.displayName]),
+      usersResult.map((u) => [u.id, u.name]),
     );
   }
 
@@ -70,7 +70,7 @@ export async function getCommentsWithNames(
       ...c,
       annotation: c.annotation ? JSON.parse(c.annotation) : null,
       textRange: c.textRange ? JSON.parse(c.textRange) : null,
-      displayName:
+      name:
         c.authorType === "user" && c.authorUserId
           ? userMap[c.authorUserId] || "Unknown"
           : c.authorDisplayName || "Anonymous",
@@ -170,7 +170,7 @@ export async function toggleCommentReaction(
         commentId,
         emoji,
         reactorUserId: reactor.userId,
-        reactorDisplayName: reactor.displayName,
+        reactorDisplayName: reactor.name,
       });
     } catch (err) {
       const duplicate = await db

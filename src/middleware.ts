@@ -1,25 +1,14 @@
 import { defineMiddleware } from "astro:middleware";
-import { createDb } from "./db";
-import { sessions, users } from "./db/schema";
-import { eq, gt } from "drizzle-orm";
 import { env } from "cloudflare:workers";
+import { createAuth } from "./lib/auth";
 
 // Extend Astro locals type
 declare global {
   namespace App {
     interface Locals {
-      user: { id: string; email: string; displayName: string } | null;
+      user: { id: string; email: string; name: string; image?: string | null } | null;
     }
   }
-}
-
-function parseCookies(cookieHeader: string): Record<string, string> {
-  const cookies: Record<string, string> = {};
-  cookieHeader.split(";").forEach((cookie) => {
-    const [name, ...rest] = cookie.trim().split("=");
-    if (name) cookies[name] = rest.join("=");
-  });
-  return cookies;
 }
 
 const protectedRoutes = ["/dashboard", "/notifications", "/upload", "/videos/", "/spaces/"];
@@ -28,53 +17,39 @@ const authApiRoutes = ["/api/videos", "/api/comments", "/api/spaces", "/api/invi
 export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.user = null;
 
-  const cookieHeader = context.request.headers.get("cookie") || "";
-  const cookies = parseCookies(cookieHeader);
-  const sessionId = cookies["quickcut_session"];
+  const auth = createAuth(env.DB, {
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+    EMAIL: env.EMAIL,
+    OTP_EMAIL_FROM: env.OTP_EMAIL_FROM,
+  });
 
-  if (sessionId) {
-    try {
-      const db = createDb(env.DB);
-      const now = new Date().toISOString();
+  try {
+    const session = await auth.api.getSession({
+      headers: context.request.headers,
+    });
 
-      const result = await db
-        .select({
-          userId: sessions.userId,
-          email: users.email,
-          displayName: users.displayName,
-        })
-        .from(sessions)
-        .innerJoin(users, eq(sessions.userId, users.id))
-        .where(eq(sessions.id, sessionId))
-        .limit(1);
-
-      if (result.length > 0) {
-        const session = await db
-          .select({ expiresAt: sessions.expiresAt })
-          .from(sessions)
-          .where(eq(sessions.id, sessionId))
-          .limit(1);
-
-        if (session.length > 0 && session[0].expiresAt > now) {
-          context.locals.user = {
-            id: result[0].userId,
-            email: result[0].email,
-            displayName: result[0].displayName,
-          };
-        } else {
-          // Session expired, clean up
-          await db.delete(sessions).where(eq(sessions.id, sessionId));
-        }
-      }
-    } catch {
-      // DB error, continue unauthenticated
+    if (session?.user) {
+      context.locals.user = {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        image: session.user.image,
+      };
     }
+  } catch {
+    // Auth error, continue unauthenticated
   }
 
   const pathname = context.url.pathname;
 
-  // Redirect authenticated users away from login/register
-  if (context.locals.user && (pathname === "/login" || pathname === "/register")) {
+  // Let Better Auth handle its own routes
+  if (pathname.startsWith("/api/auth/")) {
+    return next();
+  }
+
+  // Redirect authenticated users away from login
+  if (context.locals.user && pathname === "/login") {
     return context.redirect("/dashboard");
   }
 

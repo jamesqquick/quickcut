@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { LoginOtpForm } from "../components/LoginOtpForm";
 
 const user = Astro.locals.user;
 if (user) {
@@ -32,50 +33,14 @@ const message = Astro.url.searchParams.get("message");
           </div>
         )}
 
-        <form method="POST" action="/api/auth/login" class="space-y-4">
-          <div>
-            <label for="email" class="mb-1 block text-sm font-medium text-text-secondary">
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              required
-              class="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div>
-            <label for="password" class="mb-1 block text-sm font-medium text-text-secondary">
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              required
-              class="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-              placeholder="Enter your password"
-            />
-          </div>
-          <div class="flex items-center gap-2">
-            <input type="checkbox" id="rememberMe" name="rememberMe" class="accent-accent-primary" />
-            <label for="rememberMe" class="text-sm text-text-secondary">Remember me</label>
-          </div>
-          <button
-            type="submit"
-            class="w-full rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
-          >
-            Sign In
-          </button>
-        </form>
+        <p class="mb-6 text-center text-sm text-text-tertiary">
+          Sign in with a one-time code sent to your Cloudflare email.
+        </p>
 
-        <p class="mt-6 text-center text-sm text-text-tertiary">
-          Don't have an account?{" "}
-          <a href="/register" class="text-accent-primary hover:text-accent-hover">
-            Register
-          </a>
+        <LoginOtpForm client:load />
+
+        <p class="mt-6 text-center text-xs text-text-tertiary">
+          Quick Cuts is restricted to @cloudflare.com accounts.
         </p>
       </div>
     </div>

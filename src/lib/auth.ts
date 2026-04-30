@@ -1,10 +1,127 @@
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { emailOTP } from "better-auth/plugins";
+import { drizzle } from "drizzle-orm/d1";
 import { eq, and } from "drizzle-orm";
-import { sessions, users, videos, shareLinks, spaceMembers } from "../db/schema";
+import { sessions, videos, shareLinks, spaceMembers } from "../db/schema";
+import * as schema from "../db/schema";
 import type { Database } from "../db";
 
 export type VideoAccess =
   | { ok: true; videoId: string; spaceId: string; identity: { type: "user"; userId: string } | { type: "anonymous" } }
   | { ok: false; status: number; error: string };
+
+type AuthEnv = Pick<Cloudflare.Env, "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "EMAIL" | "OTP_EMAIL_FROM">;
+
+function isCloudflareEmail(email: string): boolean {
+  return email.trim().toLowerCase().endsWith("@cloudflare.com");
+}
+
+function getOtpEmailSubject(type: "sign-in" | "email-verification" | "forget-password" | "change-email"): string {
+  switch (type) {
+    case "sign-in":
+      return "Your Quick Cuts sign-in code";
+    case "email-verification":
+      return "Verify your Quick Cuts email";
+    case "forget-password":
+      return "Reset your Quick Cuts password";
+    case "change-email":
+      return "Confirm your Quick Cuts email change";
+  }
+}
+
+function getOtpEmailBody(otp: string, type: "sign-in" | "email-verification" | "forget-password" | "change-email") {
+  const subject = getOtpEmailSubject(type);
+  const text = `${subject}\n\nUse this code to continue: ${otp}\n\nThis code expires in 5 minutes. If you did not request this, you can ignore this email.`;
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color: #111827; line-height: 1.5;">
+      <h1 style="font-size: 20px; margin: 0 0 12px;">${subject}</h1>
+      <p style="margin: 0 0 16px;">Use this code to continue:</p>
+      <p style="font-size: 28px; font-weight: 700; letter-spacing: 6px; margin: 0 0 16px;">${otp}</p>
+      <p style="margin: 0; color: #6b7280;">This code expires in 5 minutes. If you did not request this, you can ignore this email.</p>
+    </div>
+  `;
+
+  return { subject, text, html };
+}
+
+export function createAuth(d1: D1Database, env: AuthEnv) {
+  const db = drizzle(d1, { schema });
+
+  return betterAuth({
+    database: drizzleAdapter(db, {
+      provider: "sqlite",
+      usePlural: true,
+    }),
+    secret: env.BETTER_AUTH_SECRET,
+    baseURL: env.BETTER_AUTH_URL,
+    user: {
+      modelName: "users",
+    },
+    session: {
+      modelName: "sessions",
+    },
+    account: {
+      modelName: "accounts",
+    },
+    plugins: [
+      emailOTP({
+        expiresIn: 300,
+        allowedAttempts: 3,
+        async sendVerificationOTP({ email, otp, type }) {
+          const normalizedEmail = email.trim().toLowerCase();
+
+          if (!isCloudflareEmail(normalizedEmail)) {
+            throw new Error("Only Cloudflare accounts are allowed");
+          }
+
+          const { subject, text, html } = getOtpEmailBody(otp, type);
+
+          await env.EMAIL.send({
+            to: normalizedEmail,
+            from: env.OTP_EMAIL_FROM,
+            subject,
+            text,
+            html,
+          });
+        },
+      }),
+    ],
+    databaseHooks: {
+      user: {
+        create: {
+          before: async (user) => {
+            if (!user.email || !isCloudflareEmail(user.email)) {
+              throw new Error("Only Cloudflare accounts are allowed");
+            }
+            return user;
+          },
+          after: async (user, db) => {
+            // Create default "Personal" space for new users
+            const spaceId = crypto.randomUUID();
+            const drizzleDb = drizzle(d1, { schema });
+
+            await drizzleDb.insert(schema.spaces).values({
+              id: spaceId,
+              name: "Personal",
+              ownerId: user.id,
+              requiredApprovals: 0,
+            });
+
+            await drizzleDb.insert(schema.spaceMembers).values({
+              id: crypto.randomUUID(),
+              spaceId,
+              userId: user.id,
+              role: "owner",
+            });
+          },
+        },
+      },
+    },
+  });
+}
+
+export type Auth = ReturnType<typeof createAuth>;
 
 function parseCookies(cookieHeader: string): Record<string, string> {
   const cookies: Record<string, string> = {};
@@ -39,18 +156,18 @@ export async function verifyVideoAccess(
 
   const spaceId = videoRow[0].spaceId;
 
-  // 2. Authenticated path: validate the session cookie, then verify the user
-  //    is a member of the video's space.
+  // 2. Authenticated path: validate the session cookie via Better Auth's
+  //    token-based session lookup.
   const cookieHeader = request.headers.get("cookie") || "";
   const cookies = parseCookies(cookieHeader);
-  const sessionId = cookies["quickcut_session"];
+  const sessionToken = cookies["better-auth.session_token"];
 
-  if (sessionId) {
+  if (sessionToken) {
     const now = new Date().toISOString();
     const sessionRow = await db
       .select({ userId: sessions.userId, expiresAt: sessions.expiresAt })
       .from(sessions)
-      .where(eq(sessions.id, sessionId))
+      .where(eq(sessions.token, sessionToken))
       .limit(1);
 
     if (sessionRow.length > 0 && sessionRow[0].expiresAt > now) {
@@ -97,102 +214,4 @@ export async function verifyVideoAccess(
   }
 
   return { ok: false, status: 401, error: "Unauthorized" };
-}
-
-export async function hashPassword(password: string): Promise<string> {
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"],
-  );
-  const hash = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
-    keyMaterial,
-    256,
-  );
-  const saltHex = [...salt].map((b) => b.toString(16).padStart(2, "0")).join("");
-  const hashHex = [...new Uint8Array(hash)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return `${saltHex}:${hashHex}`;
-}
-
-export async function verifyPassword(
-  password: string,
-  stored: string,
-): Promise<boolean> {
-  const [saltHex, hashHex] = stored.split(":");
-  const salt = new Uint8Array(
-    saltHex.match(/.{2}/g)!.map((byte) => parseInt(byte, 16)),
-  );
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveBits"],
-  );
-  const hash = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
-    keyMaterial,
-    256,
-  );
-  const computedHex = [...new Uint8Array(hash)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-  return computedHex === hashHex;
-}
-
-export async function createSession(
-  db: Database,
-  userId: string,
-  rememberMe = false,
-): Promise<string> {
-  const sessionId = crypto.randomUUID();
-  const durationMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-  const expiresAt = new Date(Date.now() + durationMs).toISOString();
-
-  await db.insert(sessions).values({
-    id: sessionId,
-    userId,
-    expiresAt,
-  });
-
-  return sessionId;
-}
-
-export async function deleteSession(
-  db: Database,
-  sessionId: string,
-): Promise<void> {
-  await db.delete(sessions).where(eq(sessions.id, sessionId));
-}
-
-export function makeSessionCookie(
-  sessionId: string,
-  rememberMe = false,
-): string {
-  const maxAge = rememberMe ? 30 * 24 * 3600 : 24 * 3600;
-  return [
-    `quickcut_session=${sessionId}`,
-    `HttpOnly`,
-    `Secure`,
-    `SameSite=Lax`,
-    `Path=/`,
-    `Max-Age=${maxAge}`,
-  ].join("; ");
-}
-
-export function clearSessionCookie(): string {
-  return [
-    `quickcut_session=`,
-    `HttpOnly`,
-    `Secure`,
-    `SameSite=Lax`,
-    `Path=/`,
-    `Max-Age=0`,
-  ].join("; ");
 }

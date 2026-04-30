@@ -28,7 +28,7 @@ export async function getPendingInvitesForUser(
       spaceName: spaces.name,
       email: spaceInvites.email,
       invitedBy: spaceInvites.invitedBy,
-      inviterDisplayName: users.displayName,
+      inviterDisplayName: users.name,
       inviterEmail: users.email,
       createdAt: spaceInvites.createdAt,
     })

@@ -4,7 +4,7 @@ import { connectVideoRoom, type BroadcastApprovalStatus } from "../lib/realtime"
 export interface ApprovalRecord {
   id: string;
   userId: string;
-  displayName: string;
+  name: string;
   comment: string | null;
   createdAt: string;
 }
@@ -252,7 +252,7 @@ export function ApprovalSection({
             >
               <CheckIcon className="h-3.5 w-3.5 shrink-0 text-accent-secondary" />
               <span className="font-medium text-text-primary">
-                {a.displayName}
+                {a.name}
               </span>
               <span className="text-text-tertiary">approved</span>
               <span className="text-text-tertiary">·</span>

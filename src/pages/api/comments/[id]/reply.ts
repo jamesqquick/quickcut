@@ -76,7 +76,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     videoId: parent[0].videoId,
     authorType: "user" as const,
     authorUserId: locals.user.id,
-    authorDisplayName: locals.user.displayName,
+    authorDisplayName: locals.user.name,
     timestamp: null,
     text: text.trim(),
     parentId,
@@ -95,7 +95,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   const responseComment = {
     ...newReply,
     createdAt: new Date().toISOString(),
-    displayName: locals.user.displayName,
+    name: locals.user.name,
     reactions: [],
   };
 

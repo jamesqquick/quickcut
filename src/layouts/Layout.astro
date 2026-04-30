@@ -10,7 +10,7 @@ import { env } from "cloudflare:workers";
 interface Props {
   title: string;
   description?: string;
-  user?: { id: string; email: string; displayName: string } | null;
+  user?: { id: string; email: string; name: string } | null;
   selectedSpaceId?: string | null;
 }
 
@@ -46,7 +46,7 @@ const headerSpaceId = selectedSpaceId ?? Astro.url.searchParams.get("space") ?? 
           </a>
           <div class="ml-auto flex items-center gap-3">
             <SpaceSwitcher client:load spaces={userSpaces} selectedSpaceId={headerSpaceId} />
-            <UserMenu client:load displayName={user.displayName} email={user.email} notificationCount={pendingInviteCount} />
+            <UserMenu client:load name={user.name} email={user.email} notificationCount={pendingInviteCount} />
           </div>
         </header>
       )

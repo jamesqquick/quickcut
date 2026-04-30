@@ -22,7 +22,7 @@ export interface BroadcastComment {
 	phase: "script" | "review";
 	textRange: TextRange | null;
 	createdAt: string;
-	displayName: string;
+	name: string;
 	reactions: CommentReactionSummary[];
 }
 
@@ -43,7 +43,7 @@ export interface BroadcastApprovalStatus {
 	approvals: Array<{
 		id: string;
 		userId: string;
-		displayName: string;
+		name: string;
 		comment: string | null;
 		createdAt: string;
 	}>;

@@ -601,7 +601,7 @@ export function CommentThread({
       }
 
       if (shareToken && anonymousName) {
-        body.displayName = anonymousName;
+        body.name = anonymousName;
       }
 
       const res = await fetch(baseUrl, {
@@ -650,7 +650,7 @@ export function CommentThread({
 
       if (shareToken) {
         body.parentId = parentId;
-        if (anonymousName) body.displayName = anonymousName;
+        if (anonymousName) body.name = anonymousName;
       }
 
       const res = await fetch(baseUrl, {
@@ -848,12 +848,12 @@ export function CommentThread({
                 {/* Root comment */}
                 <div className="flex gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-primary text-xs font-medium text-white">
-                    {getInitials(comment.displayName)}
+                    {getInitials(comment.name)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-text-primary">
-                        {comment.displayName}
+                        {comment.name}
                       </span>
                       <span
                         className="inline-flex items-center gap-1 rounded-full bg-bg-tertiary px-1.5 py-0.5 text-[10px] font-medium text-text-secondary"
@@ -947,12 +947,12 @@ export function CommentThread({
                     {replies.map((reply) => (
                       <div key={reply.id} className="flex gap-3">
                         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary/60 text-[10px] font-medium text-white">
-                          {getInitials(reply.displayName)}
+                          {getInitials(reply.name)}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-text-primary">
-                              {reply.displayName}
+                              {reply.name}
                             </span>
                             <span className="text-xs text-text-tertiary">
                               {relativeTime(reply.createdAt)}

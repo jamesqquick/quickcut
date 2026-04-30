@@ -37,7 +37,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       userId: spaceMembers.userId,
       role: spaceMembers.role,
       createdAt: spaceMembers.createdAt,
-      displayName: users.displayName,
+      name: users.name,
       email: users.email,
     })
     .from(spaceMembers)
