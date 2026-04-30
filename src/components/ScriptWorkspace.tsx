@@ -367,7 +367,8 @@ export function ScriptWorkspace({
 
       </div>
 
-      {isReviewMode && <aside className="overflow-hidden rounded-xl border border-border-default bg-bg-secondary">
+      {isReviewMode && <aside className="flex min-h-[620px] overflow-hidden rounded-xl border border-border-default bg-bg-secondary">
+        <div className="flex min-w-0 flex-1 flex-col">
         <PresenceBar viewers={viewers} loading={presenceLoading} />
         <div className="flex border-b border-border-default">
           {(
@@ -392,76 +393,22 @@ export function ScriptWorkspace({
             </button>
           ))}
         </div>
-        <div className="p-4">
-          {selectedRange && (
-            <p className="text-xs text-text-tertiary">
-              Selected: “{selectedRange.quote.slice(0, 90)}{selectedRange.quote.length > 90 ? "..." : ""}”
-            </p>
-          )}
-
-          {!readOnly && (
-            <div className="mt-4 space-y-3 rounded-lg border border-border-default bg-bg-primary p-3">
-            <label className="block text-xs font-medium text-text-secondary" htmlFor="script-feedback-comment">
-              Comment
-            </label>
-            <textarea
-              id="script-feedback-comment"
-              value={commentText}
-              onChange={(event) => setCommentText(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && event.shiftKey) {
-                  event.preventDefault();
-                  void createScriptComment();
-                }
-              }}
-              rows={3}
-              disabled={!selectedRange || submittingComment}
-              placeholder="Add feedback on the selected text..."
-              className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-            />
-            <p className="text-[11px] text-text-tertiary">Press Shift + Enter to submit.</p>
-            <div>
-              <label className="sr-only" htmlFor="script-feedback-urgency">
-                Feedback type
-              </label>
-              <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${URGENCY_META[commentUrgency].dot}`} aria-hidden="true" />
-                <select
-                  id="script-feedback-urgency"
-                  value={commentUrgency}
-                  onChange={(event) => setCommentUrgency(event.target.value as CommentUrgency)}
-                  disabled={!selectedRange || submittingComment}
-                  className="min-w-0 flex-1 rounded-lg border border-border-default bg-bg-input px-2 py-2 text-xs text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-                >
-                  {URGENCY_OPTIONS.map((urgency) => (
-                    <option key={urgency} value={urgency}>
-                      {URGENCY_META[urgency].selectLabel}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={createScriptComment}
-                disabled={!selectedRange || !commentText.trim() || submittingComment}
-                className="rounded-lg bg-accent-primary px-3 py-2 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-50"
-              >
-                {submittingComment ? "Adding..." : "Comment"}
-              </button>
-            </div>
-            </div>
-          )}
-
-          <div className="mt-4 space-y-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="space-y-3">
           {filteredComments.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border-default p-4 text-center text-sm text-text-tertiary">
-              {filter === "all"
-                ? "No script feedback yet."
-                : filter === "unresolved"
-                  ? "No unresolved script feedback."
-                  : "No resolved script feedback."}
+            <div className="py-12 text-center">
+              <p className="text-sm text-text-tertiary">
+                {filter === "all"
+                  ? "No comments yet"
+                  : filter === "unresolved"
+                    ? "No unresolved comments"
+                    : "No resolved comments"}
+              </p>
+              {filter === "all" && (
+                <p className="mt-1 text-xs text-text-tertiary">
+                  Be the first to leave feedback
+                </p>
+              )}
             </div>
           ) : (
             filteredComments.map((comment) => {
@@ -497,11 +444,6 @@ export function ScriptWorkspace({
                             </span>
                           )}
                         </div>
-                        {comment.textRange && (
-                          <blockquote className="mt-2 border-l-2 border-accent-primary pl-2 text-xs text-text-tertiary">
-                            {comment.textRange.quote}
-                          </blockquote>
-                        )}
                         <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">{comment.text}</p>
                       </button>
                       <div className="mt-2 flex flex-wrap gap-3">
@@ -586,6 +528,62 @@ export function ScriptWorkspace({
             })
           )}
           </div>
+        </div>
+        {readOnly ? (
+          <div className="border-t border-border-default px-4 py-3 text-center text-xs text-text-tertiary">
+            Comments are locked on published projects.
+          </div>
+        ) : (
+          <div className="border-t border-border-default p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <label className="sr-only" htmlFor="script-feedback-urgency">
+                Feedback type
+              </label>
+              <span className={`h-2 w-2 shrink-0 rounded-full ${URGENCY_META[commentUrgency].dot}`} aria-hidden="true" />
+              <select
+                id="script-feedback-urgency"
+                value={commentUrgency}
+                onChange={(event) => setCommentUrgency(event.target.value as CommentUrgency)}
+                disabled={!selectedRange || submittingComment}
+                className="rounded-lg border border-border-default bg-bg-input px-2 py-2 text-xs text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+              >
+                {URGENCY_OPTIONS.map((urgency) => (
+                  <option key={urgency} value={urgency}>
+                    {URGENCY_META[urgency].selectLabel}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <label className="sr-only" htmlFor="script-feedback-comment">
+                Comment
+              </label>
+              <input
+                id="script-feedback-comment"
+                type="text"
+                value={commentText}
+                onChange={(event) => setCommentText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void createScriptComment();
+                  }
+                }}
+                disabled={!selectedRange || submittingComment}
+                placeholder="Add a comment..."
+                className="min-w-0 flex-1 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={createScriptComment}
+                disabled={!selectedRange || !commentText.trim() || submittingComment}
+                className="shrink-0 rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              >
+                {submittingComment ? "Adding..." : "Comment"}
+              </button>
+            </div>
+          </div>
+        )}
         </div>
       </aside>}
     </div>
