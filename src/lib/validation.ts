@@ -80,10 +80,16 @@ export const videoUpdateSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Pipeline phases
+// Project statuses. The persisted column is still named `phase` for now.
 // ---------------------------------------------------------------------------
 
-export const VIDEO_PHASES = ["script", "review", "published"] as const;
+export const VIDEO_PHASES = [
+  "creating_script",
+  "reviewing_script",
+  "reviewing_video",
+  "video_approved",
+  "published",
+] as const;
 export type VideoPhase = (typeof VIDEO_PHASES)[number];
 
 export const phaseSchema = z.enum(VIDEO_PHASES);

@@ -43,6 +43,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   const project = projectResult[0];
 
   if (!project) return json({ error: "Project not found" }, 404);
+  if (project.phase === "published") return json({ error: "Cannot upload to a published project" }, 403);
   if (project.status !== "draft" || project.streamVideoId) {
     return json({ error: "This project already has a video" }, 409);
   }
@@ -68,7 +69,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
       .set({
         uploadedBy: locals.user.id,
         status: "processing",
-        phase: "review",
+        phase: "reviewing_video",
         streamVideoId,
         fileName,
         fileSize,
@@ -91,13 +92,13 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
       actorUserId: locals.user.id,
       actorDisplayName: locals.user.displayName,
       type: "phase.changed",
-      data: { from: project.phase, to: "review" },
+      data: { from: project.phase, to: "reviewing_video" },
       createdAt: now,
     });
 
     await broadcastPhaseChange(env, id, {
       videoId: id,
-      phase: "review",
+      phase: "reviewing_video",
       changedBy: locals.user.displayName,
     });
 

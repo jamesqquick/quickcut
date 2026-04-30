@@ -59,19 +59,35 @@ export interface FocusRequest {
   nonce: number;
 }
 
-export const VIDEO_PHASES = ["script", "review", "published"] as const;
-export type VideoPhase = (typeof VIDEO_PHASES)[number];
+export const PROJECT_STATUSES = [
+  "creating_script",
+  "reviewing_script",
+  "reviewing_video",
+  "video_approved",
+  "published",
+] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+// Backward-compatible aliases while the persisted column is still named `phase`.
+export const VIDEO_PHASES = PROJECT_STATUSES;
+export type VideoPhase = ProjectStatus;
 
 export const SCRIPT_STATUSES = ["writing", "review"] as const;
 export type ScriptStatus = (typeof SCRIPT_STATUSES)[number];
 
-export const PHASE_LABELS: Record<VideoPhase, string> = {
-  script: "Script",
-  review: "Video",
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  creating_script: "Creating Script",
+  reviewing_script: "Reviewing Script",
+  reviewing_video: "Reviewing Video",
+  video_approved: "Video Approved",
   published: "Published",
 };
 
+export const PHASE_LABELS = PROJECT_STATUS_LABELS;
+
 export function normalizeVideoPhase(phase: string | null | undefined): VideoPhase {
-  if (phase === "script" || phase === "published") return phase;
-  return "review";
+  if (phase === "script") return "creating_script";
+  if (phase === "review") return "reviewing_video";
+  if (PROJECT_STATUSES.includes(phase as ProjectStatus)) return phase as ProjectStatus;
+  return "reviewing_video";
 }

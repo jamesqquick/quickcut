@@ -116,6 +116,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
       streamVideoId,
       fileName,
       fileSize,
+      phase: "reviewing_video",
       transcriptRequested,
     });
 

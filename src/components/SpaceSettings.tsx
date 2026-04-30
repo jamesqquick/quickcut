@@ -57,7 +57,6 @@ export function SpaceSettings({
   // Settings form state
   const [name, setName] = useState(space.name);
   const [requiredApprovals, setRequiredApprovals] = useState(space.requiredApprovals);
-  const [pipelineEnabled, setPipelineEnabled] = useState(space.pipelineEnabled);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState("");
 
@@ -78,7 +77,7 @@ export function SpaceSettings({
       const res = await fetch(`/api/spaces/${space.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), requiredApprovals, pipelineEnabled }),
+        body: JSON.stringify({ name: name.trim(), requiredApprovals }),
       });
       const data = (await res.json().catch(() => null)) as {
         error?: string;
@@ -232,34 +231,6 @@ export function SpaceSettings({
               <p className="mt-1 text-xs text-text-tertiary">
                 Set to 0 to disable the approval workflow.
               </p>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={pipelineEnabled}
-                onClick={() => setPipelineEnabled(!pipelineEnabled)}
-                disabled={settingsSaving}
-                className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-                  pipelineEnabled ? "bg-accent-primary" : "bg-bg-tertiary"
-                }`}
-              >
-                <span
-                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform duration-200 ${
-                    pipelineEnabled ? "translate-x-[18px]" : "translate-x-[3px]"
-                  }`}
-                />
-              </button>
-              <div>
-                <label className="block text-sm font-medium text-text-secondary">
-                  Pipeline Mode
-                </label>
-                <p className="mt-0.5 text-xs text-text-tertiary">
-                  Track videos through script, video, and published phases. Adds phase
-                  indicators and a pipeline view to the dashboard.
-                </p>
-              </div>
             </div>
 
             {settingsError && (

@@ -23,8 +23,9 @@ function getStepHref(videoId: string, step: PipelineStep) {
 
 function getStepForPhase(phase: VideoPhase): PipelineStep {
   const normalizedPhase = normalizeVideoPhase(phase);
-  if (normalizedPhase === "script") return "script";
-  return normalizedPhase;
+  if (normalizedPhase === "creating_script" || normalizedPhase === "reviewing_script") return "script";
+  if (normalizedPhase === "published") return "published";
+  return "review";
 }
 
 export function PhaseStepper({ currentPhase, enabledSteps, lockedStepMessages, videoId }: PhaseStepperProps) {

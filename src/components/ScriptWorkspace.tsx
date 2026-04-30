@@ -4,7 +4,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { JSONContent } from "@tiptap/core";
-import type { Comment, CommentUrgency, ScriptStatus, TextRange } from "../types";
+import type { Comment, CommentUrgency, TextRange } from "../types";
 import { relativeTime } from "../lib/time";
 import { connectVideoRoom, type Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
@@ -72,8 +72,6 @@ interface ScriptWorkspaceProps {
   currentUserId: string;
   currentUserName: string;
   readOnly: boolean;
-  scriptStatus: ScriptStatus;
-  submitForReviewEventName?: string;
 }
 
 function parseInitialContent(content: string): JSONContent {
@@ -111,10 +109,7 @@ export function ScriptWorkspace({
   currentUserId,
   currentUserName,
   readOnly,
-  scriptStatus,
-  submitForReviewEventName,
 }: ScriptWorkspaceProps) {
-  const [currentScriptStatus, setCurrentScriptStatus] = useState(scriptStatus);
   const [comments, setComments] = useState(() => initialComments.filter((comment) => comment.phase === "script"));
   const [selectedRange, setSelectedRange] = useState<TextRange | null>(null);
   const [commentText, setCommentText] = useState("");
@@ -123,14 +118,12 @@ export function ScriptWorkspace({
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [submittingReply, setSubmittingReply] = useState(false);
-  const [submittingForReview, setSubmittingForReview] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [viewers, setViewers] = useState<Viewer[]>([]);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
-  const hasEditedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isReviewMode = currentScriptStatus === "review";
+  const isReviewMode = true;
   const isReviewModeRef = useRef(isReviewMode);
 
   useEffect(() => {
@@ -215,7 +208,6 @@ export function ScriptWorkspace({
     },
     onUpdate({ editor }) {
       if (readOnly) return;
-      hasEditedRef.current = true;
       setSaveState("saving");
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
@@ -347,47 +339,15 @@ export function ScriptWorkspace({
     editor.chain().focus().setTextSelection({ from: comment.textRange.from, to: comment.textRange.to }).run();
   };
 
-  const submitForReview = async () => {
-    if (submittingForReview) return;
-    setSubmittingForReview(true);
-    try {
-      if (editor && hasEditedRef.current) {
-        await saveScript(JSON.stringify(editor.getJSON()), editor.getText());
-      }
-      const res = await fetch(`/api/videos/${videoId}/script-status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "review" }),
-      });
-      if (!res.ok) throw new Error("Failed to submit script for review");
-      window.location.reload();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSubmittingForReview(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!submitForReviewEventName) return;
-    const handleSubmitForReview = () => {
-      void submitForReview();
-    };
-    window.addEventListener(submitForReviewEventName, handleSubmitForReview);
-    return () => window.removeEventListener(submitForReviewEventName, handleSubmitForReview);
-  }, [submitForReviewEventName, submitForReview]);
-
   return (
     <div className={isReviewMode ? "grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]" : "space-y-5"}>
       <div className="space-y-5">
         <div className="overflow-hidden rounded-xl border border-border-default bg-bg-secondary">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default px-4 py-3">
             <div>
-              <h2 className="text-sm font-semibold text-text-primary">{isReviewMode ? "Script Review" : "Write Script"}</h2>
+              <h2 className="text-sm font-semibold text-text-primary">Script</h2>
               <p className="text-xs text-text-tertiary">
-                {isReviewMode
-                  ? "Select text to attach feedback directly to a script passage."
-                  : "Write in Markdown. When the script is ready, submit it for feedback."}
+                Write the script here. Select text to attach feedback directly to a passage.
               </p>
             </div>
             <div className="flex items-center gap-2">

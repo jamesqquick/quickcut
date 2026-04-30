@@ -10,8 +10,10 @@ interface CalendarViewProps {
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const phaseDot: Record<VideoPhase, string> = {
-  script: "bg-accent-primary",
-  review: "bg-accent-info",
+  creating_script: "bg-accent-primary",
+  reviewing_script: "bg-accent-info",
+  reviewing_video: "bg-accent-warning",
+  video_approved: "bg-accent-secondary",
   published: "bg-accent-secondary",
 };
 
@@ -45,7 +47,7 @@ function getRiskLabel(video: DashboardVideo) {
   const launch = new Date(`${video.targetDate}T00:00:00`);
   const daysUntil = Math.ceil((launch.getTime() - today.getTime()) / 86_400_000);
   if (daysUntil < 0) return "Overdue";
-  if (daysUntil <= 3 && (video.phase === "script" || video.phase === "review")) return "At risk";
+  if (daysUntil <= 3 && video.phase !== "published") return "At risk";
   return null;
 }
 
