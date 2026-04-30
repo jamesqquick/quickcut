@@ -1,7 +1,11 @@
 import { useState } from "react";
-import { authClient } from "../lib/auth-client";
 
 type Step = "email" | "code";
+type OtpMode = "login" | "register";
+
+interface LoginOtpFormProps {
+  mode: OtpMode;
+}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "message" in error) {
@@ -12,7 +16,13 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export function LoginOtpForm() {
+async function getJsonError(response: Response, fallback: string): Promise<string> {
+  const body = await response.json().catch(() => null) as { error?: unknown; message?: unknown } | null;
+  const message = body?.error ?? body?.message;
+  return typeof message === "string" && message.trim() ? message : fallback;
+}
+
+export function LoginOtpForm({ mode }: LoginOtpFormProps) {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -32,7 +42,7 @@ export function LoginOtpForm() {
       return;
     }
 
-    if (!trimmedName) {
+    if (mode === "register" && !trimmedName) {
       setError("Enter your name.");
       return;
     }
@@ -40,13 +50,17 @@ export function LoginOtpForm() {
     setIsSubmitting(true);
 
     try {
-      const { error } = await authClient.emailOtp.sendVerificationOtp({
-        email: normalizedEmail,
-        type: "sign-in",
+      const response = await fetch("/api/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          mode,
+        }),
       });
 
-      if (error) {
-        setError(getErrorMessage(error, "Could not send the sign-in code."));
+      if (!response.ok) {
+        setError(await getJsonError(response, "Could not send the sign-in code."));
         return;
       }
 
@@ -70,14 +84,19 @@ export function LoginOtpForm() {
     setIsSubmitting(true);
 
     try {
-      const { error } = await authClient.signIn.emailOtp({
-        email: normalizedEmail,
-        otp: otp.trim(),
-        name: trimmedName,
+      const response = await fetch("/api/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          otp: otp.trim(),
+          mode,
+          ...(mode === "register" ? { name: trimmedName } : {}),
+        }),
       });
 
-      if (error) {
-        setError(getErrorMessage(error, "Invalid or expired code."));
+      if (!response.ok) {
+        setError(await getJsonError(response, "Invalid or expired code."));
         return;
       }
 
@@ -93,7 +112,7 @@ export function LoginOtpForm() {
     return (
       <form className="space-y-4" onSubmit={handleVerifyCode}>
         <div className="rounded-lg border border-border-default bg-bg-tertiary px-4 py-3 text-sm text-text-secondary">
-          We sent a sign-in code to <span className="font-medium text-text-primary">{normalizedEmail}</span>.
+          We sent a {mode === "register" ? "signup" : "sign-in"} code to <span className="font-medium text-text-primary">{normalizedEmail}</span>.
         </div>
 
         {error && (
@@ -104,7 +123,7 @@ export function LoginOtpForm() {
 
         <div>
           <label htmlFor="otp" className="mb-1 block text-sm font-medium text-text-secondary">
-            Sign-in code
+            {mode === "register" ? "Signup" : "Sign-in"} code
           </label>
           <input
             id="otp"
@@ -123,7 +142,7 @@ export function LoginOtpForm() {
           disabled={isSubmitting}
           className="w-full rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? "Signing in..." : "Sign in"}
+          {isSubmitting ? (mode === "register" ? "Creating account..." : "Signing in...") : (mode === "register" ? "Create account" : "Sign in")}
         </button>
 
         <button
@@ -149,21 +168,23 @@ export function LoginOtpForm() {
         </div>
       )}
 
-      <div>
-        <label htmlFor="name" className="mb-1 block text-sm font-medium text-text-secondary">
-          Name
-        </label>
-        <input
-          id="name"
-          type="text"
-          autoComplete="name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-          placeholder="Jane Doe"
-          required
-        />
-      </div>
+      {mode === "register" && (
+        <div>
+          <label htmlFor="name" className="mb-1 block text-sm font-medium text-text-secondary">
+            Name
+          </label>
+          <input
+            id="name"
+            type="text"
+            autoComplete="name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
+            placeholder="Jane Doe"
+            required
+          />
+        </div>
+      )}
 
       <div>
         <label htmlFor="email" className="mb-1 block text-sm font-medium text-text-secondary">
@@ -186,8 +207,15 @@ export function LoginOtpForm() {
         disabled={isSubmitting}
         className="w-full rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isSubmitting ? "Sending code..." : "Send sign-in code"}
+        {isSubmitting ? "Sending code..." : `Send ${mode === "register" ? "signup" : "sign-in"} code`}
       </button>
+
+      <p className="text-center text-sm text-text-tertiary">
+        {mode === "register" ? "Already have an account?" : "Need an account?"}{" "}
+        <a className="text-accent-primary transition-colors hover:text-accent-hover" href={mode === "register" ? "/login" : "/register"}>
+          {mode === "register" ? "Sign in" : "Sign up"}
+        </a>
+      </p>
     </form>
   );
 }

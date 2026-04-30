@@ -48,8 +48,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
-  // Redirect authenticated users away from login
-  if (context.locals.user && pathname === "/login") {
+  // Redirect authenticated users away from auth pages
+  if (context.locals.user && (pathname === "/login" || pathname === "/register")) {
     return context.redirect("/dashboard");
   }
 

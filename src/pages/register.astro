@@ -11,7 +11,7 @@ const error = Astro.url.searchParams.get("error");
 const message = Astro.url.searchParams.get("message");
 ---
 
-<Layout title="Sign In">
+<Layout title="Create Account">
   <div class="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
     <div class="w-full max-w-[400px]">
       <div class="mb-8 text-center">
@@ -34,10 +34,10 @@ const message = Astro.url.searchParams.get("message");
         )}
 
         <p class="mb-6 text-center text-sm text-text-tertiary">
-          Sign in with a one-time code sent to your Cloudflare email.
+          Create your account with a one-time code sent to your Cloudflare email.
         </p>
 
-        <LoginOtpForm mode="login" client:load />
+        <LoginOtpForm mode="register" client:load />
 
         <p class="mt-6 text-center text-xs text-text-tertiary">
           Quick Cuts is restricted to @cloudflare.com accounts.
