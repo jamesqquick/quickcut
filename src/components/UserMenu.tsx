@@ -20,7 +20,6 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(notificationCount);
   const containerRef = useRef<HTMLDivElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
   const hasNotifications = count > 0;
 
   useEffect(() => {
@@ -58,9 +57,15 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setOpen(false);
-    formRef.current?.submit();
+
+    await fetch("/api/auth/sign-out", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+
+    window.location.assign("/");
   };
 
   return (
@@ -144,12 +149,6 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
             </svg>
             Log out
           </button>
-          <form
-            ref={formRef}
-            method="POST"
-            action="/api/auth/logout"
-            className="hidden"
-          />
         </div>
       )}
     </div>
