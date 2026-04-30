@@ -37,8 +37,8 @@ export function LoginOtpForm({ mode }: LoginOtpFormProps) {
     event.preventDefault();
     setError(null);
 
-    if (!normalizedEmail.endsWith("@cloudflare.com")) {
-      setError("Use your @cloudflare.com email address.");
+    if (!normalizedEmail) {
+      setError("Enter your email address.");
       return;
     }
 
@@ -187,8 +187,8 @@ export function LoginOtpForm({ mode }: LoginOtpFormProps) {
       )}
 
       <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium text-text-secondary">
-          Cloudflare email
+          <label htmlFor="email" className="mb-1 block text-sm font-medium text-text-secondary">
+          Email
         </label>
         <input
           id="email"
@@ -197,7 +197,7 @@ export function LoginOtpForm({ mode }: LoginOtpFormProps) {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-          placeholder="you@cloudflare.com"
+          placeholder="you@example.com"
           required
         />
       </div>

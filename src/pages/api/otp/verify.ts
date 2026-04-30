@@ -14,10 +14,6 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function isCloudflareEmail(email: string): boolean {
-  return email.endsWith("@cloudflare.com");
-}
-
 export const POST: APIRoute = async ({ request }) => {
   const body = await request.json().catch(() => null) as {
     email?: string;
@@ -33,10 +29,6 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!email || !mode || !otp) {
     return json({ error: "Email, mode, and code are required" }, 400);
-  }
-
-  if (!isCloudflareEmail(email)) {
-    return json({ error: "Use your @cloudflare.com email address" }, 400);
   }
 
   if (mode === "register" && !name) {

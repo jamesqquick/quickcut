@@ -13,10 +13,6 @@ export type VideoAccess =
 
 type AuthEnv = Pick<Cloudflare.Env, "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "EMAIL" | "OTP_EMAIL_FROM">;
 
-function isCloudflareEmail(email: string): boolean {
-  return email.trim().toLowerCase().endsWith("@cloudflare.com");
-}
-
 function getOtpEmailSubject(type: "sign-in" | "email-verification" | "forget-password" | "change-email"): string {
   switch (type) {
     case "sign-in":
@@ -61,11 +57,6 @@ export function createAuth(d1: D1Database, env: AuthEnv) {
         allowedAttempts: 3,
         async sendVerificationOTP({ email, otp, type }) {
           const normalizedEmail = email.trim().toLowerCase();
-
-          if (!isCloudflareEmail(normalizedEmail)) {
-            throw new Error("Only Cloudflare accounts are allowed");
-          }
-
           const { subject, text, html } = getOtpEmailBody(otp, type);
 
           await env.EMAIL.send({
@@ -82,8 +73,8 @@ export function createAuth(d1: D1Database, env: AuthEnv) {
       user: {
         create: {
           before: async (user) => {
-            if (!user.email || !isCloudflareEmail(user.email)) {
-              throw new Error("Only Cloudflare accounts are allowed");
+            if (!user.email) {
+              throw new Error("Email is required");
             }
             return user;
           },
