@@ -63,65 +63,39 @@ function ReactionBar({
   disabled: boolean;
   onToggle: (commentId: string, emoji: CommentReactionEmoji) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const reactions = comment.reactions ?? [];
-  const visibleEmoji = new Set(reactions.map((reaction) => reaction.emoji));
-  const hiddenOptions = COMMENT_REACTION_EMOJIS.filter(
-    (emoji) => !visibleEmoji.has(emoji),
-  );
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5">
-      {reactions.map((reaction) => (
-        <button
-          key={reaction.emoji}
-          type="button"
-          disabled={disabled}
-          onClick={() => onToggle(comment.id, reaction.emoji)}
-          className={`inline-flex h-7 items-center gap-1 rounded-full border px-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-            reaction.reactedByMe
-              ? "border-accent-primary bg-accent-primary/15 text-text-primary"
-              : "border-border-default bg-bg-tertiary text-text-secondary hover:bg-bg-input"
-          }`}
-          aria-pressed={reaction.reactedByMe}
-          title={`${reaction.count} reaction${reaction.count === 1 ? "" : "s"}`}
-        >
-          <span>{reaction.emoji}</span>
-          <span>{reaction.count}</span>
-        </button>
-      ))}
+      {COMMENT_REACTION_EMOJIS.map((emoji) => {
+        const reaction = reactions.find((item) => item.emoji === emoji);
+        const count = reaction?.count ?? 0;
+        const reactedByMe = reaction?.reactedByMe ?? false;
+        const showCount = count > 0;
 
-      {!disabled && hiddenOptions.length > 0 && (
-        <div className="relative">
+        if (disabled && !showCount) return null;
+
+        return (
           <button
+            key={emoji}
             type="button"
-            onClick={() => setOpen((next) => !next)}
-            className="inline-flex h-7 items-center rounded-full border border-border-default bg-bg-tertiary px-2 text-xs text-text-tertiary transition-colors hover:bg-bg-input hover:text-text-primary"
-            aria-label="Add reaction"
-            aria-expanded={open}
+            disabled={disabled}
+            onClick={() => onToggle(comment.id, emoji)}
+            className={`inline-flex h-7 items-center gap-1 rounded-full border px-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+              reactedByMe
+                ? "border-accent-primary bg-accent-primary/15 text-text-primary"
+                : showCount
+                  ? "border-border-default bg-bg-tertiary text-text-secondary hover:bg-bg-input"
+                  : "border-border-default/70 bg-transparent text-text-tertiary hover:border-border-default hover:bg-bg-tertiary hover:text-text-primary"
+            }`}
+            aria-pressed={reactedByMe}
+            title={`${count} reaction${count === 1 ? "" : "s"}`}
           >
-            +
+            <span>{emoji}</span>
+            {showCount && <span>{count}</span>}
           </button>
-          {open && (
-            <div className="absolute left-0 top-full z-20 mt-1 flex gap-1 rounded-full border border-border-default bg-bg-secondary p-1 shadow-lg">
-              {hiddenOptions.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => {
-                    onToggle(comment.id, emoji);
-                    setOpen(false);
-                  }}
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-sm transition-colors hover:bg-bg-tertiary"
-                  aria-label={`React with ${emoji}`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 }
