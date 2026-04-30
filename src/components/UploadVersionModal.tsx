@@ -116,7 +116,7 @@ export function UploadVersionModal({
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           setState("processing");
-          window.location.href = `/videos/${data.videoId}`;
+          window.location.href = `/videos/${data.videoId}?tab=video`;
           return;
         }
         setError("Upload failed. Please try again.");

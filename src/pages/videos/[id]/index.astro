@@ -4,6 +4,7 @@ import { ProjectStatusControls } from "../../../components/ProjectStatusControls
 import { InlineEditor } from "../../../components/InlineEditor";
 import { ScriptWorkspace } from "../../../components/ScriptWorkspace";
 import { UploadView } from "../../../components/UploadView";
+import { UploadVersionModal } from "../../../components/UploadVersionModal";
 import { VideoDetailView } from "../../../components/VideoDetailView";
 import { VideoHeader } from "../../../components/VideoHeader";
 import { env } from "cloudflare:workers";
@@ -72,7 +73,6 @@ const tabHref = (tab: "script" | "video") => {
       spaceId={video.spaceId}
       backHref={backHref}
       spaceName={videoSpace.name}
-      uploadVersionHref={!isPublished && hasVideo && role === "owner" ? `${tabHref("video")}#upload-version` : null}
     />
 
     <div class="space-y-6">
@@ -155,8 +155,6 @@ const tabHref = (tab: "script" | "video") => {
               currentUserId={user.id}
               currentUserName={user.displayName}
               title={video.title}
-              description={video.description || ""}
-              isOwner={isOwner}
               uploadDate={video.createdAt}
               fileName={video.fileName}
               targetDate={video.targetDate}
@@ -170,8 +168,8 @@ const tabHref = (tab: "script" | "video") => {
               initialActivity={projectActivity}
             />
             {!isPublished && isOwner && (
-              <div id="upload-version">
-                <UploadView
+              <div class="flex justify-end">
+                <UploadVersionModal
                   client:load
                   videoId={video.id}
                   title={video.title}

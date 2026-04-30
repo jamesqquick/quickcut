@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CommentTimeline } from "./CommentTimeline";
 import { CommentThread } from "./CommentThread";
-import { InlineEditor } from "./InlineEditor";
 import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
 import { AnnotationOverlay } from "./AnnotationOverlay";
@@ -26,8 +25,6 @@ interface VideoDetailViewProps {
   currentUserId: string;
   currentUserName: string;
   title: string;
-  description: string;
-  isOwner: boolean;
   uploadDate: string;
   fileName: string | null;
   targetDate: string | null;
@@ -62,31 +59,6 @@ function formatDuration(seconds: number | null): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    draft: "bg-accent-primary/15 text-accent-primary",
-    processing: "bg-accent-warning/15 text-accent-warning",
-    ready: "bg-accent-secondary/15 text-accent-secondary",
-    failed: "bg-accent-danger/15 text-accent-danger",
-  };
-  const labels: Record<string, string> = {
-    draft: "Draft",
-    processing: "Processing",
-    ready: "Ready",
-    failed: "Failed",
-  };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status] || ""}`}
-    >
-      {status === "processing" && (
-        <span className="mr-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-accent-warning" />
-      )}
-      {labels[status] || status}
-    </span>
-  );
-}
-
 export function VideoDetailView({
   videoId,
   spaceId,
@@ -97,8 +69,6 @@ export function VideoDetailView({
   currentUserId,
   currentUserName,
   title,
-  description,
-  isOwner,
   uploadDate,
   targetDate,
   transcriptsEnabled,
@@ -250,19 +220,6 @@ export function VideoDetailView({
         />
       )}
 
-      {/* Title */}
-      <div className="flex flex-wrap items-center gap-3">
-        <InlineEditor
-          value={title}
-          field="title"
-          videoId={videoId}
-          isOwner={isOwner && !isPublished}
-          as="h1"
-          className="min-w-0 break-words text-xl font-bold text-text-primary sm:text-2xl"
-        />
-        {processingStatus !== "ready" && <StatusBadge status={processingStatus} />}
-      </div>
-
       {/* Metadata: compact supporting details under the title. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-tertiary">
         <span className="inline-flex items-center gap-1.5">
@@ -284,16 +241,6 @@ export function VideoDetailView({
           />
         )}
       </div>
-
-      {/* Description */}
-      <InlineEditor
-        value={description}
-        field="description"
-        videoId={videoId}
-        isOwner={isOwner && !isPublished}
-        placeholder="Add a description..."
-        className="break-words text-sm text-text-secondary"
-      />
 
       {/* Approval status — shown inside Video when the space requires signoff. */}
       {approvalStatus && (
