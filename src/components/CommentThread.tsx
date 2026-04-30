@@ -8,9 +8,11 @@ import type { AnnotationTool } from "./AnnotationOverlay";
 import type {
   Annotation,
   Comment,
+  CommentReactionEmoji,
   CommentUrgency,
   FocusRequest,
 } from "../types";
+import { COMMENT_REACTION_EMOJIS } from "../types";
 
 /**
  * Visual + display config for each urgency level. The colored dot is the
@@ -51,6 +53,91 @@ const URGENCY_OPTIONS: CommentUrgency[] = [
   "important",
   "critical",
 ];
+
+const ANONYMOUS_REACTOR_KEY = "quickcut_anonymous_reactor_id";
+
+function getAnonymousReactorId() {
+  if (typeof window === "undefined") return "";
+
+  const existing = localStorage.getItem(ANONYMOUS_REACTOR_KEY);
+  if (existing) return existing;
+
+  const next = crypto.randomUUID();
+  localStorage.setItem(ANONYMOUS_REACTOR_KEY, next);
+  return next;
+}
+
+function ReactionBar({
+  comment,
+  disabled,
+  onToggle,
+}: {
+  comment: Comment;
+  disabled: boolean;
+  onToggle: (commentId: string, emoji: CommentReactionEmoji) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const reactions = comment.reactions ?? [];
+  const visibleEmoji = new Set(reactions.map((reaction) => reaction.emoji));
+  const hiddenOptions = COMMENT_REACTION_EMOJIS.filter(
+    (emoji) => !visibleEmoji.has(emoji),
+  );
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {reactions.map((reaction) => (
+        <button
+          key={reaction.emoji}
+          type="button"
+          disabled={disabled}
+          onClick={() => onToggle(comment.id, reaction.emoji)}
+          className={`inline-flex h-7 items-center gap-1 rounded-full border px-2 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+            reaction.reactedByMe
+              ? "border-accent-primary bg-accent-primary/15 text-text-primary"
+              : "border-border-default bg-bg-tertiary text-text-secondary hover:bg-bg-input"
+          }`}
+          aria-pressed={reaction.reactedByMe}
+          title={`${reaction.count} reaction${reaction.count === 1 ? "" : "s"}`}
+        >
+          <span>{reaction.emoji}</span>
+          <span>{reaction.count}</span>
+        </button>
+      ))}
+
+      {!disabled && hiddenOptions.length > 0 && (
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setOpen((next) => !next)}
+            className="inline-flex h-7 items-center rounded-full border border-border-default bg-bg-tertiary px-2 text-xs text-text-tertiary transition-colors hover:bg-bg-input hover:text-text-primary"
+            aria-label="Add reaction"
+            aria-expanded={open}
+          >
+            +
+          </button>
+          {open && (
+            <div className="absolute left-0 top-full z-20 mt-1 flex gap-1 rounded-full border border-border-default bg-bg-secondary p-1 shadow-lg">
+              {hiddenOptions.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    onToggle(comment.id, emoji);
+                    setOpen(false);
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-sm transition-colors hover:bg-bg-tertiary"
+                  aria-label={`React with ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Compact urgency picker: shows a colored dot + label (label hides on
@@ -266,6 +353,8 @@ interface CommentThreadProps {
   activeTool?: AnnotationTool;
   /** Callback to change the active annotation tool. */
   onToolChange?: (tool: AnnotationTool) => void;
+  /** When true, reaction writes are disabled with comment writes. */
+  readOnly?: boolean;
 }
 
 type FilterType = "all" | "unresolved" | "resolved";
@@ -299,6 +388,7 @@ export function CommentThread({
   onCommentHover,
   activeTool = "none",
   onToolChange,
+  readOnly = false,
 }: CommentThreadProps) {
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [filter, setFilter] = useState<FilterType>("all");
@@ -313,6 +403,9 @@ export function CommentThread({
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Viewer[]>([]);
   const [presenceLoading, setPresenceLoading] = useState(!!liveEnabled);
+  const [anonymousReactorId] = useState(() =>
+    shareToken ? getAnonymousReactorId() : "",
+  );
   const lastFetchRef = useRef<string>(new Date().toISOString());
   const threadRef = useRef<HTMLDivElement>(null);
   const commentRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
@@ -325,12 +418,17 @@ export function CommentThread({
   // Polling for new comments. Acts as a fallback when the WebSocket
   // connection is briefly unavailable; the WS path is primary when liveEnabled.
   useEffect(() => {
-    const interval = setInterval(async () => {
+    const refreshComments = async () => {
       try {
         const baseUrl = shareToken
           ? `/api/share/${shareToken}/comments`
           : `/api/videos/${videoId}/comments`;
-        const res = await fetch(`${baseUrl}?since=${encodeURIComponent(lastFetchRef.current)}`);
+        const pollUrl = new URL(baseUrl, window.location.origin);
+        if (shareToken && anonymousReactorId) {
+          pollUrl.searchParams.set("anonymousReactorId", anonymousReactorId);
+          if (anonymousName) pollUrl.searchParams.set("displayName", anonymousName);
+        }
+        const res = await fetch(pollUrl.toString());
         if (res.ok) {
           const data = await res.json();
           if (data.comments && data.comments.length > 0) {
@@ -354,10 +452,13 @@ export function CommentThread({
       } catch {
         // Ignore polling errors
       }
-    }, 10000);
+    };
+
+    refreshComments();
+    const interval = setInterval(refreshComments, 10000);
 
     return () => clearInterval(interval);
-  }, [videoId, shareToken]);
+  }, [videoId, shareToken, anonymousName, anonymousReactorId]);
 
   // Live updates via the per-video VideoRoom Durable Object. Dedupe on id so
   // the poster's own client doesn't double-render when the broadcast echoes.
@@ -382,6 +483,23 @@ export function CommentThread({
         onPresence: (incomingViewers) => {
           setViewers(incomingViewers);
           setPresenceLoading(false);
+        },
+        onCommentReactions: (update) => {
+          setComments((prev) =>
+            prev.map((comment) =>
+              comment.id === update.commentId
+                ? {
+                    ...comment,
+                    reactions: update.reactions.map((reaction) => ({
+                      ...reaction,
+                      reactedByMe:
+                        comment.reactions?.find((r) => r.emoji === reaction.emoji)
+                          ?.reactedByMe ?? false,
+                    })),
+                  }
+                : comment,
+            ),
+          );
         },
       },
     );
@@ -587,6 +705,50 @@ export function CommentThread({
     setDeleting(null);
   };
 
+  const toggleReaction = async (
+    commentId: string,
+    emoji: CommentReactionEmoji,
+  ) => {
+    if (readOnly) return;
+    if (shareToken && !anonymousName) {
+      onNameRequired?.();
+      return;
+    }
+
+    try {
+      const url = shareToken
+        ? `/api/share/${shareToken}/comments/${commentId}/reactions`
+        : `/api/comments/${commentId}/reactions`;
+      const body: Record<string, unknown> = { emoji };
+      if (shareToken) {
+        body.anonymousReactorId = anonymousReactorId;
+        body.displayName = anonymousName;
+      }
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        const update = await res.json();
+        setComments((prev) =>
+          prev.map((comment) =>
+            comment.id === update.commentId
+              ? { ...comment, reactions: update.reactions }
+              : comment,
+          ),
+        );
+      } else {
+        const data = await res.json();
+        setError(data.error || "Failed to update reaction.");
+      }
+    } catch {
+      setError("Failed to update reaction.");
+    }
+  };
+
   const canDelete = (comment: Comment) => {
     if (!isAuthenticated || !currentUserId) return false;
     return comment.authorType === "user" && comment.authorUserId === currentUserId;
@@ -728,6 +890,11 @@ export function CommentThread({
                     <p className="mt-1 text-sm text-text-secondary whitespace-pre-wrap">
                       {comment.text}
                     </p>
+                    <ReactionBar
+                      comment={comment}
+                      disabled={readOnly}
+                      onToggle={toggleReaction}
+                    />
                     <div className="mt-2 flex gap-3">
                       <button
                         onClick={() =>
@@ -782,6 +949,11 @@ export function CommentThread({
                           <p className="mt-0.5 text-sm text-text-secondary whitespace-pre-wrap">
                             {reply.text}
                           </p>
+                          <ReactionBar
+                            comment={reply}
+                            disabled={readOnly}
+                            onToggle={toggleReaction}
+                          />
                           {canDelete(reply) && (
                             <button
                               onClick={() => deleteComment(reply.id)}

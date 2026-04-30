@@ -32,7 +32,11 @@ const shareLinkResult = await db.select().from(shareLinks).where(eq(shareLinks.v
 const shareLink = shareLinkResult[0] || null;
 
 // Get comments with user info
-const commentsWithNames = await getCommentsWithNames(db, id);
+const commentsWithNames = await getCommentsWithNames(db, id, {
+  type: "user",
+  userId: user.id,
+  displayName: user.displayName,
+});
 
 const appUrl = new URL(Astro.request.url).origin;
 const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);

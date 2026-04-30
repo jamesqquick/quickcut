@@ -93,6 +93,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     ...newReply,
     createdAt: new Date().toISOString(),
     displayName: locals.user.displayName,
+    reactions: [],
   };
 
   await broadcastNewComment(env, parent[0].videoId, responseComment);

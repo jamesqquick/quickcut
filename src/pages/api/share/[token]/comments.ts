@@ -4,6 +4,7 @@ import { createDb } from "../../../../db";
 import { shareLinks, comments, users } from "../../../../db/schema";
 import { eq, asc, gt, and } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
+import { addReactionSummaries } from "../../../../lib/comments";
 
 export const GET: APIRoute = async ({ params, url }) => {
   const { token } = params;
@@ -31,6 +32,8 @@ export const GET: APIRoute = async ({ params, url }) => {
 
   const videoId = shareLinkResult[0].videoId;
   const since = url.searchParams.get("since");
+  const anonymousReactorId = url.searchParams.get("anonymousReactorId");
+  const displayName = url.searchParams.get("displayName") || "Anonymous";
 
   let conditions = eq(comments.videoId, videoId);
   if (since) {
@@ -57,14 +60,20 @@ export const GET: APIRoute = async ({ params, url }) => {
     userMap = Object.fromEntries(usersResult.map((u) => [u.id, u.displayName]));
   }
 
-  const commentsWithNames = allComments.map((c) => ({
-    ...c,
-    annotation: c.annotation ? JSON.parse(c.annotation) : null,
-    displayName:
-      c.authorType === "user" && c.authorUserId
-        ? userMap[c.authorUserId] || "Unknown"
-        : c.authorDisplayName || "Anonymous",
-  }));
+  const commentsWithNames = await addReactionSummaries(
+    db,
+    allComments.map((c) => ({
+      ...c,
+      annotation: c.annotation ? JSON.parse(c.annotation) : null,
+      displayName:
+        c.authorType === "user" && c.authorUserId
+          ? userMap[c.authorUserId] || "Unknown"
+          : c.authorDisplayName || "Anonymous",
+    })),
+    anonymousReactorId
+      ? { type: "anonymous", anonymousId: anonymousReactorId, displayName }
+      : undefined,
+  );
 
   return new Response(JSON.stringify({ comments: commentsWithNames }), {
     headers: { "Content-Type": "application/json" },
@@ -153,6 +162,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     annotation: annotation || null,
     createdAt: new Date().toISOString(),
     displayName: displayName.trim(),
+    reactions: [],
   };
 
   await broadcastNewComment(env, videoId, responseComment);
