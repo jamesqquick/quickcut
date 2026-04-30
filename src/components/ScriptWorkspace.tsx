@@ -11,28 +11,24 @@ import { PresenceBar } from "./PresenceBar";
 
 const EMPTY_DOC: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
 
-const URGENCY_META: Record<CommentUrgency, { label: string; selectLabel: string; description: string; dot: string }> = {
+const URGENCY_META: Record<CommentUrgency, { label: string; description: string; dot: string }> = {
   idea: {
     label: "Idea",
-    selectLabel: "🟣 Idea",
     description: "Concept to consider",
     dot: "bg-accent-primary",
   },
   suggestion: {
     label: "Suggestion",
-    selectLabel: "🔵 Suggestion",
     description: "Optional, nice-to-have",
     dot: "bg-accent-info",
   },
   important: {
     label: "Important",
-    selectLabel: "🟡 Important",
     description: "Should be addressed",
     dot: "bg-accent-warning",
   },
   critical: {
     label: "Critical",
-    selectLabel: "🔴 Critical",
     description: "Must be fixed",
     dot: "bg-accent-danger",
   },
@@ -41,6 +37,121 @@ const URGENCY_META: Record<CommentUrgency, { label: string; selectLabel: string;
 const URGENCY_OPTIONS: CommentUrgency[] = ["idea", "suggestion", "important", "critical"];
 
 type FilterType = "all" | "unresolved" | "resolved";
+
+function ScriptUrgencyPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: CommentUrgency;
+  onChange: (next: CommentUrgency) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(() => URGENCY_OPTIONS.indexOf(value));
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) setActiveIndex(URGENCY_OPTIONS.indexOf(value));
+  }, [open, value]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onClick = (event: MouseEvent) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActiveIndex((index) => (index + 1) % URGENCY_OPTIONS.length);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActiveIndex((index) => (index <= 0 ? URGENCY_OPTIONS.length - 1 : index - 1));
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        const next = URGENCY_OPTIONS[activeIndex];
+        if (next) {
+          onChange(next);
+          setOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, activeIndex, onChange]);
+
+  const meta = URGENCY_META[value];
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Feedback type: ${meta.label}`}
+        onClick={() => !disabled && setOpen((current) => !current)}
+        disabled={disabled}
+        className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-default bg-bg-tertiary px-3 text-sm text-text-secondary transition-colors hover:bg-bg-input focus:border-accent-primary focus:outline-none disabled:opacity-50"
+      >
+        <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden="true" />
+        <span>{meta.label}</span>
+        <svg className="h-3.5 w-3.5 shrink-0 text-text-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Select feedback type"
+          className="absolute bottom-full left-0 z-20 mb-1 w-56 overflow-hidden rounded-lg border border-border-default bg-bg-secondary shadow-lg"
+        >
+          {URGENCY_OPTIONS.map((urgency, index) => {
+            const optionMeta = URGENCY_META[urgency];
+            const selected = urgency === value;
+            const active = index === activeIndex;
+            return (
+              <div
+                key={urgency}
+                role="option"
+                aria-selected={selected}
+                onMouseEnter={() => setActiveIndex(index)}
+                className={`group/row flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${active ? "bg-bg-tertiary" : "bg-transparent"}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(urgency);
+                    setOpen(false);
+                  }}
+                  className="flex flex-1 items-center gap-2 text-left"
+                >
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${optionMeta.dot}`} aria-hidden="true" />
+                  <span className="font-medium text-text-primary">{optionMeta.label}</span>
+                  {selected && (
+                    <svg className="h-3.5 w-3.5 shrink-0 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+                <span className="text-[11px] text-text-tertiary">{optionMeta.description}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const CommentHighlight = Mark.create({
   name: "commentHighlight",
@@ -536,22 +647,11 @@ export function ScriptWorkspace({
         ) : (
           <div className="border-t border-border-default p-4">
             <div className="mb-2 flex items-center gap-2">
-              <label className="sr-only" htmlFor="script-feedback-urgency">
-                Feedback type
-              </label>
-              <select
-                id="script-feedback-urgency"
+              <ScriptUrgencyPicker
                 value={commentUrgency}
-                onChange={(event) => setCommentUrgency(event.target.value as CommentUrgency)}
+                onChange={setCommentUrgency}
                 disabled={!selectedRange || submittingComment}
-                className="rounded-lg border border-border-default bg-bg-input px-2 py-2 text-xs text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-              >
-                {URGENCY_OPTIONS.map((urgency) => (
-                  <option key={urgency} value={urgency}>
-                    {URGENCY_META[urgency].selectLabel}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div className="flex min-w-0 items-center gap-2">
               <label className="sr-only" htmlFor="script-feedback-comment">
