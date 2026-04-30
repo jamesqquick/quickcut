@@ -4,7 +4,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { JSONContent } from "@tiptap/core";
-import type { Comment, CommentUrgency, ScriptStatus, TextRange } from "../types";
+import type { Comment, CommentUrgency, TextRange } from "../types";
 import { relativeTime } from "../lib/time";
 import { connectVideoRoom, type Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
@@ -37,6 +37,121 @@ const URGENCY_META: Record<CommentUrgency, { label: string; description: string;
 const URGENCY_OPTIONS: CommentUrgency[] = ["idea", "suggestion", "important", "critical"];
 
 type FilterType = "all" | "unresolved" | "resolved";
+
+function ScriptUrgencyPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: CommentUrgency;
+  onChange: (next: CommentUrgency) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(() => URGENCY_OPTIONS.indexOf(value));
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) setActiveIndex(URGENCY_OPTIONS.indexOf(value));
+  }, [open, value]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onClick = (event: MouseEvent) => {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActiveIndex((index) => (index + 1) % URGENCY_OPTIONS.length);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActiveIndex((index) => (index <= 0 ? URGENCY_OPTIONS.length - 1 : index - 1));
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        const next = URGENCY_OPTIONS[activeIndex];
+        if (next) {
+          onChange(next);
+          setOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, activeIndex, onChange]);
+
+  const meta = URGENCY_META[value];
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Feedback type: ${meta.label}`}
+        onClick={() => !disabled && setOpen((current) => !current)}
+        disabled={disabled}
+        className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-default bg-bg-tertiary px-3 text-sm text-text-secondary transition-colors hover:bg-bg-input focus:border-accent-primary focus:outline-none disabled:opacity-50"
+      >
+        <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden="true" />
+        <span>{meta.label}</span>
+        <svg className="h-3.5 w-3.5 shrink-0 text-text-tertiary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Select feedback type"
+          className="absolute bottom-full left-0 z-20 mb-1 w-56 overflow-hidden rounded-lg border border-border-default bg-bg-secondary shadow-lg"
+        >
+          {URGENCY_OPTIONS.map((urgency, index) => {
+            const optionMeta = URGENCY_META[urgency];
+            const selected = urgency === value;
+            const active = index === activeIndex;
+            return (
+              <div
+                key={urgency}
+                role="option"
+                aria-selected={selected}
+                onMouseEnter={() => setActiveIndex(index)}
+                className={`group/row flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${active ? "bg-bg-tertiary" : "bg-transparent"}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(urgency);
+                    setOpen(false);
+                  }}
+                  className="flex flex-1 items-center gap-2 text-left"
+                >
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${optionMeta.dot}`} aria-hidden="true" />
+                  <span className="font-medium text-text-primary">{optionMeta.label}</span>
+                  {selected && (
+                    <svg className="h-3.5 w-3.5 shrink-0 text-text-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </button>
+                <span className="text-[11px] text-text-tertiary">{optionMeta.description}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const CommentHighlight = Mark.create({
   name: "commentHighlight",
@@ -72,8 +187,6 @@ interface ScriptWorkspaceProps {
   currentUserId: string;
   currentUserName: string;
   readOnly: boolean;
-  scriptStatus: ScriptStatus;
-  submitForReviewEventName?: string;
 }
 
 function parseInitialContent(content: string): JSONContent {
@@ -121,10 +234,7 @@ export function ScriptWorkspace({
   currentUserId,
   currentUserName,
   readOnly,
-  scriptStatus,
-  submitForReviewEventName,
 }: ScriptWorkspaceProps) {
-  const [currentScriptStatus, setCurrentScriptStatus] = useState(scriptStatus);
   const [comments, setComments] = useState(() => initialComments.filter((comment) => comment.phase === "script"));
   const [selectedRange, setSelectedRange] = useState<TextRange | null>(null);
   const [commentText, setCommentText] = useState("");
@@ -133,15 +243,13 @@ export function ScriptWorkspace({
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [submittingReply, setSubmittingReply] = useState(false);
-  const [submittingForReview, setSubmittingForReview] = useState(false);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
   const [hasScriptText, setHasScriptText] = useState(() => initialContentHasText(initialContent));
   const [viewers, setViewers] = useState<Viewer[]>([]);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
-  const hasEditedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isReviewMode = currentScriptStatus === "review";
+  const isReviewMode = true;
   const isReviewModeRef = useRef(isReviewMode);
 
   useEffect(() => {
@@ -227,7 +335,6 @@ export function ScriptWorkspace({
     onUpdate({ editor }) {
       if (readOnly) return;
       setHasScriptText(editor.getText().trim().length > 0);
-      hasEditedRef.current = true;
       setSaveState("saving");
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
@@ -359,47 +466,15 @@ export function ScriptWorkspace({
     editor.chain().focus().setTextSelection({ from: comment.textRange.from, to: comment.textRange.to }).run();
   };
 
-  const submitForReview = async () => {
-    if (submittingForReview || !hasScriptText) return;
-    setSubmittingForReview(true);
-    try {
-      if (editor && hasEditedRef.current) {
-        await saveScript(JSON.stringify(editor.getJSON()), editor.getText());
-      }
-      const res = await fetch(`/api/videos/${videoId}/script-status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "review" }),
-      });
-      if (!res.ok) throw new Error("Failed to submit script for review");
-      window.location.reload();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSubmittingForReview(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!submitForReviewEventName) return;
-    const handleSubmitForReview = () => {
-      void submitForReview();
-    };
-    window.addEventListener(submitForReviewEventName, handleSubmitForReview);
-    return () => window.removeEventListener(submitForReviewEventName, handleSubmitForReview);
-  }, [submitForReviewEventName, submitForReview]);
-
   return (
     <div className={isReviewMode ? "grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]" : "space-y-5"}>
       <div className="space-y-5">
         <div className="overflow-hidden rounded-xl border border-border-default bg-bg-secondary">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default px-4 py-3">
             <div>
-              <h2 className="text-sm font-semibold text-text-primary">{isReviewMode ? "Script Review" : "Write Script"}</h2>
+              <h2 className="text-sm font-semibold text-text-primary">Script</h2>
               <p className="text-xs text-text-tertiary">
-                {isReviewMode
-                  ? "Select text to attach feedback directly to a script passage."
-                  : "Write in Markdown. When the script is ready, submit it for feedback."}
+                Write the script here. Select text to attach feedback directly to a passage.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -415,7 +490,8 @@ export function ScriptWorkspace({
 
       </div>
 
-      {isReviewMode && <aside className="overflow-hidden rounded-xl border border-border-default bg-bg-secondary">
+      {isReviewMode && <aside className="flex min-h-[620px] overflow-hidden rounded-xl border border-border-default bg-bg-secondary">
+        <div className="flex min-w-0 flex-1 flex-col">
         <PresenceBar viewers={viewers} loading={presenceLoading} />
         <div className="flex border-b border-border-default">
           {(
@@ -440,70 +516,22 @@ export function ScriptWorkspace({
             </button>
           ))}
         </div>
-        <div className="p-4">
-          {!readOnly && (
-            <div className="mt-4 space-y-3 rounded-lg border border-border-default bg-bg-primary p-3">
-            <label className="block text-xs font-medium text-text-secondary" htmlFor="script-feedback-comment">
-              Comment
-            </label>
-            <textarea
-              id="script-feedback-comment"
-              value={commentText}
-              onChange={(event) => setCommentText(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && event.shiftKey) {
-                  event.preventDefault();
-                  void createScriptComment();
-                }
-              }}
-              rows={3}
-              disabled={!selectedRange || submittingComment}
-              placeholder="Add feedback on the selected text..."
-              className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-            />
-            <p className="text-[11px] text-text-tertiary">Press Shift + Enter to submit.</p>
-            <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-text-secondary" htmlFor="script-feedback-urgency">
-                Feedback type
-              </label>
-              <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${URGENCY_META[commentUrgency].dot}`} aria-hidden="true" />
-                <select
-                  id="script-feedback-urgency"
-                  value={commentUrgency}
-                  onChange={(event) => setCommentUrgency(event.target.value as CommentUrgency)}
-                  disabled={!selectedRange || submittingComment}
-                  className="min-w-0 flex-1 rounded-lg border border-border-default bg-bg-input px-2 py-2 text-xs text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-                >
-                  {URGENCY_OPTIONS.map((urgency) => (
-                    <option key={urgency} value={urgency}>
-                      {URGENCY_META[urgency].label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={createScriptComment}
-                disabled={!selectedRange || !commentText.trim() || submittingComment}
-                className="rounded-lg bg-accent-primary px-3 py-2 text-xs font-medium text-white hover:bg-accent-hover disabled:opacity-50"
-              >
-                {submittingComment ? "Adding..." : "Comment"}
-              </button>
-            </div>
-            </div>
-          )}
-
-          <div className="mt-4 space-y-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="space-y-3">
           {filteredComments.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border-default p-4 text-center text-sm text-text-tertiary">
-              {filter === "all"
-                ? "No script feedback yet."
-                : filter === "unresolved"
-                  ? "No unresolved script feedback."
-                  : "No resolved script feedback."}
+            <div className="py-12 text-center">
+              <p className="text-sm text-text-tertiary">
+                {filter === "all"
+                  ? "No comments yet"
+                  : filter === "unresolved"
+                    ? "No unresolved comments"
+                    : "No resolved comments"}
+              </p>
+              {filter === "all" && (
+                <p className="mt-1 text-xs text-text-tertiary">
+                  Be the first to leave feedback
+                </p>
+              )}
             </div>
           ) : (
             filteredComments.map((comment) => {
@@ -539,11 +567,6 @@ export function ScriptWorkspace({
                             </span>
                           )}
                         </div>
-                        {comment.textRange && (
-                          <blockquote className="mt-2 border-l-2 border-accent-primary pl-2 text-xs text-text-tertiary">
-                            {comment.textRange.quote}
-                          </blockquote>
-                        )}
                         <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">{comment.text}</p>
                       </button>
                       <div className="mt-2 flex flex-wrap gap-3">
@@ -628,6 +651,50 @@ export function ScriptWorkspace({
             })
           )}
           </div>
+        </div>
+        {readOnly ? (
+          <div className="border-t border-border-default px-4 py-3 text-center text-xs text-text-tertiary">
+            Comments are locked on published projects.
+          </div>
+        ) : (
+          <div className="border-t border-border-default p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <ScriptUrgencyPicker
+                value={commentUrgency}
+                onChange={setCommentUrgency}
+                disabled={!selectedRange || submittingComment}
+              />
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <label className="sr-only" htmlFor="script-feedback-comment">
+                Comment
+              </label>
+              <input
+                id="script-feedback-comment"
+                type="text"
+                value={commentText}
+                onChange={(event) => setCommentText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void createScriptComment();
+                  }
+                }}
+                disabled={!selectedRange || submittingComment}
+                placeholder="Add a comment..."
+                className="min-w-0 flex-1 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={createScriptComment}
+                disabled={!selectedRange || !commentText.trim() || submittingComment}
+                className="shrink-0 rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+              >
+                {submittingComment ? "Adding..." : "Comment"}
+              </button>
+            </div>
+          </div>
+        )}
         </div>
       </aside>}
     </div>

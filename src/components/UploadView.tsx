@@ -97,7 +97,7 @@ export function UploadView({
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           setState("processing");
-          window.location.href = `/videos/${targetVideoId}/review`;
+          window.location.href = `/videos/${targetVideoId}?tab=video`;
           return;
         }
         setError("Upload failed. Please try again.");
@@ -124,7 +124,7 @@ export function UploadView({
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
           {isFirstCut
-            ? "Move this project into video by uploading a video."
+            ? "Upload a video when you are ready to share a cut for feedback."
             : "Create the next version in this stack. Existing comments stay on their original version."}
         </p>
       </div>
@@ -224,7 +224,7 @@ export function UploadView({
 
         {state === "processing" && (
           <p className="rounded-lg bg-accent-secondary/15 px-4 py-2 text-sm text-accent-secondary">
-            Upload complete. Moving to video...
+            Upload complete. Returning to the project...
           </p>
         )}
 

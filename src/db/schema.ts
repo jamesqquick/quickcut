@@ -70,10 +70,10 @@ export const videos = sqliteTable("videos", {
     .notNull()
     .default(false),
   phase: text("phase", {
-    enum: ["script", "review", "published"],
+    enum: ["creating_script", "reviewing_script", "reviewing_video", "video_approved", "published"],
   })
     .notNull()
-    .default("review"),
+    .default("reviewing_video"),
   targetDate: text("target_date"),
   createdAt: text("created_at")
     .notNull()

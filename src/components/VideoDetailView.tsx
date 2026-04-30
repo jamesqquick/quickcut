@@ -57,31 +57,6 @@ function formatDuration(seconds: number | null): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    draft: "bg-accent-primary/15 text-accent-primary",
-    processing: "bg-accent-warning/15 text-accent-warning",
-    ready: "bg-accent-secondary/15 text-accent-secondary",
-    failed: "bg-accent-danger/15 text-accent-danger",
-  };
-  const labels: Record<string, string> = {
-    draft: "Draft",
-    processing: "Processing",
-    ready: "Ready",
-    failed: "Failed",
-  };
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status] || ""}`}
-    >
-      {status === "processing" && (
-        <span className="mr-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-accent-warning" />
-      )}
-      {labels[status] || status}
-    </span>
-  );
-}
-
 export function VideoDetailView({
   videoId,
   spaceId,
@@ -235,8 +210,6 @@ export function VideoDetailView({
           onCommentClick={handleCommentClick}
         />
       )}
-
-      {processingStatus !== "ready" && <StatusBadge status={processingStatus} />}
 
       {/* Metadata: compact supporting details under the title. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-tertiary">

@@ -7,7 +7,6 @@ import { phaseUpdateSchema } from "../../../../lib/validation";
 import { verifySpaceAccess } from "../../../../lib/spaces";
 import { broadcastPhaseChange } from "../../../../lib/broadcast";
 import { logProjectActivity } from "../../../../lib/activity";
-import { getApprovalStatus } from "../../../../lib/approvals";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -43,22 +42,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
 
   const { phase } = parsed.data;
 
-  if (phase === "review" && (video.status === "draft" || !video.streamVideoId)) {
-    return json({ error: "Upload a video before moving to video" }, 409);
-  }
-
-  if (phase === "published") {
-    if (video.status === "draft" || !video.streamVideoId) {
-      return json({ error: "Upload a video before publishing" }, 409);
-    }
-
-    const approvalStatus = await getApprovalStatus(db, id, video.spaceId);
-    if (approvalStatus.requiredApprovals > 0 && !approvalStatus.isApproved) {
-      return json({ error: "Required approvals must be complete before publishing" }, 409);
-    }
-  }
-
-  // Moving to or from "published" requires owner or uploader
+  // Publishing is the only status with behavior: it locks the project.
   if (
     (phase === "published" || video.phase === "published") &&
     role !== "owner" &&

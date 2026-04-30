@@ -85,7 +85,7 @@ export function VersionSwitcher({ videoId }: VersionSwitcherProps) {
             <a
               key={version.id}
               role="menuitem"
-              href={`/videos/${version.id}`}
+              href={`/videos/${version.id}?tab=video`}
               className={`flex gap-3 rounded-lg p-2 transition-colors hover:bg-bg-tertiary ${version.id === videoId ? "bg-bg-tertiary" : ""}`}
             >
               <div className="flex h-12 w-20 shrink-0 items-center justify-center overflow-hidden rounded bg-bg-primary">

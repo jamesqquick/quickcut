@@ -24,7 +24,7 @@ function getStepHref(videoId: string, step: PipelineStep) {
 
 function getStepForPhase(phase: VideoPhase): PipelineStep {
   const normalizedPhase = normalizeVideoPhase(phase);
-  if (normalizedPhase === "script") return "script";
+  if (normalizedPhase === "creating_script" || normalizedPhase === "reviewing_script") return "script";
   return "review";
 }
 

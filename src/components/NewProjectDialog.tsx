@@ -1,6 +1,5 @@
 import { useId, useState } from "react";
 import { Button } from "./Button";
-import { DatePicker } from "./DatePicker";
 import { Modal } from "./Modal";
 
 interface NewProjectDialogProps {
@@ -13,7 +12,6 @@ export function NewProjectDialog({ spaceId, folderId = null }: NewProjectDialogP
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [targetDate, setTargetDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -22,7 +20,6 @@ export function NewProjectDialog({ spaceId, folderId = null }: NewProjectDialogP
     setOpen(false);
     setTitle("");
     setDescription("");
-    setTargetDate("");
     setError("");
   };
 
@@ -42,7 +39,6 @@ export function NewProjectDialog({ spaceId, folderId = null }: NewProjectDialogP
           description: description.trim() || undefined,
           spaceId,
           folderId,
-          targetDate: targetDate || null,
         }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string; videoId?: string } | null;
@@ -82,7 +78,7 @@ export function NewProjectDialog({ spaceId, folderId = null }: NewProjectDialogP
           Create video project
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          Start with a script, collect feedback, then upload the first cut when it is ready.
+          Create a workspace with an empty script and an optional video upload.
         </p>
 
         <form onSubmit={handleCreate} className="mt-5 space-y-4">
@@ -99,19 +95,6 @@ export function NewProjectDialog({ spaceId, folderId = null }: NewProjectDialogP
               autoFocus
               className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
               placeholder="Launch video"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-text-secondary" htmlFor="project-target-date">
-              Target launch date <span className="text-text-tertiary">(optional)</span>
-            </label>
-            <DatePicker
-              value={targetDate}
-              onChange={setTargetDate}
-              disabled={saving}
-              placeholder="Select launch date"
-              ariaLabel="Target launch date"
             />
           </div>
 

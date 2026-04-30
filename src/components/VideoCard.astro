@@ -26,10 +26,8 @@ interface Props {
   requiredApprovals?: number;
   /** Number of approvals recorded so far. */
   approvalCount?: number;
-  /** Pipeline phase, shown when pipeline is enabled for the space. */
+  /** Project status. */
   phase?: string | null;
-  /** Whether to show the pipeline phase badge. */
-  pipelineEnabled?: boolean;
 }
 
 const {
@@ -48,17 +46,22 @@ const {
   requiredApprovals = 0,
   approvalCount = 0,
   phase = null,
-  pipelineEnabled = false,
 } = Astro.props;
 
 const phaseStyles: Record<string, string> = {
-  script: "bg-accent-primary/15 text-accent-primary",
-  review: "bg-accent-info/15 text-accent-info",
+  creating_script: "bg-accent-primary/15 text-accent-primary",
+  reviewing_script: "bg-accent-info/15 text-accent-info",
+  reviewing_video: "bg-accent-warning/15 text-accent-warning",
+  video_approved: "bg-accent-secondary/15 text-accent-secondary",
   published: "bg-accent-secondary/15 text-accent-secondary",
 };
 const phaseLabels: Record<string, string> = {
-  script: "Script",
-  review: "Video",
+  script: "Creating Script",
+  review: "Reviewing Video",
+  creating_script: "Creating Script",
+  reviewing_script: "Reviewing Script",
+  reviewing_video: "Reviewing Video",
+  video_approved: "Video Approved",
   published: "Published",
 };
 
@@ -128,7 +131,7 @@ function formatDate(dateStr: string): string {
             {commentCount}
           </span>
         )}
-        {pipelineEnabled && phase && (
+        {phase && (
           <span class={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${phaseStyles[phase] || "bg-bg-tertiary text-text-tertiary"}`}>
             {phaseLabels[phase] || phase}
           </span>

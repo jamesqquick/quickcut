@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { and, eq } from "drizzle-orm";
 import { createDb } from "../../../db";
-import { folders, scripts, spaces, videos } from "../../../db/schema";
+import { folders, scripts, videos } from "../../../db/schema";
 import { projectCreateSchema } from "../../../lib/validation";
 import { verifySpaceAccess } from "../../../lib/spaces";
 import { logProjectActivity } from "../../../lib/activity";
@@ -22,21 +22,11 @@ export const POST: APIRoute = async ({ locals, request }) => {
     return json({ error: parsed.error.issues[0]?.message || "Invalid input" }, 400);
   }
 
-  const { title, description, spaceId, folderId, targetDate } = parsed.data;
+  const { title, description, spaceId, folderId } = parsed.data;
   const db = createDb(env.DB);
 
   const role = await verifySpaceAccess(db, locals.user.id, spaceId);
   if (!role) return json({ error: "Forbidden" }, 403);
-
-  const spaceResult = await db
-    .select({ pipelineEnabled: spaces.pipelineEnabled })
-    .from(spaces)
-    .where(eq(spaces.id, spaceId))
-    .limit(1);
-
-  if (!spaceResult[0]?.pipelineEnabled) {
-    return json({ error: "Pipeline mode must be enabled to create script-first projects" }, 400);
-  }
 
   if (folderId) {
     const folder = await db
@@ -62,8 +52,8 @@ export const POST: APIRoute = async ({ locals, request }) => {
     versionGroupId: videoId,
     versionNumber: 1,
     isCurrentVersion: true,
-    phase: "script",
-    targetDate: targetDate ?? null,
+    phase: "creating_script",
+    targetDate: null,
     createdAt: now,
     updatedAt: now,
   });
@@ -84,7 +74,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
     actorUserId: locals.user.id,
     actorDisplayName: locals.user.displayName,
     type: "project.created",
-    data: { title, targetDate: targetDate ?? null },
+    data: { title },
     createdAt: now,
   });
 
