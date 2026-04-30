@@ -62,6 +62,8 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
 
     await fetch("/api/auth/sign-out", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
       credentials: "same-origin",
     });
 
