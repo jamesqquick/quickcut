@@ -2,6 +2,7 @@
 import "../styles/tailwind.css";
 import { UserMenu } from "../components/UserMenu";
 import { SpaceSwitcher } from "../components/SpaceSwitcher";
+import Logo from "../components/Logo.astro";
 import { createDb } from "../db";
 import { getPendingInvitesForUser } from "../lib/invites";
 import { getUserSpaces } from "../lib/spaces";
@@ -41,7 +42,8 @@ const headerSpaceId = selectedSpaceId ?? Astro.url.searchParams.get("space") ?? 
     {
       user && (
         <header class="sticky top-0 z-50 flex h-14 items-center border-b border-border-default bg-bg-primary px-8">
-          <a href={headerSpaceId ? `/dashboard?space=${headerSpaceId}` : "/dashboard"} class="text-lg font-bold text-text-primary">
+          <a href={headerSpaceId ? `/dashboard?space=${headerSpaceId}` : "/dashboard"} class="flex items-center gap-2 text-lg font-bold text-text-primary">
+            <Logo />
             Quick Cuts
           </a>
           <div class="ml-auto flex items-center gap-3">
