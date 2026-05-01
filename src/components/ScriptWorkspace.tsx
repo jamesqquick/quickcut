@@ -536,7 +536,7 @@ export function ScriptWorkspace({
           ) : (
             filteredComments.map((comment) => {
               const meta = URGENCY_META[comment.urgency];
-              const displayName = comment.displayName || currentUserName;
+              const displayName = comment.name || currentUserName;
               const replies = getReplies(comment.id);
               return (
                 <article
@@ -600,7 +600,7 @@ export function ScriptWorkspace({
                       {replies.length > 0 && (
                         <div className="mt-3 space-y-3 border-l border-border-default pl-4">
                           {replies.map((reply) => {
-                            const replyDisplayName = reply.displayName || currentUserName;
+                            const replyDisplayName = reply.name || currentUserName;
                             return (
                               <div key={reply.id} className="flex gap-3">
                                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary/60 text-[10px] font-medium text-white">

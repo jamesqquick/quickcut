@@ -1,5 +1,6 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { LoginOtpForm } from "../components/LoginOtpForm";
 
 const user = Astro.locals.user;
 if (user) {
@@ -7,94 +8,39 @@ if (user) {
 }
 
 const error = Astro.url.searchParams.get("error");
+const message = Astro.url.searchParams.get("message");
 ---
 
 <Layout title="Create Account">
   <div class="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4">
     <div class="w-full max-w-[400px]">
       <div class="mb-8 text-center">
-        <h1 class="text-3xl font-bold text-text-primary">Quick Cuts</h1>
+        <a href="/" class="inline-block text-3xl font-bold text-text-primary">Quick Cuts</a>
         <p class="mt-2 text-sm text-text-secondary">
-          Create your account with your Cloudflare email to start reviewing videos.
+          Collaborative video review. Upload, share, get feedback.
         </p>
       </div>
 
       <div class="rounded-2xl border border-border-default bg-bg-secondary p-8">
+        {message && (
+          <div class="mb-4 rounded-lg bg-accent-warning/15 px-4 py-2 text-sm text-accent-warning">
+            {message}
+          </div>
+        )}
         {error && (
           <div class="mb-4 rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
             {error}
           </div>
         )}
 
-        <form method="POST" action="/api/auth/register" class="space-y-4">
-          <div>
-            <label for="displayName" class="mb-1 block text-sm font-medium text-text-secondary">
-              Display Name
-            </label>
-            <input
-              type="text"
-              id="displayName"
-              name="displayName"
-              required
-              class="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-              placeholder="First and last name"
-            />
-          </div>
-          <div>
-            <label for="email" class="mb-1 block text-sm font-medium text-text-secondary">
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              required
-              class="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-              placeholder="you@cloudflare.com"
-            />
-            <p class="mt-1 text-xs text-text-tertiary">Quick Cuts is currently limited to Cloudflare email addresses.</p>
-          </div>
-          <div>
-            <label for="password" class="mb-1 block text-sm font-medium text-text-secondary">
-              Password
-            </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              required
-              minlength="8"
-              class="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-              placeholder="At least 8 characters"
-            />
-          </div>
-          <div>
-            <label for="confirmPassword" class="mb-1 block text-sm font-medium text-text-secondary">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              required
-              minlength="8"
-              class="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
-              placeholder="Confirm your password"
-            />
-          </div>
-          <button
-            type="submit"
-            class="w-full rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
-          >
-            Create Account
-          </button>
-        </form>
+        <p class="mb-6 text-center text-sm text-text-tertiary">
+          Create your account with a one-time code sent to your email.
+        </p>
 
-        <p class="mt-6 text-center text-sm text-text-tertiary">
-          Already have an account?{" "}
-          <a href="/login" class="text-accent-primary hover:text-accent-hover">
-            Sign In
-          </a>
+        <LoginOtpForm mode="register" client:load />
+
+        <p class="mt-6 text-center text-xs text-text-tertiary">
+          Use an email address where you can receive your sign-up code.
         </p>
       </div>
     </div>

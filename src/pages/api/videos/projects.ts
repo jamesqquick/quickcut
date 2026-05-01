@@ -72,7 +72,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
   await logProjectActivity(db, {
     videoId,
     actorUserId: locals.user.id,
-    actorDisplayName: locals.user.displayName,
+    actorDisplayName: locals.user.name,
     type: "project.created",
     data: { title },
     createdAt: now,

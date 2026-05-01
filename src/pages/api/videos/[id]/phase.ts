@@ -60,7 +60,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
   await logProjectActivity(db, {
     videoId: id,
     actorUserId: locals.user.id,
-    actorDisplayName: locals.user.displayName,
+    actorDisplayName: locals.user.name,
     type: "phase.changed",
     data: { from: video.phase, to: phase },
     createdAt: now,
@@ -69,7 +69,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
   await broadcastPhaseChange(env, id, {
     videoId: id,
     phase,
-    changedBy: locals.user.displayName,
+    changedBy: locals.user.name,
   });
 
   const updated = await db

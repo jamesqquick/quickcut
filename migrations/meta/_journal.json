@@ -78,6 +78,20 @@
       "when": 1777400000002,
       "tag": "0012_project_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1777500000000,
+      "tag": "0016_better_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1777500000001,
+      "tag": "0017_fix_better_auth_dates",
+      "breakpoints": true
     }
   ]
 }

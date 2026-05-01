@@ -60,7 +60,7 @@ export interface Comment {
   phase: "script" | "review";
   textRange: TextRange | null;
   createdAt: string;
-  displayName: string;
+  name: string;
   reactions: CommentReactionSummary[];
 }
 

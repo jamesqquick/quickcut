@@ -3,12 +3,16 @@ import { sql } from "drizzle-orm";
 
 export const users = sqliteTable("users", {
   id: text("id").primaryKey(),
+  name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
-  displayName: text("display_name").notNull(),
-  createdAt: text("created_at")
+  emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
+  image: text("image"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
 });
 
 export const sessions = sqliteTable("sessions", {
@@ -16,10 +20,51 @@ export const sessions = sqliteTable("sessions", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  expiresAt: text("expires_at").notNull(),
-  createdAt: text("created_at")
+  token: text("token").notNull().unique(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+});
+
+export const accounts = sqliteTable("accounts", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  accountId: text("account_id").notNull(),
+  providerId: text("provider_id").notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp_ms" }),
+  refreshTokenExpiresAt: integer("refresh_token_expires_at", { mode: "timestamp_ms" }),
+  scope: text("scope"),
+  idToken: text("id_token"),
+  password: text("password"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+});
+
+export const verifications = sqliteTable("verifications", {
+  id: text("id").primaryKey(),
+  identifier: text("identifier").notNull(),
+  value: text("value").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
 });
 
 export const folders = sqliteTable("folders", {

@@ -68,9 +68,9 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   let userMap: Record<string, string> = {};
   if (userIds.length > 0) {
     const usersResult = await db
-      .select({ id: users.id, displayName: users.displayName })
+      .select({ id: users.id, name: users.name })
       .from(users);
-    userMap = Object.fromEntries(usersResult.map((u) => [u.id, u.displayName]));
+    userMap = Object.fromEntries(usersResult.map((u) => [u.id, u.name]));
   }
 
   const commentsWithNames = await addReactionSummaries(
@@ -79,14 +79,14 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       ...c,
       annotation: c.annotation ? JSON.parse(c.annotation) : null,
       textRange: c.textRange ? JSON.parse(c.textRange) : null,
-      displayName:
+      name:
         c.authorType === "user" && c.authorUserId
           ? userMap[c.authorUserId] || "Unknown"
           : c.authorDisplayName || "Anonymous",
     })),
     {
       userId: locals.user.id,
-      displayName: locals.user.displayName,
+      name: locals.user.name,
     },
   );
 
@@ -158,7 +158,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     videoId: id,
     authorType: "user" as const,
     authorUserId: locals.user.id,
-    authorDisplayName: locals.user.displayName,
+    authorDisplayName: locals.user.name,
     timestamp: timestamp != null ? Number(timestamp) : null,
     text: text.trim(),
     parentId: null,
@@ -179,7 +179,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     annotation: annotation || null,
     textRange: textRange || null,
     createdAt: new Date().toISOString(),
-    displayName: locals.user.displayName,
+    name: locals.user.name,
     reactions: [],
   };
 

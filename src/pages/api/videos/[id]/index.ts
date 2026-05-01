@@ -196,7 +196,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
       await logProjectActivity(db, {
         videoId: id,
         actorUserId: locals.user.id,
-        actorDisplayName: locals.user.displayName,
+        actorDisplayName: locals.user.name,
         type: "target_date.changed",
         data: { from: videoResult[0].targetDate, to: parsed.data.targetDate },
         createdAt: now,

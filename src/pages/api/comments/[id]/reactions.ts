@@ -77,7 +77,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
 
   const reactions = await toggleCommentReaction(db, commentId, emoji, {
     userId: locals.user.id,
-    displayName: locals.user.displayName,
+    name: locals.user.name,
   });
 
   const update = { commentId, reactions };

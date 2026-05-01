@@ -53,9 +53,9 @@ export const GET: APIRoute = async ({ params, url }) => {
   let userMap: Record<string, string> = {};
   if (userIds.length > 0) {
     const usersResult = await db
-      .select({ id: users.id, displayName: users.displayName })
+      .select({ id: users.id, name: users.name })
       .from(users);
-    userMap = Object.fromEntries(usersResult.map((u) => [u.id, u.displayName]));
+    userMap = Object.fromEntries(usersResult.map((u) => [u.id, u.name]));
   }
 
   const commentsWithNames = await addReactionSummaries(
@@ -63,7 +63,7 @@ export const GET: APIRoute = async ({ params, url }) => {
     allComments.map((c) => ({
       ...c,
       annotation: c.annotation ? JSON.parse(c.annotation) : null,
-      displayName:
+      name:
         c.authorType === "user" && c.authorUserId
           ? userMap[c.authorUserId] || "Unknown"
           : c.authorDisplayName || "Anonymous",
@@ -101,7 +101,7 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const videoId = shareLinkResult[0].videoId;
   const body = await request.json();
-  const { text, timestamp, displayName, parentId, annotation, urgency } = body;
+  const { text, timestamp, name, parentId, annotation, urgency } = body;
 
   if (!text || !text.trim()) {
     return new Response(JSON.stringify({ error: "Comment text is required" }), {
@@ -110,9 +110,9 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
-  if (!displayName || !displayName.trim()) {
+  if (!name || !name.trim()) {
     return new Response(
-      JSON.stringify({ error: "Display name is required" }),
+      JSON.stringify({ error: "Name is required" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
@@ -139,7 +139,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     videoId,
     authorType: "anonymous" as const,
     authorUserId: null,
-    authorDisplayName: displayName.trim(),
+    authorDisplayName: name.trim(),
     timestamp: timestamp != null ? Number(timestamp) : null,
     text: text.trim(),
     parentId: parentId || null,
@@ -156,7 +156,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     ...newComment,
     annotation: annotation || null,
     createdAt: new Date().toISOString(),
-    displayName: displayName.trim(),
+    name: name.trim(),
     reactions: [],
   };
 

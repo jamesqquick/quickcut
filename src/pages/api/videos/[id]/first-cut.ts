@@ -81,7 +81,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     await logProjectActivity(db, {
       videoId: id,
       actorUserId: locals.user.id,
-      actorDisplayName: locals.user.displayName,
+      actorDisplayName: locals.user.name,
       type: "first_cut.uploaded",
       data: { fileName, fileSize },
       createdAt: now,
@@ -90,7 +90,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     await logProjectActivity(db, {
       videoId: id,
       actorUserId: locals.user.id,
-      actorDisplayName: locals.user.displayName,
+      actorDisplayName: locals.user.name,
       type: "phase.changed",
       data: { from: project.phase, to: "reviewing_video" },
       createdAt: now,
@@ -99,7 +99,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     await broadcastPhaseChange(env, id, {
       videoId: id,
       phase: "reviewing_video",
-      changedBy: locals.user.displayName,
+      changedBy: locals.user.name,
     });
 
     return json({ videoId: id, uploadUrl });

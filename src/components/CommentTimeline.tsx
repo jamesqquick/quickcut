@@ -5,7 +5,7 @@ interface TimelineComment {
   id: string;
   timestamp: number | null;
   text: string;
-  displayName: string;
+  name: string;
   isResolved: boolean;
   urgency: CommentUrgency;
 }
@@ -88,7 +88,7 @@ export function CommentTimeline({
             onMouseEnter={(e) => handleMarkerHover(comment, e)}
             onMouseLeave={() => setHoveredComment(null)}
             onClick={() => handleMarkerClick(comment)}
-            title={`${comment.displayName}: ${comment.text.slice(0, 60)}`}
+            title={`${comment.name}: ${comment.text.slice(0, 60)}`}
           />
         );
       })}
@@ -100,7 +100,7 @@ export function CommentTimeline({
           style={{ left: `${tooltipPos}px` }}
         >
           <span className="font-medium text-text-primary">
-            {hoveredComment.displayName}:
+            {hoveredComment.name}:
           </span>{" "}
           <span className="text-text-secondary">
             {hoveredComment.text.slice(0, 60)}

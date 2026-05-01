@@ -16,7 +16,7 @@ interface Member {
   userId: string;
   role: string;
   createdAt: string;
-  displayName: string;
+  name: string;
   email: string;
 }
 
@@ -259,7 +259,7 @@ export function SpaceSettings({
             <li key={member.userId} className="flex items-center justify-between py-3">
               <div>
                 <p className="text-sm font-medium text-text-primary">
-                  {member.displayName}
+                  {member.name}
                   {member.userId === currentUserId && (
                     <span className="ml-2 text-xs text-text-tertiary">(you)</span>
                   )}

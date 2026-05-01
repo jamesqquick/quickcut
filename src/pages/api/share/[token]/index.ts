@@ -68,14 +68,14 @@ export const GET: APIRoute = async ({ params }) => {
   let userMap: Record<string, string> = {};
   if (userIds.length > 0) {
     const usersResult = await db
-      .select({ id: users.id, displayName: users.displayName })
+      .select({ id: users.id, name: users.name })
       .from(users);
-    userMap = Object.fromEntries(usersResult.map((u) => [u.id, u.displayName]));
+    userMap = Object.fromEntries(usersResult.map((u) => [u.id, u.name]));
   }
 
   const commentsWithNames = allComments.map((c) => ({
     ...c,
-    displayName:
+    name:
       c.authorType === "user" && c.authorUserId
         ? userMap[c.authorUserId] || "Unknown"
         : c.authorDisplayName || "Anonymous",
