@@ -1,5 +1,6 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Modal } from "./Modal";
+import { Dropdown, type DropdownOption } from "./Dropdown";
 
 interface Folder {
   id: string;
@@ -110,7 +111,18 @@ export function MoveToFolderDialog({
     }
   };
 
-  const options = buildFolderOptions(folders, entityType === "folder" ? entityId : undefined);
+  const treeOptions = buildFolderOptions(folders, entityType === "folder" ? entityId : undefined);
+
+  const dropdownOptions: DropdownOption[] = useMemo(
+    () => [
+      { value: "root", label: "All Videos" },
+      ...treeOptions.map((folder) => ({
+        value: folder.id,
+        label: `${"  ".repeat(folder.depth)}${folder.depth > 0 ? "- " : ""}${folder.name}`,
+      })),
+    ],
+    [treeOptions],
+  );
 
   return (
     <Modal
@@ -133,20 +145,15 @@ export function MoveToFolderDialog({
         <label className="block text-sm font-medium text-text-secondary" htmlFor="folder-select">
           Destination
         </label>
-        <select
+        <Dropdown
           id="folder-select"
+          options={dropdownOptions}
           value={selectedFolderId}
-          onChange={(e) => setSelectedFolderId(e.target.value)}
+          onChange={setSelectedFolderId}
           disabled={loading || saving}
-          className="w-full rounded-lg border border-border-default bg-bg-input px-3 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-        >
-          <option value="root">All Videos</option>
-          {options.map((folder) => (
-            <option key={folder.id} value={folder.id}>
-              {`${"  ".repeat(folder.depth)}${folder.depth > 0 ? "- " : ""}${folder.name}`}
-            </option>
-          ))}
-        </select>
+          menuAlign="left"
+          menuWidth="w-full"
+        />
       </div>
 
       {error && (

@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUSES, normalizeVideoPhase, type ProjectStatus } from "../types";
+import { Dropdown, type DropdownOption } from "./Dropdown";
 import { ToastViewport, useToast } from "./Toast";
 
 interface ProjectStatusControlsProps {
@@ -20,14 +21,6 @@ export function ProjectStatusControls({
   const { toasts, showToast, dismissToast } = useToast();
   const isPublished = status === "published";
 
-  useEffect(() => {
-    const message = window.sessionStorage.getItem("quickcut:status-toast");
-    if (!message) return;
-
-    window.sessionStorage.removeItem("quickcut:status-toast");
-    showToast(message);
-  }, [showToast]);
-
   const updateStatus = async (nextStatus: ProjectStatus) => {
     if (nextStatus === status || saving) return;
     if (nextStatus === "published" && !window.confirm("Publishing locks the project. Script, comments, and video versions become read-only.")) {
@@ -44,8 +37,7 @@ export function ProjectStatusControls({
       if (!res.ok) throw new Error("Failed to update project status");
       setStatus(nextStatus);
       onStatusChange?.(nextStatus);
-      window.sessionStorage.setItem("quickcut:status-toast", "Status successfully updated");
-      window.location.reload();
+      showToast("Status successfully updated");
     } catch (err) {
       console.error(err);
       showToast("Failed to update status", "error");
@@ -54,6 +46,11 @@ export function ProjectStatusControls({
     }
   };
 
+  const options: DropdownOption<ProjectStatus>[] = PROJECT_STATUSES.map((option) => ({
+    value: option,
+    label: PROJECT_STATUS_LABELS[option],
+  }));
+
   return (
     <div className="flex flex-col gap-1.5">
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />
@@ -61,19 +58,14 @@ export function ProjectStatusControls({
         Status
       </label>
       <div className="flex items-center gap-2">
-        <select
+        <Dropdown
           id="project-status"
+          options={options}
           value={status}
-          onChange={(event) => updateStatus(event.target.value as ProjectStatus)}
+          onChange={updateStatus}
           disabled={!canEdit || saving || isPublished}
-          className="rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-        >
-          {PROJECT_STATUSES.map((option) => (
-            <option key={option} value={option}>
-              {PROJECT_STATUS_LABELS[option]}
-            </option>
-          ))}
-        </select>
+          menuAlign="left"
+        />
       </div>
     </div>
   );
