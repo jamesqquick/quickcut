@@ -28,7 +28,7 @@ export function InviteResponse({ token, spaceName, spaceId }: InviteResponseProp
       if (action === "accept") {
         // Redirect to dashboard after a short delay
         setTimeout(() => {
-          window.location.href = "/dashboard";
+          window.location.href = `/dashboard?space=${encodeURIComponent(spaceId)}`;
         }, 1500);
       }
     } catch (err) {
