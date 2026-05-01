@@ -8,3 +8,4 @@ dist/
 .DS_Store
 *.log
 worker-configuration.d.ts
+.worktrees/

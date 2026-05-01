@@ -9,6 +9,8 @@ if (user) {
 
 const error = Astro.url.searchParams.get("error");
 const message = Astro.url.searchParams.get("message");
+const email = Astro.url.searchParams.get("email") ?? undefined;
+const returnUrl = Astro.url.searchParams.get("returnUrl") ?? undefined;
 ---
 
 <Layout title="Sign In">
@@ -37,7 +39,7 @@ const message = Astro.url.searchParams.get("message");
           Sign in with a one-time code sent to your email.
         </p>
 
-        <LoginOtpForm mode="login" client:load />
+        <LoginOtpForm mode="login" email={email} returnUrl={returnUrl} client:load />
 
       </div>
     </div>

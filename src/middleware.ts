@@ -1,6 +1,7 @@
 import { defineMiddleware } from "astro:middleware";
 import { env } from "cloudflare:workers";
 import { createAuth } from "./lib/auth";
+import { getSafeReturnUrl } from "./lib/urls";
 
 // Extend Astro locals type
 declare global {
@@ -12,7 +13,7 @@ declare global {
 }
 
 const protectedRoutes = ["/dashboard", "/notifications", "/upload", "/videos/", "/spaces/"];
-const authApiRoutes = ["/api/videos", "/api/comments", "/api/spaces", "/api/invites"];
+const authApiRoutes = ["/api/videos", "/api/comments", "/api/spaces", "/api/invites", "/api/notifications"];
 
 export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.user = null;
@@ -50,7 +51,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   // Redirect authenticated users away from auth pages
   if (context.locals.user && (pathname === "/login" || pathname === "/register")) {
-    return context.redirect("/dashboard");
+    return context.redirect(getSafeReturnUrl(context.url.searchParams.get("returnUrl")) || "/dashboard");
   }
 
   // Protect routes
@@ -58,7 +59,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
     pathname.startsWith(route),
   );
   if (isProtectedPage && !context.locals.user) {
-    return context.redirect("/login?message=Your session has expired. Please sign in again.");
+    const params = new URLSearchParams({
+      message: "Your session has expired. Please sign in again.",
+      returnUrl: `${context.url.pathname}${context.url.search}`,
+    });
+    return context.redirect(`/login?${params.toString()}`);
   }
 
   // Protect API routes. The /live WebSocket upgrade endpoint does its own

@@ -3,7 +3,8 @@ import { env } from "cloudflare:workers";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { createDb } from "../../../../../db";
-import { spaceInvites } from "../../../../../db/schema";
+import { spaceInvites, spaces, users } from "../../../../../db/schema";
+import { buildInviteAuthPath, buildInviteEmail } from "../../../../../lib/email";
 import { inviteCreateSchema } from "../../../../../lib/validation";
 import { verifySpaceAccess } from "../../../../../lib/spaces";
 
@@ -79,6 +80,19 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     });
   }
 
+  const space = await db
+    .select({ name: spaces.name })
+    .from(spaces)
+    .where(eq(spaces.id, spaceId))
+    .limit(1);
+
+  if (space.length === 0) {
+    return new Response(JSON.stringify({ error: "Space not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   // Check for duplicate pending invite for same email + space
   const existing = await db
     .select({ id: spaceInvites.id })
@@ -109,6 +123,41 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   };
 
   await db.insert(spaceInvites).values(invite);
+
+  const existingUser = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, parsed.data.email))
+    .limit(1);
+
+  const invitePath = buildInviteAuthPath({
+    email: parsed.data.email,
+    hasAccount: existingUser.length > 0,
+    token: invite.token,
+  });
+  const inviteUrl = new URL(invitePath, new URL(request.url).origin).toString();
+  const email = buildInviteEmail({
+    inviteUrl,
+    inviterName: locals.user.name,
+    spaceName: space[0].name,
+  });
+
+  try {
+    await env.EMAIL.send({
+      to: parsed.data.email,
+      from: env.OTP_EMAIL_FROM,
+      subject: email.subject,
+      text: email.text,
+      html: email.html,
+    });
+  } catch (error) {
+    await db.delete(spaceInvites).where(eq(spaceInvites.id, invite.id));
+    console.error("Failed to send invite email", error);
+    return new Response(JSON.stringify({ error: "Failed to send invite email" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const created = await db
     .select()

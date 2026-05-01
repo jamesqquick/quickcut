@@ -2,7 +2,8 @@
 import Layout from "../../layouts/Layout.astro";
 import { InviteResponse } from "../../components/InviteResponse";
 import { createDb } from "../../db";
-import { spaceInvites, spaces } from "../../db/schema";
+import { spaceInvites, spaces, users } from "../../db/schema";
+import { buildInviteAuthPath } from "../../lib/email";
 import { eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 
@@ -11,12 +12,6 @@ const { token } = Astro.params;
 
 if (!token) {
   return Astro.redirect("/login");
-}
-
-// If not logged in, redirect to login with return URL
-if (!user) {
-  const returnUrl = encodeURIComponent(`/invites/${token}`);
-  return Astro.redirect(`/login?message=Sign in to accept your invite&returnUrl=${returnUrl}`);
 }
 
 const db = createDb(env.DB);
@@ -36,7 +31,20 @@ const invite = await db
   .limit(1);
 
 const inv = invite[0] ?? null;
-const emailMatch = inv ? user.email.toLowerCase() === inv.email.toLowerCase() : false;
+if (inv && inv.status === "pending" && !user) {
+  const existingUser = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, inv.email))
+    .limit(1);
+  return Astro.redirect(buildInviteAuthPath({
+    email: inv.email,
+    hasAccount: existingUser.length > 0,
+    token,
+  }));
+}
+
+const emailMatch = inv && user ? user.email.toLowerCase() === inv.email.toLowerCase() : false;
 ---
 
 <Layout title="Space Invite" user={user}>
