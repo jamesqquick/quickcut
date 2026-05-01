@@ -5,6 +5,7 @@ import { shareLinks, comments, users } from "../../../../db/schema";
 import { eq, asc, gt, and } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { addReactionSummaries } from "../../../../lib/comments";
+import { createCommentNotifications } from "../../../../lib/notifications";
 
 export const GET: APIRoute = async ({ params, url }) => {
   const { token } = params;
@@ -134,6 +135,23 @@ export const POST: APIRoute = async ({ params, request }) => {
       : "suggestion";
 
   const commentId = crypto.randomUUID();
+  let parentPhase: "script" | "review" = "review";
+  if (isReply && parentId) {
+    const parentRows = await db
+      .select({ phase: comments.phase })
+      .from(comments)
+      .where(and(eq(comments.id, parentId), eq(comments.videoId, videoId)))
+      .limit(1);
+
+    if (parentRows.length === 0) {
+      return new Response(JSON.stringify({ error: "Parent comment not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    parentPhase = parentRows[0].phase;
+  }
+
   const newComment = {
     id: commentId,
     videoId,
@@ -146,11 +164,28 @@ export const POST: APIRoute = async ({ params, request }) => {
     isResolved: false,
     resolvedBy: null,
     resolvedAt: null,
+    resolvedReason: null,
     annotation: annotation ? JSON.stringify(annotation) : null,
     urgency: commentUrgency,
+    phase: parentPhase,
+    textRange: null,
   };
 
   await db.insert(comments).values(newComment);
+
+  try {
+    await createCommentNotifications(db, {
+      commentId,
+      videoId,
+      actorUserId: null,
+      actorDisplayName: newComment.authorDisplayName,
+      text: newComment.text,
+      parentCommentId: newComment.parentId,
+      phase: newComment.phase,
+    });
+  } catch (err) {
+    console.error("Failed to create share comment notification", err);
+  }
 
   const responseComment = {
     ...newComment,

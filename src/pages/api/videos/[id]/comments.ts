@@ -6,6 +6,7 @@ import { eq, asc, gt, and } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { verifySpaceAccess } from "../../../../lib/spaces";
 import { addReactionSummaries } from "../../../../lib/comments";
+import { createCommentNotifications } from "../../../../lib/notifications";
 import { commentSchema } from "../../../../lib/validation";
 
 export const GET: APIRoute = async ({ params, locals, url }) => {
@@ -173,6 +174,20 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   };
 
   await db.insert(comments).values(newComment);
+
+  try {
+    await createCommentNotifications(db, {
+      commentId,
+      videoId: id,
+      actorUserId: locals.user.id,
+      actorDisplayName: locals.user.name,
+      text: newComment.text,
+      parentCommentId: null,
+      phase,
+    });
+  } catch (err) {
+    console.error("Failed to create comment notification", err);
+  }
 
   const responseComment = {
     ...newComment,

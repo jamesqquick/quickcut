@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
+import { index, sqliteTable, text, integer, real, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const users = sqliteTable("users", {
@@ -344,6 +344,51 @@ export const comments = sqliteTable("comments", {
     .notNull()
     .default(sql`(datetime('now'))`),
 });
+
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorUserId: text("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorDisplayName: text("actor_display_name").notNull(),
+    type: text("type", {
+      enum: [
+        "comment.created",
+        "comment.reply",
+        "script_comment.created",
+        "script_comment.reply",
+      ],
+    }).notNull(),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    commentId: text("comment_id")
+      .notNull()
+      .references(() => comments.id, { onDelete: "cascade" }),
+    parentCommentId: text("parent_comment_id").references(() => comments.id, {
+      onDelete: "cascade",
+    }),
+    spaceId: text("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body"),
+    href: text("href").notNull(),
+    readAt: text("read_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("notifications_user_read_idx").on(table.userId, table.readAt),
+    index("notifications_created_at_idx").on(table.createdAt),
+  ],
+);
 
 export const commentReactions = sqliteTable(
   "comment_reactions",
