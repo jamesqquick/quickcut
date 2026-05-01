@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { PHASE_LABELS, VIDEO_PHASES, type VideoPhase } from "../types";
 import type { DashboardVideo } from "./dashboard-types";
+import { Dropdown, type DropdownOption } from "./Dropdown";
 
 interface PipelineBoardProps {
   initialVideos: DashboardVideo[];
@@ -34,6 +35,11 @@ function getRiskLabel(video: DashboardVideo) {
   if (daysUntil <= 3 && video.phase !== "published") return "At risk";
   return null;
 }
+
+const phaseOptions: DropdownOption<VideoPhase>[] = VIDEO_PHASES.map((phase) => ({
+  value: phase,
+  label: PHASE_LABELS[phase],
+}));
 
 export function PipelineBoard({ initialVideos, spaceId }: PipelineBoardProps) {
   const [videos, setVideos] = useState(initialVideos);
@@ -118,19 +124,20 @@ export function PipelineBoard({ initialVideos, spaceId }: PipelineBoardProps) {
                           </div>
                         </div>
                       </a>
-                      <label className="mt-3 block text-xs text-text-tertiary">
-                        Move to
-                        <select
-                          value={video.phase}
-                          onChange={(event) => moveVideo(video, event.target.value as VideoPhase)}
-                          disabled={movingId === video.id}
-                          className="mt-1 w-full rounded-md border border-border-default bg-bg-input px-2 py-1.5 text-xs text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-                        >
-                          {VIDEO_PHASES.map((option) => (
-                            <option key={option} value={option}>{PHASE_LABELS[option]}</option>
-                          ))}
-                        </select>
-                      </label>
+                      <div className="mt-3">
+                        <span className="block text-xs text-text-tertiary">Move to</span>
+                        <div className="mt-1">
+                          <Dropdown
+                            options={phaseOptions}
+                            value={video.phase as VideoPhase}
+                            onChange={(phase) => moveVideo(video, phase)}
+                            disabled={movingId === video.id}
+                            size="sm"
+                            menuAlign="left"
+                            menuWidth="w-full"
+                          />
+                        </div>
+                      </div>
                     </article>
                   );
                 })}

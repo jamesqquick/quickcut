@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUSES, normalizeVideoPhase, type ProjectStatus } from "../types";
+import { Dropdown, type DropdownOption } from "./Dropdown";
 
 interface ProjectStatusControlsProps {
   videoId: string;
@@ -42,25 +43,25 @@ export function ProjectStatusControls({
     }
   };
 
+  const options: DropdownOption<ProjectStatus>[] = PROJECT_STATUSES.map((option) => ({
+    value: option,
+    label: PROJECT_STATUS_LABELS[option],
+  }));
+
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor="project-status" className="sr-only">
         Status
       </label>
       <div className="flex items-center gap-2">
-        <select
+        <Dropdown
           id="project-status"
+          options={options}
           value={status}
-          onChange={(event) => updateStatus(event.target.value as ProjectStatus)}
+          onChange={updateStatus}
           disabled={!canEdit || saving || isPublished}
-          className="rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-        >
-          {PROJECT_STATUSES.map((option) => (
-            <option key={option} value={option}>
-              {PROJECT_STATUS_LABELS[option]}
-            </option>
-          ))}
-        </select>
+          menuAlign="left"
+        />
         {saving && <span className="text-xs text-text-tertiary">Saving...</span>}
       </div>
     </div>

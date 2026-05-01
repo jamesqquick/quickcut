@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
+import { Dropdown, type DropdownOption } from "./Dropdown";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB
@@ -23,6 +24,11 @@ export function UploadForm({ folderId = null, spaces, selectedSpaceId, transcrip
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const spaceOptions: DropdownOption[] = useMemo(
+    () => spaces.map((space) => ({ value: space.id, label: `${space.name} (${space.role})` })),
+    [spaces],
+  );
 
   const validateFile = (f: File): string | null => {
     const ext = f.name.split(".").pop()?.toLowerCase();
@@ -223,19 +229,15 @@ export function UploadForm({ folderId = null, spaces, selectedSpaceId, transcrip
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-text-secondary" htmlFor="upload-space">Space</label>
-              <select
+              <Dropdown
                 id="upload-space"
+                options={spaceOptions}
                 value={spaceId}
-                onChange={(e) => setSpaceId(e.target.value)}
+                onChange={setSpaceId}
                 disabled={state === "uploading"}
-                className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-              >
-                {spaces.map((space) => (
-                  <option key={space.id} value={space.id}>
-                    {space.name} ({space.role})
-                  </option>
-                ))}
-              </select>
+                menuAlign="left"
+                menuWidth="w-full"
+              />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-text-secondary">Title</label>
