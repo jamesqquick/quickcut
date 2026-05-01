@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUSES, normalizeVideoPhase, type ProjectStatus } from "../types";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 import { ToastViewport, useToast } from "./Toast";
@@ -21,14 +21,6 @@ export function ProjectStatusControls({
   const { toasts, showToast, dismissToast } = useToast();
   const isPublished = status === "published";
 
-  useEffect(() => {
-    const message = window.sessionStorage.getItem("quickcut:status-toast");
-    if (!message) return;
-
-    window.sessionStorage.removeItem("quickcut:status-toast");
-    showToast(message);
-  }, [showToast]);
-
   const updateStatus = async (nextStatus: ProjectStatus) => {
     if (nextStatus === status || saving) return;
     if (nextStatus === "published" && !window.confirm("Publishing locks the project. Script, comments, and video versions become read-only.")) {
@@ -45,8 +37,7 @@ export function ProjectStatusControls({
       if (!res.ok) throw new Error("Failed to update project status");
       setStatus(nextStatus);
       onStatusChange?.(nextStatus);
-      window.sessionStorage.setItem("quickcut:status-toast", "Status successfully updated");
-      window.location.reload();
+      showToast("Status successfully updated");
     } catch (err) {
       console.error(err);
       showToast("Failed to update status", "error");
