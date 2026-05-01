@@ -75,7 +75,6 @@ export function ProjectStatusControls({
           disabled={!canEdit || saving || isPublished}
           menuAlign="left"
         />
-        {saving && <span className="text-xs text-text-tertiary">Saving...</span>}
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ export function useToast() {
   const showToast = (message: string, variant: ToastVariant = "success") => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setToasts((current) => [...current, { id, message, variant }]);
-    setTimeout(() => dismissToast(id), 3000);
+    setTimeout(() => dismissToast(id), 5000);
   };
 
   return { toasts, showToast, dismissToast };
