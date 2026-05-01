@@ -29,7 +29,11 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
   useEffect(() => {
     const handler = () => setCount((current) => Math.max(0, current - 1));
     window.addEventListener("quickcut:invite-accepted", handler);
-    return () => window.removeEventListener("quickcut:invite-accepted", handler);
+    window.addEventListener("quickcut:notification-read", handler);
+    return () => {
+      window.removeEventListener("quickcut:invite-accepted", handler);
+      window.removeEventListener("quickcut:notification-read", handler);
+    };
   }, []);
 
   // Close on outside click

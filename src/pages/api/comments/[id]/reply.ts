@@ -4,6 +4,7 @@ import { createDb } from "../../../../db";
 import { comments, videos } from "../../../../db/schema";
 import { eq } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
+import { createCommentNotifications } from "../../../../lib/notifications";
 import { verifySpaceAccess } from "../../../../lib/spaces";
 
 export const POST: APIRoute = async ({ params, locals, request }) => {
@@ -91,6 +92,20 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   };
 
   await db.insert(comments).values(newReply);
+
+  try {
+    await createCommentNotifications(db, {
+      commentId,
+      videoId: parent[0].videoId,
+      actorUserId: locals.user.id,
+      actorDisplayName: locals.user.name,
+      text: newReply.text,
+      parentCommentId: parentId,
+      phase: parent[0].phase,
+    });
+  } catch (err) {
+    console.error("Failed to create reply notification", err);
+  }
 
   const responseComment = {
     ...newReply,

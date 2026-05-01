@@ -5,6 +5,7 @@ import { SpaceSwitcher } from "../components/SpaceSwitcher";
 import Logo from "../components/Logo.astro";
 import { createDb } from "../db";
 import { getPendingInvitesForUser } from "../lib/invites";
+import { getUnreadNotificationCount } from "../lib/notifications";
 import { getUserSpaces } from "../lib/spaces";
 import { env } from "cloudflare:workers";
 
@@ -20,6 +21,7 @@ const metaDescription = description ?? "Quick Cuts - Collaborative video review"
 const db = createDb(env.DB);
 const userSpaces = user ? await getUserSpaces(db, user.id) : [];
 const pendingInviteCount = user ? (await getPendingInvitesForUser(db, user.email)).length : 0;
+const unreadNotificationCount = user ? await getUnreadNotificationCount(db, user.id) : 0;
 const headerSpaceId = selectedSpaceId ?? Astro.url.searchParams.get("space") ?? userSpaces[0]?.id ?? null;
 ---
 
@@ -48,7 +50,7 @@ const headerSpaceId = selectedSpaceId ?? Astro.url.searchParams.get("space") ?? 
           </a>
           <div class="ml-auto flex items-center gap-3">
             <SpaceSwitcher client:load spaces={userSpaces} selectedSpaceId={headerSpaceId} />
-            <UserMenu client:load name={user.name} email={user.email} notificationCount={pendingInviteCount} />
+            <UserMenu client:load name={user.name} email={user.email} notificationCount={pendingInviteCount + unreadNotificationCount} />
           </div>
         </header>
       )
