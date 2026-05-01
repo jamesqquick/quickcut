@@ -9,6 +9,8 @@ if (user) {
 
 const error = Astro.url.searchParams.get("error");
 const message = Astro.url.searchParams.get("message");
+const email = Astro.url.searchParams.get("email") ?? undefined;
+const returnUrl = Astro.url.searchParams.get("returnUrl") ?? undefined;
 ---
 
 <Layout title="Create Account">
@@ -37,7 +39,7 @@ const message = Astro.url.searchParams.get("message");
           Create your account with a one-time code sent to your email.
         </p>
 
-        <LoginOtpForm mode="register" client:load />
+        <LoginOtpForm mode="register" email={email} returnUrl={returnUrl} client:load />
 
         <p class="mt-6 text-center text-xs text-text-tertiary">
           Use an email address where you can receive your sign-up code.

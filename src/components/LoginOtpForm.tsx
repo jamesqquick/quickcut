@@ -1,10 +1,23 @@
 import { useState } from "react";
+import { getSafeReturnUrl } from "../lib/urls";
 
 type Step = "email" | "code";
 type OtpMode = "login" | "register";
 
 interface LoginOtpFormProps {
+  email?: string;
   mode: OtpMode;
+  returnUrl?: string;
+}
+
+function buildAuthModeHref(mode: OtpMode, email: string, returnUrl: string | null): string {
+  const params = new URLSearchParams();
+  if (email) params.set("email", email);
+  if (returnUrl) params.set("returnUrl", returnUrl);
+
+  const path = mode === "register" ? "/login" : "/register";
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -22,9 +35,9 @@ async function getJsonError(response: Response, fallback: string): Promise<strin
   return typeof message === "string" && message.trim() ? message : fallback;
 }
 
-export function LoginOtpForm({ mode }: LoginOtpFormProps) {
+export function LoginOtpForm({ email: initialEmail = "", mode, returnUrl }: LoginOtpFormProps) {
   const [step, setStep] = useState<Step>("email");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,6 +45,8 @@ export function LoginOtpForm({ mode }: LoginOtpFormProps) {
 
   const normalizedEmail = email.trim().toLowerCase();
   const trimmedName = name.trim();
+  const safeReturnUrl = getSafeReturnUrl(returnUrl);
+  const alternateModeHref = buildAuthModeHref(mode, normalizedEmail, safeReturnUrl);
 
   async function handleSendCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -100,7 +115,7 @@ export function LoginOtpForm({ mode }: LoginOtpFormProps) {
         return;
       }
 
-      window.location.assign("/dashboard");
+      window.location.assign(safeReturnUrl || "/dashboard");
     } catch (err) {
       setError(getErrorMessage(err, "Invalid or expired code."));
     } finally {
@@ -212,7 +227,7 @@ export function LoginOtpForm({ mode }: LoginOtpFormProps) {
 
       <p className="text-center text-sm text-text-tertiary">
         {mode === "register" ? "Already have an account?" : "Need an account?"}{" "}
-        <a className="text-accent-primary transition-colors hover:text-accent-hover" href={mode === "register" ? "/login" : "/register"}>
+        <a className="text-accent-primary transition-colors hover:text-accent-hover" href={alternateModeHref}>
           {mode === "register" ? "Sign in" : "Sign up"}
         </a>
       </p>
