@@ -181,12 +181,14 @@ const CommentHighlight = Mark.create({
 
 interface ScriptWorkspaceProps {
   videoId: string;
-  spaceId: string;
+  spaceId?: string;
   initialContent: string;
   initialComments: Comment[];
-  currentUserId: string;
+  currentUserId?: string;
   currentUserName: string;
   readOnly: boolean;
+  shareToken?: string;
+  anonymousName?: string;
 }
 
 function parseInitialContent(content: string): JSONContent {
@@ -234,7 +236,14 @@ export function ScriptWorkspace({
   currentUserId,
   currentUserName,
   readOnly,
+  shareToken,
+  anonymousName,
 }: ScriptWorkspaceProps) {
+  const isShareMode = !!shareToken;
+  const viewerName = anonymousName || currentUserName;
+  const canEditScript = !readOnly && !isShareMode;
+  const canComment = !readOnly && (!isShareMode || !!anonymousName);
+  const canResolve = !readOnly && !isShareMode;
   const [comments, setComments] = useState(() => initialComments.filter((comment) => comment.phase === "script"));
   const [selectedRange, setSelectedRange] = useState<TextRange | null>(null);
   const [commentText, setCommentText] = useState("");
@@ -285,6 +294,8 @@ export function ScriptWorkspace({
   const saveScript = async (content: string, plainText: string) => {
     setSaveState("saving");
     try {
+      if (!canEditScript) return;
+
       const res = await fetch(`/api/videos/${videoId}/script`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -310,7 +321,7 @@ export function ScriptWorkspace({
 
   const editor = useEditor({
     immediatelyRender: false,
-    editable: !readOnly,
+    editable: canEditScript,
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Placeholder.configure({ placeholder: "Write the hook, outline, or full script here..." }),
@@ -325,7 +336,7 @@ export function ScriptWorkspace({
     },
     onSelectionUpdate({ editor }) {
       const { from, to, empty } = editor.state.selection;
-      if (empty || readOnly || !isReviewModeRef.current) {
+      if (empty || !canComment || !isReviewModeRef.current) {
         setSelectedRange(null);
         return;
       }
@@ -333,7 +344,7 @@ export function ScriptWorkspace({
       setSelectedRange(quote ? { from, to, quote } : null);
     },
     onUpdate({ editor }) {
-      if (readOnly) return;
+      if (!canEditScript) return;
       setHasScriptText(editor.getText().trim().length > 0);
       setSaveState("saving");
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -344,8 +355,8 @@ export function ScriptWorkspace({
   });
 
   useEffect(() => {
-    if (editor) editor.setEditable(!readOnly);
-  }, [editor, readOnly]);
+    if (editor) editor.setEditable(canEditScript);
+  }, [editor, canEditScript]);
 
   useEffect(() => () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -362,8 +373,9 @@ export function ScriptWorkspace({
     const conn = connectVideoRoom(
       videoId,
       {
-        viewerName: currentUserName,
-        viewerUserId: currentUserId,
+        viewerName,
+        viewerUserId: isShareMode ? undefined : currentUserId,
+        shareToken,
       },
       {
         onPresence: (incomingViewers) => {
@@ -378,13 +390,13 @@ export function ScriptWorkspace({
       setViewers([]);
       setPresenceLoading(false);
     };
-  }, [currentUserId, currentUserName, isReviewMode, videoId]);
+  }, [currentUserId, isReviewMode, isShareMode, shareToken, videoId, viewerName]);
 
   const createScriptComment = async () => {
-    if (!editor || !selectedRange || !commentText.trim() || !isReviewMode) return;
+    if (!editor || !selectedRange || !commentText.trim() || !isReviewMode || !canComment) return;
     setSubmittingComment(true);
     try {
-      const res = await fetch(`/api/videos/${videoId}/comments`, {
+      const res = await fetch(shareToken ? `/api/share/${shareToken}/comments` : `/api/videos/${videoId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -393,18 +405,21 @@ export function ScriptWorkspace({
           phase: "script",
           timestamp: null,
           textRange: selectedRange,
+          name: anonymousName,
         }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string; comment?: Comment } | null;
       if (!res.ok || !data?.comment) throw new Error(data?.error || "Failed to create comment");
 
-      editor
-        .chain()
-        .focus()
-        .setTextSelection({ from: selectedRange.from, to: selectedRange.to })
-        .setMark("commentHighlight", { commentId: data.comment.id })
-        .run();
-      await saveScript(JSON.stringify(editor.getJSON()), editor.getText());
+      if (canEditScript) {
+        editor
+          .chain()
+          .focus()
+          .setTextSelection({ from: selectedRange.from, to: selectedRange.to })
+          .setMark("commentHighlight", { commentId: data.comment.id })
+          .run();
+        await saveScript(JSON.stringify(editor.getJSON()), editor.getText());
+      }
 
       setComments((current) => [...current, data.comment!]);
       setCommentText("");
@@ -417,6 +432,7 @@ export function ScriptWorkspace({
   };
 
   const toggleResolved = async (comment: Comment) => {
+    if (!canResolve) return;
     const nextResolved = !comment.isResolved;
     setComments((current) =>
       current.map((item) =>
@@ -439,14 +455,16 @@ export function ScriptWorkspace({
   };
 
   const submitReply = async (parentId: string) => {
-    if (!replyText.trim()) return;
+    if (!replyText.trim() || (isShareMode && !anonymousName)) return;
 
     setSubmittingReply(true);
     try {
-      const res = await fetch(`/api/comments/${parentId}/reply`, {
+      const res = await fetch(shareToken ? `/api/share/${shareToken}/comments` : `/api/comments/${parentId}/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: replyText.trim() }),
+        body: JSON.stringify(shareToken
+          ? { text: replyText.trim(), name: anonymousName, parentId }
+          : { text: replyText.trim() }),
       });
       const data = (await res.json().catch(() => null)) as { error?: string; comment?: Comment } | null;
       if (!res.ok || !data?.comment) throw new Error(data?.error || "Failed to post reply");
@@ -474,11 +492,15 @@ export function ScriptWorkspace({
             <div>
               <h2 className="text-sm font-semibold text-text-primary">Script</h2>
               <p className="text-xs text-text-tertiary">
-                Write the script here. Select text to attach feedback directly to a passage.
+                {canEditScript
+                  ? "Write the script here. Select text to attach feedback directly to a passage."
+                  : canComment
+                    ? "Select text to attach feedback directly to a passage."
+                    : "Read-only view of the project script."}
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {!readOnly && (
+              {canEditScript && (
                 <span className={`text-xs ${saveState === "error" ? "text-accent-danger" : "text-text-tertiary"}`}>
                   {saveState === "saving" ? "Saving..." : saveState === "error" ? "Save failed" : "Saved"}
                 </span>
@@ -529,14 +551,14 @@ export function ScriptWorkspace({
               </p>
               {filter === "all" && (
                 <p className="mt-1 text-xs text-text-tertiary">
-                  Be the first to leave feedback
+                  {canComment ? "Select text in the script to leave feedback" : "No feedback has been left yet"}
                 </p>
               )}
             </div>
           ) : (
             filteredComments.map((comment) => {
               const meta = URGENCY_META[comment.urgency];
-              const displayName = comment.name || currentUserName;
+              const displayName = comment.name || viewerName;
               const replies = getReplies(comment.id);
               return (
                 <article
@@ -570,7 +592,7 @@ export function ScriptWorkspace({
                         <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">{comment.text}</p>
                       </button>
                       <div className="mt-2 flex flex-wrap gap-3">
-                        {!readOnly && (
+                        {canComment && (
                           <button
                             type="button"
                             onClick={() => setReplyingTo((current) => (current === comment.id ? null : comment.id))}
@@ -579,7 +601,7 @@ export function ScriptWorkspace({
                             Reply
                           </button>
                         )}
-                        {!readOnly ? (
+                        {canResolve ? (
                           <button
                             type="button"
                             onClick={() => toggleResolved(comment)}
@@ -600,7 +622,7 @@ export function ScriptWorkspace({
                       {replies.length > 0 && (
                         <div className="mt-3 space-y-3 border-l border-border-default pl-4">
                           {replies.map((reply) => {
-                            const replyDisplayName = reply.name || currentUserName;
+                            const replyDisplayName = reply.name || viewerName;
                             return (
                               <div key={reply.id} className="flex gap-3">
                                 <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary/60 text-[10px] font-medium text-white">
@@ -656,7 +678,7 @@ export function ScriptWorkspace({
           <div className="border-t border-border-default px-4 py-3 text-center text-xs text-text-tertiary">
             Comments are locked on published projects.
           </div>
-        ) : (
+        ) : canComment ? (
           <div className="border-t border-border-default p-4">
             <div className="mb-2 flex items-center gap-2">
               <ScriptUrgencyPicker
@@ -681,7 +703,7 @@ export function ScriptWorkspace({
                   }
                 }}
                 disabled={!selectedRange || submittingComment}
-                placeholder="Add a comment..."
+                placeholder={selectedRange ? "Add a comment..." : "Select text to comment..."}
                 className="min-w-0 flex-1 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
               />
               <button
@@ -694,7 +716,7 @@ export function ScriptWorkspace({
               </button>
             </div>
           </div>
-        )}
+        ) : null}
         </div>
       </aside>}
     </div>

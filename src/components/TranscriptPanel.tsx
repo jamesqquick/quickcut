@@ -19,6 +19,8 @@ interface TranscriptPanelProps {
   videoId: string;
   videoTitle: string;
   transcriptsEnabled: boolean;
+  apiUrl?: string;
+  canManageTranscript?: boolean;
 }
 
 const statusCopy: Record<TranscriptStatus, { title: string; body: string }> = {
@@ -83,7 +85,13 @@ function getPollInterval(status: TranscriptStatus): number | null {
   return null;
 }
 
-export function TranscriptPanel({ videoId, videoTitle, transcriptsEnabled }: TranscriptPanelProps) {
+export function TranscriptPanel({
+  videoId,
+  videoTitle,
+  transcriptsEnabled,
+  apiUrl,
+  canManageTranscript = true,
+}: TranscriptPanelProps) {
   const [data, setData] = useState<TranscriptResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -93,7 +101,7 @@ export function TranscriptPanel({ videoId, videoTitle, transcriptsEnabled }: Tra
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch(`/api/videos/${videoId}/transcript`);
+      const response = await fetch(apiUrl ?? `/api/videos/${videoId}/transcript`);
       if (!response.ok) throw new Error("Failed to load transcript");
       const next = (await response.json()) as TranscriptResponse;
       setData(next);
@@ -103,7 +111,7 @@ export function TranscriptPanel({ videoId, videoTitle, transcriptsEnabled }: Tra
     } finally {
       setLoading(false);
     }
-  }, [videoId]);
+  }, [apiUrl, videoId]);
 
   useEffect(() => {
     void load();
@@ -158,13 +166,13 @@ export function TranscriptPanel({ videoId, videoTitle, transcriptsEnabled }: Tra
   const text = data?.transcript?.cleanedText || data?.transcript?.rawText || "";
 
   // Hide the panel entirely when transcripts aren't enabled and no transcript exists
-  if (!transcriptsEnabled && !text) {
+  if (!transcriptsEnabled && !text && status === "not_requested") {
     return null;
   }
 
   const copy = statusCopy[status];
-  const canGenerate = data?.transcriptsEnabled && status === "not_requested" && data.videoStatus === "ready";
-  const canRetry = data?.transcriptsEnabled && status === "failed" && data.videoStatus === "ready";
+  const canGenerate = canManageTranscript && data?.transcriptsEnabled && status === "not_requested" && data.videoStatus === "ready";
+  const canRetry = canManageTranscript && data?.transcriptsEnabled && status === "failed" && data.videoStatus === "ready";
 
   return (
     <section className="rounded-xl border border-border-default bg-bg-secondary p-4">

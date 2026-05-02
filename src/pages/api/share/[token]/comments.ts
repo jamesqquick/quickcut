@@ -64,6 +64,7 @@ export const GET: APIRoute = async ({ params, url }) => {
     allComments.map((c) => ({
       ...c,
       annotation: c.annotation ? JSON.parse(c.annotation) : null,
+      textRange: c.textRange ? JSON.parse(c.textRange) : null,
       name:
         c.authorType === "user" && c.authorUserId
           ? userMap[c.authorUserId] || "Unknown"
@@ -102,7 +103,7 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   const videoId = shareLinkResult[0].videoId;
   const body = await request.json();
-  const { text, timestamp, name, parentId, annotation, urgency } = body;
+  const { text, timestamp, name, parentId, annotation, urgency, phase, textRange } = body;
 
   if (!text || !text.trim()) {
     return new Response(JSON.stringify({ error: "Comment text is required" }), {
@@ -135,7 +136,12 @@ export const POST: APIRoute = async ({ params, request }) => {
       : "suggestion";
 
   const commentId = crypto.randomUUID();
-  let parentPhase: "script" | "review" = "review";
+
+  // Determine the comment phase:
+  // - Replies inherit the parent comment's phase.
+  // - Top-level comments use the explicit `phase` field if provided.
+  // - Default to "review" for backward compatibility.
+  let commentPhase: "script" | "review" = phase === "script" ? "script" : "review";
   if (isReply && parentId) {
     const parentRows = await db
       .select({ phase: comments.phase })
@@ -149,7 +155,7 @@ export const POST: APIRoute = async ({ params, request }) => {
         headers: { "Content-Type": "application/json" },
       });
     }
-    parentPhase = parentRows[0].phase;
+    commentPhase = parentRows[0].phase;
   }
 
   const newComment = {
@@ -167,8 +173,8 @@ export const POST: APIRoute = async ({ params, request }) => {
     resolvedReason: null,
     annotation: annotation ? JSON.stringify(annotation) : null,
     urgency: commentUrgency,
-    phase: parentPhase,
-    textRange: null,
+    phase: commentPhase,
+    textRange: textRange ? JSON.stringify(textRange) : null,
   };
 
   await db.insert(comments).values(newComment);
@@ -190,6 +196,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   const responseComment = {
     ...newComment,
     annotation: annotation || null,
+    textRange: textRange || null,
     createdAt: new Date().toISOString(),
     name: name.trim(),
     reactions: [],

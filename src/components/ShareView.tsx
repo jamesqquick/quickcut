@@ -1,72 +1,53 @@
-import { useState, useEffect, useCallback } from "react";
-import { CommentTimeline } from "./CommentTimeline";
-import { CommentThread } from "./CommentThread";
+import { useEffect, useState } from "react";
 import { NamePromptModal } from "./NamePromptModal";
-import { VideoPlayer } from "./VideoPlayer";
-import { VideoPageLayout } from "./VideoPageLayout";
-import { AnnotationOverlay } from "./AnnotationOverlay";
-import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
-import { useStreamPlayer } from "../hooks/useStreamPlayer";
-import type { Annotation, Comment } from "../types";
-import type { AnnotationTool } from "./AnnotationOverlay";
+import { ScriptWorkspace } from "./ScriptWorkspace";
+import { VideoDetailView } from "./VideoDetailView";
+import type { ApprovalStatus } from "./ApprovalSection";
+import type { Comment } from "../types";
+import type { ProjectActivityItem } from "../lib/activity";
 
 interface Video {
   id: string;
+  spaceId: string;
   title: string;
-  description: string | null;
   status: string;
   streamVideoId: string | null;
   duration: number | null;
-  versionNumber: number;
+  fileName: string | null;
+  targetDate: string | null;
+  uploadedBy: string | null;
+  createdAt: string;
+  phase: string;
 }
 
 interface ShareViewProps {
+  activeTab: "script" | "video";
   video: Video;
-  versionCount: number;
+  initialScriptContent: string;
   initialComments: Comment[];
   shareToken: string;
-  /** Null when the space has no approval workflow; the section is hidden. */
   initialApprovalStatus: ApprovalStatus | null;
+  initialActivity: ProjectActivityItem[];
+  pipelineEnabled: boolean;
 }
 
 const ANON_NAME_KEY = "quickcut_anonymous_name";
 
-export function ShareView({ video, versionCount, initialComments, shareToken, initialApprovalStatus }: ShareViewProps) {
+export function ShareView({
+  activeTab,
+  video,
+  initialScriptContent,
+  initialComments,
+  shareToken,
+  initialApprovalStatus,
+  initialActivity,
+  pipelineEnabled,
+}: ShareViewProps) {
   const [anonymousName, setAnonymousName] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem(ANON_NAME_KEY);
   });
-  const [liveComments, setLiveComments] = useState(initialComments);
-  const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
-  const [activeTool, setActiveTool] = useState<AnnotationTool>("none");
-  const [pendingAnnotation, setPendingAnnotation] = useState<Annotation | null>(null);
-  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
 
-  const { iframeRef, currentTime, videoDuration, handleSeek } = useStreamPlayer({
-    status: video.status,
-    streamVideoId: video.streamVideoId,
-    initialDuration: video.duration || 0,
-    enabled: !!anonymousName,
-  });
-
-  const handleCommentClick = useCallback((commentId: string) => {
-    setFocusRequest({ id: commentId, nonce: Date.now() });
-  }, []);
-
-  const handleAnnotationCreate = useCallback((annotation: Annotation) => {
-    setPendingAnnotation(annotation);
-  }, []);
-
-  const handleAnnotationClick = useCallback((commentId: string) => {
-    setFocusRequest({ id: commentId, nonce: Date.now() });
-  }, []);
-
-  const handleAnnotationClear = useCallback(() => {
-    setPendingAnnotation(null);
-    setActiveTool("none");
-  }, []);
-
-  // Track view (only after the user has cleared the name gate).
   useEffect(() => {
     if (!anonymousName) return;
     fetch(`/api/share/${shareToken}/view`, { method: "POST" }).catch(() => {});
@@ -77,7 +58,6 @@ export function ShareView({ video, versionCount, initialComments, shareToken, in
     setAnonymousName(name);
   };
 
-  // Hard gate: no name yet means the page renders nothing but the modal.
   if (!anonymousName) {
     return (
       <NamePromptModal
@@ -86,92 +66,48 @@ export function ShareView({ video, versionCount, initialComments, shareToken, in
         onClose={() => {}}
         dismissable={false}
         title="Welcome"
-        description="Enter your name to view this video and leave comments."
+        description="Enter your name to view this project and leave comments."
       />
     );
   }
 
-  const annotationOverlay = video.status === "ready" ? (
-    <AnnotationOverlay
-      comments={liveComments}
-      currentTime={currentTime}
-      activeTool={activeTool}
-      onAnnotationCreate={handleAnnotationCreate}
-      onAnnotationClick={handleAnnotationClick}
-      highlightedCommentId={highlightedCommentId}
-    />
-  ) : undefined;
-
-  const leftColumn = (
-    <>
-      <VideoPlayer
-        status={video.status}
-        streamVideoId={video.streamVideoId}
-        iframeRef={iframeRef}
-        overlay={annotationOverlay}
+  if (activeTab === "script") {
+    return (
+      <ScriptWorkspace
+        videoId={video.id}
+        spaceId={video.spaceId}
+        initialContent={initialScriptContent}
+        initialComments={initialComments}
+        currentUserName={anonymousName}
+        readOnly={video.phase === "published"}
+        shareToken={shareToken}
+        anonymousName={anonymousName}
       />
+    );
+  }
 
-      {/* Timeline row */}
-      {video.status === "ready" && videoDuration > 0 && (
-        <CommentTimeline
-          comments={liveComments.filter((c) => !c.parentId && c.timestamp != null)}
-          duration={videoDuration}
-          currentTime={currentTime}
-          onSeek={handleSeek}
-          onCommentClick={handleCommentClick}
-        />
-      )}
-
-      <div>
-        {versionCount > 1 && (
-          <div className="mb-2 inline-flex rounded-full border border-border-default bg-bg-secondary px-2.5 py-1 text-xs font-medium text-text-secondary">
-            V{video.versionNumber} of {versionCount}
-          </div>
-        )}
-        <h1 className="text-xl font-bold text-text-primary sm:text-2xl">{video.title}</h1>
-        {video.description && (
-          <p className="mt-2 text-sm text-text-secondary">{video.description}</p>
-        )}
-      </div>
-
-      {/* Read-only approval status for external reviewers. They can see who
-          has signed off, but cannot approve or undo. */}
-      {initialApprovalStatus && (
-        <ApprovalSection
-          videoId={video.id}
-          initialStatus={initialApprovalStatus}
-          currentUserId={null}
-          isSpaceMember={false}
-          uploadedBy={null}
-          readOnly
-          viewerName={anonymousName}
-          shareToken={shareToken}
-        />
-      )}
-    </>
-  );
-
-  const rightColumn = (
-    <CommentThread
+  return (
+    <VideoDetailView
       videoId={video.id}
+      spaceId={video.spaceId}
+      streamVideoId={video.streamVideoId}
+      status={video.status}
+      duration={video.duration}
       initialComments={initialComments}
-      isAuthenticated={false}
-      duration={videoDuration}
-      videoStatus={video.status}
-      currentTime={currentTime}
+      currentUserId=""
+      currentUserName={anonymousName}
+      title={video.title}
+      uploadDate={video.createdAt}
+      fileName={video.fileName}
+      targetDate={video.targetDate}
+      transcriptsEnabled={false}
+      uploadedBy={video.uploadedBy}
+      initialApprovalStatus={initialApprovalStatus}
+      initialPhase={video.phase}
+      pipelineEnabled={pipelineEnabled}
+      userRole="guest"
       shareToken={shareToken}
-      anonymousName={anonymousName}
-      liveEnabled
-      onSeek={handleSeek}
-      onCommentsChange={setLiveComments}
-      focusRequest={focusRequest}
-      pendingAnnotation={pendingAnnotation}
-      onAnnotationClear={handleAnnotationClear}
-      onCommentHover={setHighlightedCommentId}
-      activeTool={activeTool}
-      onToolChange={setActiveTool}
+      initialActivity={initialActivity}
     />
   );
-
-  return <VideoPageLayout leftColumn={leftColumn} rightColumn={rightColumn} />;
 }

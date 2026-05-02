@@ -8,10 +8,12 @@ import { TranscriptPanel } from "./TranscriptPanel";
 import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { ProjectPhaseControls } from "./ProjectPhaseControls";
 import { TargetDateEditor } from "./TargetDateEditor";
+import { ProjectActivityTimeline } from "./ProjectActivityTimeline";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
-import { normalizeVideoPhase, type Annotation, type Comment, type VideoPhase } from "../types";
+import { normalizeVideoPhase, PROJECT_STATUS_LABELS, type Annotation, type Comment, type VideoPhase } from "../types";
 import type { AnnotationTool } from "./AnnotationOverlay";
 import type { PipelineStep } from "./PhaseStepper";
+import type { ProjectActivityItem } from "../lib/activity";
 
 interface VideoDetailViewProps {
   videoId: string;
@@ -40,6 +42,8 @@ interface VideoDetailViewProps {
   currentStep?: PipelineStep;
   /** Steps the user can currently navigate to in the guided workflow. */
   enabledSteps?: PipelineStep[];
+  shareToken?: string;
+  initialActivity?: ProjectActivityItem[];
 }
 
 function formatDate(dateStr: string): string {
@@ -77,14 +81,17 @@ export function VideoDetailView({
   userRole,
   currentStep,
   enabledSteps,
+  shareToken,
+  initialActivity = [],
 }: VideoDetailViewProps) {
+  const isShareMode = !!shareToken;
   const initialReviewComments = initialComments.filter((comment) => comment.phase !== "script");
   const [processingStatus, setProcessingStatus] = useState(status);
   const [currentPhase, setCurrentPhase] = useState<VideoPhase>(() => normalizeVideoPhase(initialPhase));
   const [approvalStatus, setApprovalStatus] = useState(initialApprovalStatus);
   const [liveComments, setLiveComments] = useState(initialReviewComments);
   const isPublished = currentPhase === "published";
-  const canChangePhase = pipelineEnabled && (userRole === "owner" || uploadedBy === currentUserId);
+  const canChangePhase = !isShareMode && pipelineEnabled && (userRole === "owner" || uploadedBy === currentUserId);
   const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
   const canMarkAsPublished = !isPublished && canChangePhase && (!approvalStatus || approvalStatus.isApproved);
   const primaryAction = canMarkAsPublished
@@ -127,6 +134,7 @@ export function VideoDetailView({
 
   // Poll for video status when processing
   useEffect(() => {
+    if (isShareMode) return;
     if (processingStatus !== "processing") return;
 
     const poll = async () => {
@@ -154,7 +162,7 @@ export function VideoDetailView({
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [processingStatus, videoId, setVideoDuration]);
+  }, [isShareMode, processingStatus, videoId, setVideoDuration]);
 
   const annotationOverlay = processingStatus === "ready" ? (
     <AnnotationOverlay
@@ -167,7 +175,12 @@ export function VideoDetailView({
     />
   ) : undefined;
 
-  const topContent = pipelineEnabled ? (
+  const topContent = pipelineEnabled && isShareMode ? (
+    <div className="rounded-xl border border-border-default bg-bg-secondary p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Project phase</p>
+      <p className="mt-1 text-sm font-medium text-text-primary">{PROJECT_STATUS_LABELS[currentPhase]}</p>
+    </div>
+  ) : pipelineEnabled ? (
     <div className="space-y-6">
       <ProjectPhaseControls
         videoId={videoId}
@@ -238,11 +251,12 @@ export function VideoDetailView({
         <ApprovalSection
           videoId={videoId}
           initialStatus={approvalStatus}
-          currentUserId={currentUserId}
-          isSpaceMember={true}
+          currentUserId={isShareMode ? null : currentUserId}
+          isSpaceMember={!isShareMode}
           uploadedBy={uploadedBy}
           viewerName={currentUserName}
-          readOnly={isPublished}
+          readOnly={isShareMode || isPublished}
+          shareToken={shareToken}
           onStatusChange={setApprovalStatus}
         />
       )}
@@ -251,7 +265,14 @@ export function VideoDetailView({
 
   const bottomContent = (
     <div className="space-y-6">
-      <TranscriptPanel videoId={videoId} videoTitle={title} transcriptsEnabled={transcriptsEnabled} />
+      <TranscriptPanel
+        videoId={videoId}
+        videoTitle={title}
+        transcriptsEnabled={transcriptsEnabled}
+        apiUrl={isShareMode ? `/api/share/${shareToken}/transcript` : undefined}
+        canManageTranscript={!isShareMode}
+      />
+      {initialActivity.length > 0 && <ProjectActivityTimeline activity={initialActivity} />}
     </div>
   );
 
@@ -259,13 +280,15 @@ export function VideoDetailView({
     <CommentThread
       videoId={videoId}
       initialComments={initialReviewComments}
-      currentUserId={currentUserId}
+      currentUserId={isShareMode ? undefined : currentUserId}
       currentUserName={currentUserName}
-      isAuthenticated={true}
+      isAuthenticated={!isShareMode}
       duration={videoDuration}
       videoStatus={processingStatus}
       currentTime={currentTime}
-      liveEnabled={processingStatus === "ready"}
+      shareToken={shareToken}
+      anonymousName={isShareMode ? currentUserName : undefined}
+      liveEnabled={isShareMode || processingStatus === "ready"}
       onSeek={handleSeek}
       onCommentsChange={setLiveComments}
       focusRequest={focusRequest}
