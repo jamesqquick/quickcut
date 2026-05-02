@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "../db";
-import { comments, notifications, spaceMembers, spaces, videos } from "../db/schema";
+import { comments, notifications, spaceMembers, spaces, users, videos } from "../db/schema";
+import { buildCommentNotificationEmail } from "./email";
 
 export type NotificationType =
   | "comment.created"
@@ -16,6 +17,12 @@ export interface CommentNotificationInput {
   text: string;
   parentCommentId: string | null;
   phase: "script" | "review";
+}
+
+export interface EmailConfig {
+  send: (msg: { to: string; from: string; subject: string; text: string; html: string }) => Promise<void>;
+  from: string;
+  baseUrl: string;
 }
 
 export interface UserNotification {
@@ -77,6 +84,7 @@ async function filterRecipientsWithSpaceAccess(
 export async function createCommentNotifications(
   db: Database,
   input: CommentNotificationInput,
+  emailConfig?: EmailConfig,
 ): Promise<void> {
   const videoRows = await db
     .select({
@@ -138,6 +146,45 @@ export async function createCommentNotifications(
       href,
     })),
   );
+
+  if (!emailConfig) return;
+
+  try {
+    const emailRecipients = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(
+        and(
+          inArray(users.id, recipientIds),
+          eq(users.emailNotificationsEnabled, true),
+        ),
+      );
+
+    if (emailRecipients.length === 0) return;
+
+    const emailContent = buildCommentNotificationEmail({
+      type,
+      actorDisplayName: input.actorDisplayName,
+      videoTitle: video.title,
+      commentSnippet: body,
+      href,
+      baseUrl: emailConfig.baseUrl,
+    });
+
+    await Promise.allSettled(
+      emailRecipients.map((recipient) =>
+        emailConfig.send({
+          to: recipient.email,
+          from: emailConfig.from,
+          subject: emailContent.subject,
+          text: emailContent.text,
+          html: emailContent.html,
+        }),
+      ),
+    );
+  } catch (error) {
+    console.error("Failed to send comment notification emails", error);
+  }
 }
 
 export async function getNotificationsForUser(

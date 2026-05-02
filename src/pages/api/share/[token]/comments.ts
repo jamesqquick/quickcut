@@ -182,6 +182,10 @@ export const POST: APIRoute = async ({ params, request }) => {
       text: newComment.text,
       parentCommentId: newComment.parentId,
       phase: newComment.phase,
+    }, {
+      send: (msg) => env.EMAIL.send(msg),
+      from: env.OTP_EMAIL_FROM,
+      baseUrl: new URL(request.url).origin,
     });
   } catch (err) {
     console.error("Failed to create share comment notification", err);
