@@ -19,6 +19,8 @@ function getInitials(name: string): string {
 export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(notificationCount);
+  const [emailEnabled, setEmailEnabled] = useState<boolean | null>(null);
+  const [emailToggling, setEmailToggling] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const hasNotifications = count > 0;
 
@@ -35,6 +37,34 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
       window.removeEventListener("quickcut:notification-read", handler);
     };
   }, []);
+
+  // Fetch email preference when menu opens
+  useEffect(() => {
+    if (!open || emailEnabled !== null) return;
+    fetch("/api/notifications/email-preference", { credentials: "same-origin" })
+      .then((res) => res.json())
+      .then((data) => setEmailEnabled(data.emailNotificationsEnabled ?? false))
+      .catch(() => setEmailEnabled(false));
+  }, [open, emailEnabled]);
+
+  const handleEmailToggle = async () => {
+    if (emailToggling) return;
+    const next = !emailEnabled;
+    setEmailToggling(true);
+    try {
+      await fetch("/api/notifications/email-preference", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: next }),
+        credentials: "same-origin",
+      });
+      setEmailEnabled(next);
+    } catch {
+      // Revert on failure
+    } finally {
+      setEmailToggling(false);
+    }
+  };
 
   // Close on outside click
   useEffect(() => {
@@ -133,6 +163,36 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
               </span>
             )}
           </a>
+          <button
+            role="menuitem"
+            onClick={handleEmailToggle}
+            disabled={emailToggling}
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-tertiary disabled:opacity-50"
+          >
+            <svg
+              className="h-4 w-4 text-text-tertiary"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+              />
+            </svg>
+            <span className="flex-1">Email notifications</span>
+            <span
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${emailEnabled ? "bg-accent-primary" : "bg-bg-tertiary"}`}
+              aria-hidden="true"
+            >
+              <span
+                className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${emailEnabled ? "translate-x-4" : "translate-x-0.5"}`}
+              />
+            </span>
+          </button>
           <div className="border-t border-border-default" />
           <button
             role="menuitem"

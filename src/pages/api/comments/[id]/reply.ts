@@ -102,6 +102,10 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
       text: newReply.text,
       parentCommentId: parentId,
       phase: parent[0].phase,
+    }, {
+      send: (msg) => env.EMAIL.send(msg),
+      from: env.OTP_EMAIL_FROM,
+      baseUrl: new URL(request.url).origin,
     });
   } catch (err) {
     console.error("Failed to create reply notification", err);
