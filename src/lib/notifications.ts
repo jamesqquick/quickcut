@@ -171,7 +171,7 @@ export async function createCommentNotifications(
       baseUrl: emailConfig.baseUrl,
     });
 
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       emailRecipients.map((recipient) =>
         emailConfig.send({
           to: recipient.email,
@@ -182,6 +182,14 @@ export async function createCommentNotifications(
         }),
       ),
     );
+
+    const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (failures.length > 0) {
+      console.error(
+        `${failures.length}/${results.length} notification emails failed`,
+        failures.map((f) => f.reason),
+      );
+    }
   } catch (error) {
     console.error("Failed to send comment notification emails", error);
   }
