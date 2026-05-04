@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { actions } from "astro:actions";
 import { formatTimecode, relativeTime } from "../lib/time";
 import { connectVideoRoom } from "../lib/realtime";
 import type { Viewer } from "../lib/realtime";
@@ -586,43 +587,59 @@ export function CommentThread({
     setError("");
 
     try {
-      const baseUrl = shareToken
-        ? `/api/share/${shareToken}/comments`
-        : `/api/videos/${videoId}/comments`;
+      const timestamp = videoStatus === "ready" ? currentTime : null;
 
-      const body: Record<string, unknown> = {
-        text: newComment.trim(),
-        timestamp: videoStatus === "ready" ? currentTime : null,
-        urgency: newCommentUrgency,
-      };
+      if (shareToken) {
+        // Anonymous share flow stays on the dedicated share endpoint.
+        const body: Record<string, unknown> = {
+          text: newComment.trim(),
+          timestamp,
+          urgency: newCommentUrgency,
+        };
+        if (pendingAnnotation) body.annotation = pendingAnnotation;
+        if (anonymousName) body.name = anonymousName;
 
-      if (pendingAnnotation) {
-        body.annotation = pendingAnnotation;
-      }
-
-      if (shareToken && anonymousName) {
-        body.name = anonymousName;
-      }
-
-      const res = await fetch(baseUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setComments((prev) => {
-          if (prev.some((c) => c.id === data.comment.id)) return prev;
-          return sortComments([...prev, data.comment]);
+        const res = await fetch(`/api/share/${shareToken}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
         });
-        setNewComment("");
-        setNewCommentUrgency("suggestion");
-        onAnnotationClear?.();
-        lastFetchRef.current = new Date().toISOString();
+
+        if (res.ok) {
+          const data = await res.json();
+          setComments((prev) => {
+            if (prev.some((c) => c.id === data.comment.id)) return prev;
+            return sortComments([...prev, data.comment]);
+          });
+          setNewComment("");
+          setNewCommentUrgency("suggestion");
+          onAnnotationClear?.();
+          lastFetchRef.current = new Date().toISOString();
+        } else {
+          const data = await res.json();
+          setError(data.error || "Failed to post comment. Please try again.");
+        }
       } else {
-        const data = await res.json();
-        setError(data.error || "Failed to post comment. Please try again.");
+        const { data, error } = await actions.comment.create({
+          videoId,
+          text: newComment.trim(),
+          timestamp,
+          urgency: newCommentUrgency,
+          annotation: pendingAnnotation ?? undefined,
+        });
+
+        if (error) {
+          setError(error.message || "Failed to post comment. Please try again.");
+        } else if (data) {
+          setComments((prev) => {
+            if (prev.some((c) => c.id === data.comment.id)) return prev;
+            return sortComments([...prev, data.comment as Comment]);
+          });
+          setNewComment("");
+          setNewCommentUrgency("suggestion");
+          onAnnotationClear?.();
+          lastFetchRef.current = new Date().toISOString();
+        }
       }
     } catch {
       setError("Failed to post comment. Please try again.");
@@ -642,34 +659,48 @@ export function CommentThread({
     setError("");
 
     try {
-      const baseUrl = shareToken
-        ? `/api/share/${shareToken}/comments`
-        : `/api/comments/${parentId}/reply`;
-
-      const body: Record<string, unknown> = { text: replyText.trim() };
-
       if (shareToken) {
-        body.parentId = parentId;
+        const body: Record<string, unknown> = {
+          text: replyText.trim(),
+          parentId,
+        };
         if (anonymousName) body.name = anonymousName;
-      }
 
-      const res = await fetch(baseUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setComments((prev) => {
-          if (prev.some((c) => c.id === data.comment.id)) return prev;
-          return sortComments([...prev, data.comment]);
+        const res = await fetch(`/api/share/${shareToken}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
         });
-        setReplyText("");
-        setReplyingTo(null);
-        lastFetchRef.current = new Date().toISOString();
+
+        if (res.ok) {
+          const data = await res.json();
+          setComments((prev) => {
+            if (prev.some((c) => c.id === data.comment.id)) return prev;
+            return sortComments([...prev, data.comment]);
+          });
+          setReplyText("");
+          setReplyingTo(null);
+          lastFetchRef.current = new Date().toISOString();
+        } else {
+          setError("Failed to post reply.");
+        }
       } else {
-        setError("Failed to post reply.");
+        const { data, error } = await actions.comment.reply({
+          parentId,
+          text: replyText.trim(),
+        });
+
+        if (error) {
+          setError("Failed to post reply.");
+        } else if (data) {
+          setComments((prev) => {
+            if (prev.some((c) => c.id === data.comment.id)) return prev;
+            return sortComments([...prev, data.comment as Comment]);
+          });
+          setReplyText("");
+          setReplyingTo(null);
+          lastFetchRef.current = new Date().toISOString();
+        }
       }
     } catch {
       setError("Failed to post reply.");
@@ -678,46 +709,43 @@ export function CommentThread({
   };
 
   const resolveComment = async (commentId: string, resolved: boolean) => {
-    try {
-      const res = await fetch(`/api/comments/${commentId}/resolve`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resolved }),
-      });
+    // Optimistic update so the UI reflects the toggle immediately.
+    const previous = comments;
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === commentId
+          ? {
+              ...c,
+              isResolved: resolved,
+              resolvedBy: resolved ? currentUserId || null : null,
+              resolvedAt: resolved ? new Date().toISOString() : null,
+              resolvedReason: resolved ? "manual" : null,
+            }
+          : c,
+      ),
+    );
 
-      if (res.ok) {
-        setComments((prev) =>
-          prev.map((c) =>
-            c.id === commentId
-              ? {
-                  ...c,
-                  isResolved: resolved,
-                  resolvedBy: resolved ? currentUserId || null : null,
-                  resolvedAt: resolved ? new Date().toISOString() : null,
-                }
-              : c,
-          ),
-        );
+    try {
+      const { error } = await actions.comment.resolve({ id: commentId, resolved });
+      if (error) {
+        // Revert on failure
+        setComments(previous);
       }
     } catch {
-      // Handle error silently
+      setComments(previous);
     }
   };
 
   const deleteComment = async (commentId: string) => {
     setDeleting(commentId);
     try {
-      const res = await fetch(`/api/comments/${commentId}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
+      const { error } = await actions.comment.delete({ id: commentId });
+      if (!error) {
         setComments((prev) =>
           prev.filter((c) => c.id !== commentId && c.parentId !== commentId),
         );
       } else {
-        const data = await res.json();
-        setError(data.error || "Failed to delete comment.");
+        setError(error.message || "Failed to delete comment.");
       }
     } catch {
       setError("Failed to delete comment.");
@@ -731,27 +759,64 @@ export function CommentThread({
   ) => {
     if (readOnly || !isAuthenticated) return;
 
+    // Optimistic update: flip reactedByMe and adjust count for this emoji.
+    const previous = comments;
+    setComments((prev) =>
+      prev.map((comment) => {
+        if (comment.id !== commentId) return comment;
+        const reactions = comment.reactions ?? [];
+        const existing = reactions.find((r) => r.emoji === emoji);
+        if (existing) {
+          const wasMine = existing.reactedByMe;
+          const nextCount = wasMine
+            ? Math.max(0, existing.count - 1)
+            : existing.count + 1;
+          if (nextCount === 0) {
+            return {
+              ...comment,
+              reactions: reactions.filter((r) => r.emoji !== emoji),
+            };
+          }
+          return {
+            ...comment,
+            reactions: reactions.map((r) =>
+              r.emoji === emoji
+                ? { ...r, count: nextCount, reactedByMe: !wasMine }
+                : r,
+            ),
+          };
+        }
+        return {
+          ...comment,
+          reactions: [
+            ...reactions,
+            { emoji, count: 1, reactedByMe: true },
+          ],
+        };
+      }),
+    );
+
     try {
-      const res = await fetch(`/api/comments/${commentId}/reactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emoji }),
+      const { data, error } = await actions.comment.toggleReaction({
+        id: commentId,
+        emoji,
       });
 
-      if (res.ok) {
-        const update = await res.json();
+      if (error) {
+        setComments(previous);
+        setError(error.message || "Failed to update reaction.");
+      } else if (data) {
+        // Reconcile with server state
         setComments((prev) =>
           prev.map((comment) =>
-            comment.id === update.commentId
-              ? { ...comment, reactions: update.reactions }
+            comment.id === data.commentId
+              ? { ...comment, reactions: data.reactions }
               : comment,
           ),
         );
-      } else {
-        const data = await res.json();
-        setError(data.error || "Failed to update reaction.");
       }
     } catch {
+      setComments(previous);
       setError("Failed to update reaction.");
     }
   };
