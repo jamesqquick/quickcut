@@ -1,3 +1,4 @@
+import { actions } from "astro:actions";
 import { useState } from "react";
 import { ToastViewport, useToast } from "./Toast";
 
@@ -74,17 +75,12 @@ export function SpaceSettings({
     setSettingsError("");
 
     try {
-      const res = await fetch(`/api/spaces/${space.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), requiredApprovals }),
+      const { data, error } = await actions.space.update({
+        id: space.id,
+        name: name.trim(),
+        requiredApprovals,
       });
-      const data = (await res.json().catch(() => null)) as {
-        error?: string;
-        space?: Space;
-      } | null;
-
-      if (!res.ok) throw new Error(data?.error || "Failed to update settings");
+      if (error) throw new Error(error.message || "Failed to update settings");
       if (data?.space) setSpace(data.space);
       showToast("Settings saved");
     } catch (err) {
@@ -99,17 +95,11 @@ export function SpaceSettings({
     setInviteSaving(true);
 
     try {
-      const res = await fetch(`/api/spaces/${space.id}/invites`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail.trim() }),
+      const { data, error } = await actions.space.createInvite({
+        id: space.id,
+        email: inviteEmail.trim(),
       });
-      const data = (await res.json().catch(() => null)) as {
-        error?: string;
-        invite?: Invite;
-      } | null;
-
-      if (!res.ok) throw new Error(data?.error || "Failed to send invite");
+      if (error) throw new Error(error.message || "Failed to send invite");
       if (data?.invite) setInvites((prev) => [...prev, data.invite!]);
       setInviteEmail("");
       showToast("Invite sent");
@@ -122,28 +112,34 @@ export function SpaceSettings({
 
   const handleRevokeInvite = async (inviteId: string) => {
     setActionError("");
+    // Optimistic: remove immediately, restore on failure
+    const previous = invites;
+    setInvites((prev) => prev.filter((i) => i.id !== inviteId));
     try {
-      const res = await fetch(`/api/spaces/${space.id}/invites/${inviteId}`, {
-        method: "DELETE",
+      const { error } = await actions.space.revokeInvite({
+        id: space.id,
+        inviteId,
       });
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to revoke invite");
-      setInvites((prev) => prev.filter((i) => i.id !== inviteId));
+      if (error) throw new Error(error.message || "Failed to revoke invite");
     } catch (err) {
+      setInvites(previous);
       setActionError(err instanceof Error ? err.message : "Failed to revoke");
     }
   };
 
   const handleRemoveMember = async (userId: string) => {
     setActionError("");
+    // Optimistic: remove immediately, restore on failure
+    const previous = members;
+    setMembers((prev) => prev.filter((m) => m.userId !== userId));
     try {
-      const res = await fetch(`/api/spaces/${space.id}/members/${userId}`, {
-        method: "DELETE",
+      const { error } = await actions.space.removeMember({
+        id: space.id,
+        userId,
       });
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to remove member");
-      setMembers((prev) => prev.filter((m) => m.userId !== userId));
+      if (error) throw new Error(error.message || "Failed to remove member");
     } catch (err) {
+      setMembers(previous);
       setActionError(err instanceof Error ? err.message : "Failed to remove");
     }
   };
@@ -152,11 +148,8 @@ export function SpaceSettings({
     if (!confirm("Are you sure you want to leave this space?")) return;
     setActionError("");
     try {
-      const res = await fetch(`/api/spaces/${space.id}/leave`, {
-        method: "POST",
-      });
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to leave space");
+      const { error } = await actions.space.leave({ id: space.id });
+      if (error) throw new Error(error.message || "Failed to leave space");
       window.location.href = "/dashboard";
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to leave");
@@ -167,11 +160,8 @@ export function SpaceSettings({
     if (!confirm(`Are you sure you want to delete "${space.name}"? All videos and folders in this space will be permanently deleted.`)) return;
     setActionError("");
     try {
-      const res = await fetch(`/api/spaces/${space.id}`, {
-        method: "DELETE",
-      });
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to delete space");
+      const { error } = await actions.space.delete({ id: space.id });
+      if (error) throw new Error(error.message || "Failed to delete space");
       window.location.href = "/dashboard";
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to delete");
