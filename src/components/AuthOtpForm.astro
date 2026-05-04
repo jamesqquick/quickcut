@@ -82,9 +82,15 @@ function buildAlternateHref(): string {
 }
 const alternateHref = buildAlternateHref();
 const restartHref = mode === "register" ? "/register" : "/login";
+
+const codeStepHeading =
+  mode === "register"
+    ? "We sent a signup code to"
+    : "We sent a sign-in code to";
+const codeLabel = mode === "register" ? "Signup code" : "Sign-in code";
 ---
 
-{onCodeStep ? (
+{onCodeStep && (
   <form
     method="POST"
     action={actions.auth.verifyOtp}
@@ -102,8 +108,7 @@ const restartHref = mode === "register" ? "/register" : "/login";
     )}
 
     <div class="rounded-lg border border-border-default bg-bg-tertiary px-4 py-3 text-sm text-text-secondary">
-      We sent a {mode === "register" ? "signup" : "sign-in"} code to
-      <span class="font-medium text-text-primary">{submittedEmail}</span>.
+      {codeStepHeading} <span class="font-medium text-text-primary">{submittedEmail}</span>.
     </div>
 
     {pageError && (
@@ -114,7 +119,7 @@ const restartHref = mode === "register" ? "/register" : "/login";
 
     <div>
       <label for="otp" class="mb-1 block text-sm font-medium text-text-secondary">
-        {mode === "register" ? "Signup" : "Sign-in"} code
+        {codeLabel}
       </label>
       <input
         id="otp"
@@ -146,7 +151,9 @@ const restartHref = mode === "register" ? "/register" : "/login";
       client:idle
     />
   </form>
-) : (
+)}
+
+{!onCodeStep && (
   <form
     method="POST"
     action={actions.auth.sendOtp}
