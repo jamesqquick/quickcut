@@ -3,18 +3,6 @@
 These instructions apply to any AI coding agent working in this repo
 (OpenCode, Claude Code, etc.). Read them before doing anything else.
 
-## Project-local skills
-
-This repo ships skills in `.opencode/skills/`. OpenCode auto-loads them, so
-they should appear in your `<available_skills>` list. If a skill exists in
-`.opencode/skills/` but is missing from your catalog, surface that to the
-user — something is misconfigured.
-
-Currently available:
-
-- `worktree-setup` — copies local Cloudflare state (`.wrangler/state/`) and
-  secrets (`.dev.vars`) into a new worktree, then applies migrations.
-
 ## Worktree workflow
 
 This project uses `.worktrees/<branch>/` for feature work. The full setup is:
@@ -34,13 +22,6 @@ If a worktree was created without step 3, symptoms include:
 - Empty list views (D1 has no data, only schema)
 - 500s touching anything that requires a secret
 
-## Env files
-
-- `.dev.vars` — gitignored, lives in the main checkout. Per-worktree copies
-  are managed by the `worktree-setup` skill. Never commit this file.
-- `.wrangler/state/` — gitignored local Cloudflare emulation data (D1
-  SQLite, KV, Durable Objects, workflow state, image cache). Never commit.
-
 ## Pull requests
 
 - Branch naming used in this repo: `feature/<topic>`, `fix/<topic>`,
@@ -49,11 +30,3 @@ If a worktree was created without step 3, symptoms include:
   `chore(...)`, `docs(...)`).
 - Reference issues with `Closes #<n>` in the PR body when applicable.
 - Don't push to remote or open PRs without confirmation from the user.
-
-## Astro Actions
-
-This repo is migrating mutations from REST endpoints (`src/pages/api/...`)
-to Astro Actions (`src/actions/index.ts`). When adding new server-side
-mutation logic, prefer an action over a new REST handler. Use the existing
-`requireUser` helper and `ActionError` codes. Look at `video.update`,
-`comment.create`, or `space.update` for the established pattern.
