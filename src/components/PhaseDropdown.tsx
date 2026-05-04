@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { actions } from "astro:actions";
 import { VIDEO_PHASES, PHASE_LABELS, normalizeVideoPhase, type VideoPhase } from "../types";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 
@@ -52,13 +53,8 @@ export function PhaseDropdown({
     setConfirmPublish(false);
 
     try {
-      const res = await fetch(`/api/videos/${videoId}/phase`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase }),
-      });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(data.error || "Failed to update phase");
+      const { error } = await actions.video.setPhase({ id: videoId, phase });
+      if (error) throw new Error(error.message || "Failed to update phase");
       onPhaseChange(phase);
     } catch (err) {
       console.error("Phase update failed:", err);

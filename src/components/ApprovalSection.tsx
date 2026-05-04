@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { actions } from "astro:actions";
 import { connectVideoRoom, type BroadcastApprovalStatus } from "../lib/realtime";
 
 export interface ApprovalRecord {
@@ -130,20 +131,12 @@ export function ApprovalSection({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/videos/${videoId}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        approvalStatus?: ApprovalStatus;
-        error?: string;
-      };
-      if (!res.ok) {
-        setError(data.error || "Could not approve");
+      const { data, error } = await actions.video.approve({ id: videoId });
+      if (error) {
+        setError(error.message || "Could not approve");
         return;
       }
-      if (data.approvalStatus) setStatus(data.approvalStatus);
+      if (data?.approvalStatus) setStatus(data.approvalStatus);
     } catch {
       setError("Network error");
     } finally {
@@ -155,18 +148,12 @@ export function ApprovalSection({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/videos/${videoId}/approve`, {
-        method: "DELETE",
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        approvalStatus?: ApprovalStatus;
-        error?: string;
-      };
-      if (!res.ok) {
-        setError(data.error || "Could not remove approval");
+      const { data, error } = await actions.video.unapprove({ id: videoId });
+      if (error) {
+        setError(error.message || "Could not remove approval");
         return;
       }
-      if (data.approvalStatus) setStatus(data.approvalStatus);
+      if (data?.approvalStatus) setStatus(data.approvalStatus);
     } catch {
       setError("Network error");
     } finally {

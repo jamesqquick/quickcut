@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { actions } from "astro:actions";
 
 interface InlineEditorProps {
   value: string;
@@ -46,13 +47,11 @@ export function InlineEditor({
 
     setSaving(true);
     try {
-      const res = await fetch(`/api/videos/${videoId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: trimmed }),
+      const { error } = await actions.video.update({
+        id: videoId,
+        [field]: trimmed,
       });
-
-      if (res.ok) {
+      if (!error) {
         setValue(trimmed);
       } else {
         setValue(initialValue);

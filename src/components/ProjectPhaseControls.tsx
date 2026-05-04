@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { actions } from "astro:actions";
 import { FullscreenOverlay } from "./FullscreenOverlay";
 import { PhaseStepper, type PipelineStep } from "./PhaseStepper";
 import { normalizeVideoPhase, type VideoPhase } from "../types";
@@ -42,13 +43,8 @@ export function ProjectPhaseControls({
     setSavingPrimaryAction(true);
     setPhaseError("");
     try {
-      const res = await fetch(`/api/videos/${videoId}/phase`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase: action.phase }),
-      });
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to update phase");
+      const { error } = await actions.video.setPhase({ id: videoId, phase: action.phase });
+      if (error) throw new Error(error.message || "Failed to update phase");
       handlePhaseChange(action.phase);
       setConfirmPhaseOpen(false);
     } catch (err) {

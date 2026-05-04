@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { actions } from "astro:actions";
 import { PHASE_LABELS, type VideoPhase } from "../types";
 import { DatePicker } from "./DatePicker";
 import type { DashboardVideo } from "./dashboard-types";
@@ -77,13 +78,11 @@ export function CalendarView({ initialVideos, spaceId }: CalendarViewProps) {
     setVideos((current) => current.map((item) => (item.id === video.id ? { ...item, targetDate } : item)));
 
     try {
-      const res = await fetch(`/api/videos/${video.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetDate }),
+      const { error } = await actions.video.update({
+        id: video.id,
+        targetDate,
       });
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to update launch date");
+      if (error) throw new Error(error.message || "Failed to update launch date");
     } catch (err) {
       console.error(err);
       setVideos(previous);
