@@ -5,6 +5,7 @@ interface UserMenuProps {
   name: string;
   email: string;
   notificationCount?: number;
+  emailNotificationsEnabled?: boolean;
 }
 
 function getInitials(name: string): string {
@@ -17,10 +18,10 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) {
+export function UserMenu({ name, email, notificationCount = 0, emailNotificationsEnabled = false }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(notificationCount);
-  const [emailEnabled, setEmailEnabled] = useState<boolean | null>(null);
+  const [emailEnabled, setEmailEnabled] = useState(emailNotificationsEnabled);
   const [emailToggling, setEmailToggling] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const hasNotifications = count > 0;
@@ -38,14 +39,6 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
       window.removeEventListener("quickcut:notification-read", handler);
     };
   }, []);
-
-  // Fetch email preference when menu opens
-  useEffect(() => {
-    if (!open || emailEnabled !== null) return;
-    actions.getEmailPreference()
-      .then(({ data }) => setEmailEnabled(data?.emailNotificationsEnabled ?? false))
-      .catch(() => setEmailEnabled(false));
-  }, [open, emailEnabled]);
 
   const handleEmailToggle = async () => {
     if (emailToggling) return;
