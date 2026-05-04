@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from "react";
+import { actions } from "astro:actions";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
@@ -78,30 +79,22 @@ export function UploadForm({ folderId = null, spaces, selectedSpaceId, transcrip
     setError("");
 
     try {
-      // Step 1: Get upload URL from our API
-      const res = await fetch("/api/videos/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileSize: file.size,
-          spaceId,
-          title: title.trim() || undefined,
-          description: description.trim() || undefined,
-          folderId: spaceId === selectedSpaceId ? folderId : null,
-          generateTranscript: transcriptsEnabled ? generateTranscript : false,
-        }),
+      // Step 1: Initialize upload via Astro Action
+      const { data, error: actionError } = await actions.video.initUpload({
+        fileName: file.name,
+        fileSize: file.size,
+        spaceId,
+        title: title.trim() || undefined,
+        description: description.trim() || undefined,
+        folderId: spaceId === selectedSpaceId ? folderId : null,
+        generateTranscript: transcriptsEnabled ? generateTranscript : false,
       });
 
-      if (!res.ok) {
-        const data = await res.json() as { error?: string };
-        throw new Error(data.error || "Failed to create upload");
+      if (actionError || !data) {
+        throw new Error(actionError?.message || "Failed to create upload");
       }
 
-      const { videoId, uploadUrl } = await res.json() as {
-        videoId: string;
-        uploadUrl: string;
-      };
+      const { videoId, uploadUrl } = data;
 
       // Step 2: Upload directly to Cloudflare Stream via TUS
       const xhr = new XMLHttpRequest();
