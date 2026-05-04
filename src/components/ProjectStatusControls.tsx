@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { actions } from "astro:actions";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUSES, normalizeVideoPhase, type ProjectStatus } from "../types";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 import { ToastViewport, useToast } from "./Toast";
@@ -29,12 +30,8 @@ export function ProjectStatusControls({
 
     setSaving(true);
     try {
-      const res = await fetch(`/api/videos/${videoId}/phase`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase: nextStatus }),
-      });
-      if (!res.ok) throw new Error("Failed to update project status");
+      const { error } = await actions.video.setPhase({ id: videoId, phase: nextStatus });
+      if (error) throw new Error(error.message || "Failed to update project status");
       setStatus(nextStatus);
       onStatusChange?.(nextStatus);
       showToast("Status successfully updated");

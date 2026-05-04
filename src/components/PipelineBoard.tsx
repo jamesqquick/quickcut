@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { actions } from "astro:actions";
 import { PHASE_LABELS, VIDEO_PHASES, type VideoPhase } from "../types";
 import type { DashboardVideo } from "./dashboard-types";
 import { Dropdown, type DropdownOption } from "./Dropdown";
@@ -53,13 +54,8 @@ export function PipelineBoard({ initialVideos, spaceId }: PipelineBoardProps) {
     setVideos((current) => current.map((item) => (item.id === video.id ? { ...item, phase } : item)));
 
     try {
-      const res = await fetch(`/api/videos/${video.id}/phase`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase }),
-      });
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to move project");
+      const { error } = await actions.video.setPhase({ id: video.id, phase });
+      if (error) throw new Error(error.message || "Failed to move project");
     } catch (err) {
       console.error(err);
       setVideos(previous);

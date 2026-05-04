@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { actions } from "astro:actions";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { VersionSwitcher } from "./VersionSwitcher";
 
@@ -84,18 +85,12 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
   const confirmDeleteVideo = async () => {
     setDeleting(true);
     try {
-      const res = await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
-      if (res.ok) {
-        const data = (await res.json().catch(() => null)) as
-          | { redirectVideoId?: string | null }
-          | null;
+      const { data, error } = await actions.video.delete({ id: videoId });
+      if (!error) {
         window.location.href = data?.redirectVideoId ? `/videos/${data.redirectVideoId}?space=${spaceId}` : `/dashboard?space=${spaceId}`;
         return;
       }
-      const data = (await res.json().catch(() => null)) as
-        | { error?: string }
-        | null;
-      alert(data?.error || "Failed to delete video");
+      alert(error.message || "Failed to delete video");
     } catch {
       alert("Failed to delete video");
     }

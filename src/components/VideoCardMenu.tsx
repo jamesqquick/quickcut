@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { actions } from "astro:actions";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { MoveToFolderDialog } from "./MoveToFolderDialog";
 
@@ -43,16 +44,13 @@ export function VideoCardMenu({ videoId, folderId = null, spaceId = null }: Vide
   const confirmDelete = async () => {
     setDeleting(true);
     try {
-      const res = await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
-      if (res.ok) {
+      const { error } = await actions.video.delete({ id: videoId });
+      if (!error) {
         // Refresh dashboard to remove the card.
         window.location.reload();
         return;
       }
-      const data = (await res.json().catch(() => null)) as
-        | { error?: string }
-        | null;
-      alert(data?.error || "Failed to delete video");
+      alert(error.message || "Failed to delete video");
     } catch {
       alert("Failed to delete video");
     }

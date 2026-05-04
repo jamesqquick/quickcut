@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { actions } from "astro:actions";
 import { DatePicker } from "./DatePicker";
 import { ToastViewport, useToast } from "./Toast";
 
@@ -60,13 +61,11 @@ export function TargetDateEditor({ videoId, initialTargetDate, canEdit, variant 
     setError("");
 
     try {
-      const res = await fetch(`/api/videos/${videoId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetDate: nextDate || null }),
+      const { error } = await actions.video.update({
+        id: videoId,
+        targetDate: nextDate || null,
       });
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to update target date");
+      if (error) throw new Error(error.message || "Failed to update target date");
       showToast(nextDate ? "Launch date saved" : "Launch date cleared");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update target date";

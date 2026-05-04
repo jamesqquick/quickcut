@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from "react";
+import { actions } from "astro:actions";
 import { Modal } from "./Modal";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 
@@ -93,17 +94,20 @@ export function MoveToFolderDialog({
     setError("");
 
     const folderId = selectedFolderId === "root" ? null : selectedFolderId;
-    const endpoint = entityType === "video" ? `/api/videos/${entityId}` : `/api/folders/${entityId}`;
-    const body = entityType === "video" ? { folderId } : { parentId: folderId };
 
     try {
-      const res = await fetch(endpoint, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json().catch(() => null) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to move item");
+      if (entityType === "video") {
+        const { error } = await actions.video.move({ id: entityId, folderId });
+        if (error) throw new Error(error.message || "Failed to move item");
+      } else {
+        const res = await fetch(`/api/folders/${entityId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ parentId: folderId }),
+        });
+        const data = await res.json().catch(() => null) as { error?: string } | null;
+        if (!res.ok) throw new Error(data?.error || "Failed to move item");
+      }
       window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to move item");
