@@ -23,10 +23,12 @@ import {
   inviteCreateSchema,
   folderCreateSchema,
   folderUpdateSchema,
+  uploadSchema,
 } from "../lib/validation";
 import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
 import { getApprovalStatus } from "../lib/approvals";
-import { deleteVideo as deleteStreamVideo } from "../lib/stream";
+import { createDirectUpload, deleteVideo as deleteStreamVideo } from "../lib/stream";
+import { isTranscriptGenerationEnabled } from "../lib/flags";
 import { logProjectActivity } from "../lib/activity";
 import {
   broadcastPhaseChange,
@@ -43,6 +45,8 @@ import { buildInviteAuthPath, buildInviteEmail } from "../lib/email";
 
 // Re-export ActionError for convenience
 export { ActionError } from "astro:actions";
+
+const UPLOAD_ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
 
 /**
  * Helper to require authentication in an action handler.
@@ -471,6 +475,95 @@ export const server = {
           .limit(1);
 
         return { video: updated[0] };
+      },
+    }),
+
+    initUpload: defineAction({
+      input: uploadSchema,
+      handler: async (input, context) => {
+        const user = requireUser(context);
+        const { fileName, fileSize, title, description, folderId, generateTranscript, spaceId } = input;
+
+        const ext = fileName.split(".").pop()?.toLowerCase();
+        if (!ext || !UPLOAD_ALLOWED_EXTENSIONS.includes(ext)) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "Unsupported file type. Please upload MP4, MOV, WebM, AVI, or MKV.",
+          });
+        }
+
+        const db = createDb(env.DB);
+
+        const defaultSpace = spaceId ? null : await getDefaultSpaceForUser(db, user.id);
+        const targetSpaceId = spaceId ?? defaultSpace?.id;
+        if (!targetSpaceId) {
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "No space found for user",
+          });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, targetSpaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        if (folderId) {
+          const folder = await db
+            .select({ id: folders.id })
+            .from(folders)
+            .where(and(eq(folders.id, folderId), eq(folders.spaceId, targetSpaceId)))
+            .limit(1);
+
+          if (folder.length === 0) {
+            throw new ActionError({ code: "NOT_FOUND", message: "Folder not found" });
+          }
+        }
+
+        let uploadUrl: string;
+        let streamVideoId: string;
+        try {
+          const direct = await createDirectUpload(
+            env.STREAM_ACCOUNT_ID,
+            env.STREAM_API_TOKEN,
+            fileName,
+            fileSize,
+          );
+          uploadUrl = direct.uploadUrl;
+          streamVideoId = direct.streamVideoId;
+        } catch (error) {
+          console.error("Upload error:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Upload service is temporarily unavailable. Please try again.",
+          });
+        }
+
+        const videoId = crypto.randomUUID();
+        const videoTitle = title?.trim() || fileName.replace(/\.[^.]+$/, "");
+        const transcriptRequested = generateTranscript
+          ? await isTranscriptGenerationEnabled(env, user)
+          : false;
+
+        await db.insert(videos).values({
+          id: videoId,
+          spaceId: targetSpaceId,
+          uploadedBy: user.id,
+          folderId: folderId || null,
+          title: videoTitle,
+          description: description?.trim() || null,
+          status: "processing",
+          versionGroupId: videoId,
+          versionNumber: 1,
+          isCurrentVersion: true,
+          streamVideoId,
+          fileName,
+          fileSize,
+          phase: "reviewing_video",
+          transcriptRequested,
+        });
+
+        return { videoId, uploadUrl };
       },
     }),
   },
