@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { actions } from "astro:actions";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Modal } from "./Modal";
 import { MoveToFolderDialog } from "./MoveToFolderDialog";
@@ -68,13 +69,11 @@ export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId 
     setError("");
 
     try {
-      const res = await fetch(`/api/folders/${folderId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() }),
+      const { error: actionError } = await actions.folder.update({
+        id: folderId,
+        name: name.trim(),
       });
-      const data = await res.json().catch(() => null) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to rename folder");
+      if (actionError) throw new Error(actionError.message || "Failed to rename folder");
       window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to rename folder");
@@ -85,9 +84,8 @@ export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId 
   const handleDelete = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/folders/${folderId}`, { method: "DELETE" });
-      const data = await res.json().catch(() => null) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to delete folder");
+      const { error: actionError } = await actions.folder.delete({ id: folderId });
+      if (actionError) throw new Error(actionError.message || "Failed to delete folder");
       window.location.href = parentId ? `/dashboard?space=${spaceId}&folderId=${parentId}` : `/dashboard?space=${spaceId}`;
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete folder");

@@ -1,7 +1,7 @@
 import { defineAction, ActionError } from "astro:actions";
 import { z } from "astro/zod";
 import { env } from "cloudflare:workers";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { createDb } from "../db";
 import {
@@ -21,8 +21,10 @@ import {
   commentSchema,
   spaceUpdateSchema,
   inviteCreateSchema,
+  folderCreateSchema,
+  folderUpdateSchema,
 } from "../lib/validation";
-import { verifySpaceAccess } from "../lib/spaces";
+import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
 import { getApprovalStatus } from "../lib/approvals";
 import { deleteVideo as deleteStreamVideo } from "../lib/stream";
 import { logProjectActivity } from "../lib/activity";
@@ -1128,6 +1130,275 @@ export const server = {
           .update(spaceInvites)
           .set({ status: "revoked" })
           .where(eq(spaceInvites.id, inviteId));
+
+        return { success: true };
+      },
+    }),
+  },
+
+  folder: {
+    create: defineAction({
+      input: folderCreateSchema,
+      handler: async (input, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const parentId = input.parentId ?? null;
+        const defaultSpace = input.spaceId
+          ? null
+          : await getDefaultSpaceForUser(db, user.id);
+        const targetSpaceId = input.spaceId ?? defaultSpace?.id;
+
+        if (!targetSpaceId) {
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "No space found for user",
+          });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, targetSpaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        if (parentId) {
+          const parent = await db
+            .select({ id: folders.id })
+            .from(folders)
+            .where(and(eq(folders.id, parentId), eq(folders.spaceId, targetSpaceId)))
+            .limit(1);
+
+          if (parent.length === 0) {
+            throw new ActionError({
+              code: "NOT_FOUND",
+              message: "Parent folder not found",
+            });
+          }
+        }
+
+        const id = crypto.randomUUID();
+        await db.insert(folders).values({
+          id,
+          spaceId: targetSpaceId,
+          name: input.name,
+          parentId,
+        });
+
+        const created = await db
+          .select()
+          .from(folders)
+          .where(eq(folders.id, id))
+          .limit(1);
+
+        return { folder: created[0] };
+      },
+    }),
+
+    update: defineAction({
+      input: folderUpdateSchema.extend({
+        id: z.string().min(1),
+      }),
+      handler: async (input, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const current = await db
+          .select()
+          .from(folders)
+          .where(eq(folders.id, input.id))
+          .limit(1);
+
+        if (current.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Folder not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, current[0].spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const updates: { name?: string; parentId?: string | null; updatedAt: string } = {
+          updatedAt: new Date().toISOString(),
+        };
+
+        if (input.name !== undefined) updates.name = input.name;
+        if (input.parentId !== undefined) {
+          const parentId = input.parentId ?? null;
+          if (parentId === input.id) {
+            throw new ActionError({
+              code: "BAD_REQUEST",
+              message: "A folder cannot contain itself",
+            });
+          }
+
+          if (parentId) {
+            const allFolders = await db
+              .select({ id: folders.id, parentId: folders.parentId })
+              .from(folders)
+              .where(eq(folders.spaceId, current[0].spaceId));
+            const folderById = new Map(
+              allFolders.map((folder) => [folder.id, folder]),
+            );
+            let cursor = folderById.get(parentId);
+
+            while (cursor) {
+              if (cursor.id === input.id) {
+                throw new ActionError({
+                  code: "BAD_REQUEST",
+                  message: "Cannot move a folder into its own child",
+                });
+              }
+              cursor = cursor.parentId ? folderById.get(cursor.parentId) : undefined;
+            }
+
+            if (!folderById.has(parentId)) {
+              throw new ActionError({
+                code: "NOT_FOUND",
+                message: "Parent folder not found",
+              });
+            }
+          }
+
+          updates.parentId = parentId;
+        }
+
+        await db.update(folders).set(updates).where(eq(folders.id, input.id));
+        const updated = await db
+          .select()
+          .from(folders)
+          .where(eq(folders.id, input.id))
+          .limit(1);
+
+        return { folder: updated[0] };
+      },
+    }),
+
+    move: defineAction({
+      input: z.object({
+        id: z.string().min(1),
+        parentId: z.string().uuid().nullable(),
+      }),
+      handler: async ({ id, parentId }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const current = await db
+          .select()
+          .from(folders)
+          .where(eq(folders.id, id))
+          .limit(1);
+
+        if (current.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Folder not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, current[0].spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const nextParentId = parentId ?? null;
+        if (nextParentId === id) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "A folder cannot contain itself",
+          });
+        }
+
+        if (nextParentId) {
+          const allFolders = await db
+            .select({ id: folders.id, parentId: folders.parentId })
+            .from(folders)
+            .where(eq(folders.spaceId, current[0].spaceId));
+          const folderById = new Map(
+            allFolders.map((folder) => [folder.id, folder]),
+          );
+          let cursor = folderById.get(nextParentId);
+
+          while (cursor) {
+            if (cursor.id === id) {
+              throw new ActionError({
+                code: "BAD_REQUEST",
+                message: "Cannot move a folder into its own child",
+              });
+            }
+            cursor = cursor.parentId ? folderById.get(cursor.parentId) : undefined;
+          }
+
+          if (!folderById.has(nextParentId)) {
+            throw new ActionError({
+              code: "NOT_FOUND",
+              message: "Parent folder not found",
+            });
+          }
+        }
+
+        await db
+          .update(folders)
+          .set({ parentId: nextParentId, updatedAt: new Date().toISOString() })
+          .where(eq(folders.id, id));
+
+        const updated = await db
+          .select()
+          .from(folders)
+          .where(eq(folders.id, id))
+          .limit(1);
+
+        return { folder: updated[0] };
+      },
+    }),
+
+    delete: defineAction({
+      input: z.object({
+        id: z.string().min(1),
+      }),
+      handler: async ({ id }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const current = await db
+          .select({ id: folders.id, spaceId: folders.spaceId })
+          .from(folders)
+          .where(eq(folders.id, id))
+          .limit(1);
+
+        if (current.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Folder not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, current[0].spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const allFolders = await db
+          .select({ id: folders.id, parentId: folders.parentId })
+          .from(folders)
+          .where(eq(folders.spaceId, current[0].spaceId));
+        const idsToDelete = new Set([id]);
+        let changed = true;
+
+        while (changed) {
+          changed = false;
+          for (const folder of allFolders) {
+            if (
+              folder.parentId &&
+              idsToDelete.has(folder.parentId) &&
+              !idsToDelete.has(folder.id)
+            ) {
+              idsToDelete.add(folder.id);
+              changed = true;
+            }
+          }
+        }
+
+        const ids = Array.from(idsToDelete);
+        const now = new Date().toISOString();
+        await db
+          .update(videos)
+          .set({ folderId: null, updatedAt: now })
+          .where(inArray(videos.folderId, ids));
+        await db.delete(folders).where(inArray(folders.id, ids));
 
         return { success: true };
       },

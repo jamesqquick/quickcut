@@ -100,13 +100,8 @@ export function MoveToFolderDialog({
         const { error } = await actions.video.move({ id: entityId, folderId });
         if (error) throw new Error(error.message || "Failed to move item");
       } else {
-        const res = await fetch(`/api/folders/${entityId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ parentId: folderId }),
-        });
-        const data = await res.json().catch(() => null) as { error?: string } | null;
-        if (!res.ok) throw new Error(data?.error || "Failed to move item");
+        const { error } = await actions.folder.move({ id: entityId, parentId: folderId });
+        if (error) throw new Error(error.message || "Failed to move item");
       }
       window.location.reload();
     } catch (err) {

@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { actions } from "astro:actions";
 import { Modal } from "./Modal";
 
 interface CreateFolderDialogProps {
@@ -21,13 +22,12 @@ export function CreateFolderDialog({ parentId = null, spaceId }: CreateFolderDia
     setError("");
 
     try {
-      const res = await fetch("/api/folders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), parentId, spaceId }),
+      const { error: actionError } = await actions.folder.create({
+        name: name.trim(),
+        parentId,
+        spaceId,
       });
-      const data = await res.json().catch(() => null) as { error?: string } | null;
-      if (!res.ok) throw new Error(data?.error || "Failed to create folder");
+      if (actionError) throw new Error(actionError.message || "Failed to create folder");
       window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create folder");
