@@ -2,12 +2,10 @@ import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "../db";
 import { comments, notifications, spaceMembers, spaces, users, videos } from "../db/schema";
 import { buildCommentNotificationEmail } from "./email";
+import { getNotificationCopy, type NotificationType } from "./notification-copy";
 
-export type NotificationType =
-  | "comment.created"
-  | "comment.reply"
-  | "script_comment.created"
-  | "script_comment.reply";
+export type { NotificationType, NotificationCopy } from "./notification-copy";
+export { getNotificationCopy } from "./notification-copy";
 
 export interface CommentNotificationInput {
   commentId: string;
@@ -53,12 +51,6 @@ function getNotificationType(input: CommentNotificationInput): NotificationType 
   return input.parentCommentId ? "comment.reply" : "comment.created";
 }
 
-function getTitle(type: NotificationType, actorName: string, videoTitle: string): string {
-  if (type === "script_comment.created") return `${actorName} left script feedback on "${videoTitle}"`;
-  if (type === "script_comment.reply") return `${actorName} replied to your script comment on "${videoTitle}"`;
-  if (type === "comment.reply") return `${actorName} replied to your comment on "${videoTitle}"`;
-  return `${actorName} commented on "${videoTitle}"`;
-}
 
 async function filterRecipientsWithSpaceAccess(
   db: Database,
@@ -127,7 +119,7 @@ export async function createCommentNotifications(
 
   const type = getNotificationType(input);
   const href = `/videos/${video.id}?tab=${input.phase === "script" ? "script" : "video"}&comment=${input.commentId}`;
-  const title = getTitle(type, input.actorDisplayName, video.title);
+  const copy = getNotificationCopy(type, input.actorDisplayName, video.title);
   const body = snippet(input.text);
 
   await db.insert(notifications).values(
@@ -141,7 +133,7 @@ export async function createCommentNotifications(
       commentId: input.commentId,
       parentCommentId: input.parentCommentId,
       spaceId: video.spaceId,
-      title,
+      title: copy.title,
       body,
       href,
     })),

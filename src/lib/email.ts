@@ -1,4 +1,4 @@
-import type { NotificationType } from "./notifications";
+import { getNotificationCopy, type NotificationType } from "./notification-copy";
 
 interface InviteEmailParams {
   inviteUrl: string;
@@ -70,35 +70,6 @@ export function buildInviteEmail({ inviteUrl, inviterName, spaceName }: InviteEm
   return { subject, text, html };
 }
 
-function getCommentEmailSubject(type: NotificationType, actorName: string, videoTitle: string): string {
-  const safeActor = sanitizeSubjectPart(actorName);
-  const safeTitle = sanitizeSubjectPart(videoTitle);
-
-  switch (type) {
-    case "comment.reply":
-      return `${safeActor} replied to your comment on "${safeTitle}"`;
-    case "script_comment.reply":
-      return `${safeActor} replied to your script comment on "${safeTitle}"`;
-    case "script_comment.created":
-      return `${safeActor} left script feedback on "${safeTitle}"`;
-    case "comment.created":
-      return `${safeActor} commented on "${safeTitle}"`;
-  }
-}
-
-function getCommentEmailHeading(type: NotificationType): string {
-  switch (type) {
-    case "comment.reply":
-      return "New reply on your comment";
-    case "script_comment.reply":
-      return "New reply on your script comment";
-    case "script_comment.created":
-      return "New script feedback";
-    case "comment.created":
-      return "New comment on your video";
-  }
-}
-
 export function buildCommentNotificationEmail({
   type,
   actorDisplayName,
@@ -107,13 +78,14 @@ export function buildCommentNotificationEmail({
   href,
   baseUrl,
 }: CommentNotificationEmailParams) {
+  const copy = getNotificationCopy(type, actorDisplayName, videoTitle);
   const safeActor = escapeHtml(actorDisplayName);
   const safeTitle = escapeHtml(videoTitle);
   const safeSnippet = escapeHtml(commentSnippet);
   const fullUrl = `${baseUrl}${href}`;
   const safeFullUrl = escapeHtml(fullUrl);
-  const subject = getCommentEmailSubject(type, actorDisplayName, videoTitle);
-  const heading = getCommentEmailHeading(type);
+  const subject = sanitizeSubjectPart(copy.title);
+  const heading = copy.heading;
 
   const text = [
     `${actorDisplayName} left a comment on "${videoTitle}":`,

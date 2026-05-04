@@ -159,7 +159,9 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
             )}
           </a>
           <button
-            role="menuitem"
+            role="switch"
+            aria-checked={!!emailEnabled}
+            aria-label="Email notifications"
             onClick={handleEmailToggle}
             disabled={emailToggling}
             className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-tertiary disabled:opacity-50"
