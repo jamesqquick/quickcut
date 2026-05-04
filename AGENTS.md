@@ -1,8 +1,5 @@
 # QuickCut Agent Instructions
 
-These instructions apply to any AI coding agent working in this repo
-(OpenCode, Claude Code, etc.). Read them before doing anything else.
-
 ## Worktree workflow
 
 This project uses `.worktrees/<branch>/` for feature work. The full setup is:
