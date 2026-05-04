@@ -147,3 +147,54 @@ export const inviteCreateSchema = z.object({
 export const approveVideoSchema = z.object({
   comment: z.string().max(500).optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Auth (OTP)
+// ---------------------------------------------------------------------------
+
+export const otpModeSchema = z.enum(["login", "register"]);
+
+export const otpSendSchema = z.object({
+  email: z
+    .string()
+    .min(1, "Enter your email address.")
+    .email("Enter a valid email address.")
+    .transform((v) => v.trim().toLowerCase()),
+  mode: otpModeSchema,
+  // Required when mode is "register"; we validate this in the handler so the
+  // shared schema can be reused for both login and register forms.
+  name: z
+    .string()
+    .max(120)
+    .optional()
+    .transform((v) => v?.trim() || undefined),
+  returnUrl: z
+    .string()
+    .max(2048)
+    .optional()
+    .transform((v) => v?.trim() || undefined),
+});
+
+export const otpVerifySchema = z.object({
+  email: z
+    .string()
+    .min(1, "Enter your email address.")
+    .email("Enter a valid email address.")
+    .transform((v) => v.trim().toLowerCase()),
+  mode: otpModeSchema,
+  otp: z
+    .string()
+    .min(1, "Enter the code from your email.")
+    .max(20)
+    .transform((v) => v.trim()),
+  name: z
+    .string()
+    .max(120)
+    .optional()
+    .transform((v) => v?.trim() || undefined),
+  returnUrl: z
+    .string()
+    .max(2048)
+    .optional()
+    .transform((v) => v?.trim() || undefined),
+});

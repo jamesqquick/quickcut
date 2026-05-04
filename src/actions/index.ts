@@ -23,6 +23,8 @@ import {
   inviteCreateSchema,
   folderCreateSchema,
   folderUpdateSchema,
+  otpSendSchema,
+  otpVerifySchema,
 } from "../lib/validation";
 import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
 import { getApprovalStatus } from "../lib/approvals";
@@ -40,6 +42,9 @@ import {
 } from "../lib/comments";
 import { createCommentNotifications } from "../lib/notifications";
 import { buildInviteAuthPath, buildInviteEmail } from "../lib/email";
+import { createAuth } from "../lib/auth";
+import { getSafeReturnUrl } from "../lib/urls";
+import type { AstroCookies } from "astro";
 
 // Re-export ActionError for convenience
 export { ActionError } from "astro:actions";
@@ -1404,4 +1409,241 @@ export const server = {
       },
     }),
   },
+
+  auth: {
+    sendOtp: defineAction({
+      accept: "form",
+      input: otpSendSchema,
+      handler: async (input) => {
+        const { email, mode, name, returnUrl } = input;
+
+        if (mode === "register" && !name) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "Enter your name.",
+          });
+        }
+
+        const db = createDb(env.DB);
+        const existing = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, email))
+          .limit(1);
+
+        if (mode === "login" && existing.length === 0) {
+          throw new ActionError({
+            code: "NOT_FOUND",
+            message: "No account exists for that email. Sign up first.",
+          });
+        }
+
+        if (mode === "register" && existing.length > 0) {
+          throw new ActionError({
+            code: "CONFLICT",
+            message: "An account already exists for that email. Sign in instead.",
+          });
+        }
+
+        const auth = createAuth(env.DB, {
+          BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+          BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+          EMAIL: env.EMAIL,
+          OTP_EMAIL_FROM: env.OTP_EMAIL_FROM,
+        });
+
+        try {
+          await auth.api.sendVerificationOTP({
+            body: { email, type: "sign-in" },
+          });
+        } catch (err) {
+          console.error("Failed to send OTP:", err);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Could not send the sign-in code. Please try again.",
+          });
+        }
+
+        return {
+          email,
+          mode,
+          name: name ?? null,
+          returnUrl: returnUrl ?? null,
+        };
+      },
+    }),
+
+    verifyOtp: defineAction({
+      accept: "form",
+      input: otpVerifySchema,
+      handler: async (input, context) => {
+        const { email, mode, otp, name, returnUrl } = input;
+
+        if (mode === "register" && !name) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "Enter your name.",
+          });
+        }
+
+        const db = createDb(env.DB);
+        const existing = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, email))
+          .limit(1);
+
+        if (mode === "login" && existing.length === 0) {
+          throw new ActionError({
+            code: "NOT_FOUND",
+            message: "No account exists for that email. Sign up first.",
+          });
+        }
+
+        if (mode === "register" && existing.length > 0) {
+          throw new ActionError({
+            code: "CONFLICT",
+            message: "An account already exists for that email. Sign in instead.",
+          });
+        }
+
+        const auth = createAuth(env.DB, {
+          BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+          BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+          EMAIL: env.EMAIL,
+          OTP_EMAIL_FROM: env.OTP_EMAIL_FROM,
+        });
+
+        // Use asResponse so we can extract Set-Cookie headers from better-auth
+        // and forward them via Astro's cookie API.
+        let response: Response;
+        try {
+          response = await auth.api.signInEmailOTP({
+            body: {
+              email,
+              otp,
+              ...(mode === "register" ? { name: name as string } : {}),
+            },
+            headers: context.request.headers,
+            asResponse: true,
+          });
+        } catch (err) {
+          console.error("Failed to verify OTP:", err);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Could not verify the code. Please try again.",
+          });
+        }
+
+        if (!response.ok) {
+          // Better Auth surfaces a JSON error body on failed verification.
+          let message = "Invalid or expired code.";
+          try {
+            const body = (await response.json()) as { message?: unknown };
+            if (typeof body?.message === "string" && body.message.trim()) {
+              message = body.message;
+            }
+          } catch {
+            // Ignore parse errors and fall back to default message.
+          }
+          throw new ActionError({
+            code: "UNAUTHORIZED",
+            message,
+          });
+        }
+
+        // Forward better-auth Set-Cookie headers through Astro's cookie API
+        // so the session cookie persists on the redirected response.
+        forwardSetCookies(response.headers, context.cookies);
+
+        const redirectTo = getSafeReturnUrl(returnUrl ?? null) ?? "/dashboard";
+        return { redirectTo };
+      },
+    }),
+  },
 };
+
+/**
+ * Parse Set-Cookie headers from a better-auth Response and forward them via
+ * Astro's cookie API so they are emitted on the eventual page response.
+ */
+function forwardSetCookies(headers: Headers, cookies: AstroCookies): void {
+  // `getSetCookie` is the canonical way to read multi-valued Set-Cookie
+  // headers. It is supported on Cloudflare Workers and modern Node.
+  const setCookieHeaders =
+    typeof headers.getSetCookie === "function"
+      ? headers.getSetCookie()
+      : (() => {
+          const all = headers.get("set-cookie");
+          return all ? [all] : [];
+        })();
+
+  for (const raw of setCookieHeaders) {
+    const parsed = parseSetCookie(raw);
+    if (!parsed) continue;
+    const { name, value, options } = parsed;
+    cookies.set(name, value, options);
+  }
+}
+
+interface ParsedSetCookie {
+  name: string;
+  value: string;
+  options: {
+    domain?: string;
+    expires?: Date;
+    httpOnly?: boolean;
+    maxAge?: number;
+    path?: string;
+    sameSite?: boolean | "lax" | "none" | "strict";
+    secure?: boolean;
+  };
+}
+
+function parseSetCookie(raw: string): ParsedSetCookie | null {
+  const parts = raw.split(";").map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+
+  const [pair, ...attrs] = parts;
+  const eq = pair.indexOf("=");
+  if (eq === -1) return null;
+
+  const name = pair.slice(0, eq).trim();
+  const value = decodeURIComponent(pair.slice(eq + 1).trim());
+
+  const options: ParsedSetCookie["options"] = {};
+  for (const attr of attrs) {
+    const [k, ...rest] = attr.split("=");
+    const key = k.toLowerCase();
+    const v = rest.join("=").trim();
+    switch (key) {
+      case "domain":
+        options.domain = v;
+        break;
+      case "expires":
+        options.expires = new Date(v);
+        break;
+      case "httponly":
+        options.httpOnly = true;
+        break;
+      case "max-age":
+        options.maxAge = Number(v);
+        break;
+      case "path":
+        options.path = v;
+        break;
+      case "samesite": {
+        const lower = v.toLowerCase();
+        if (lower === "lax" || lower === "strict" || lower === "none") {
+          options.sameSite = lower;
+        }
+        break;
+      }
+      case "secure":
+        options.secure = true;
+        break;
+    }
+  }
+
+  return { name, value, options };
+}

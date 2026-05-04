@@ -1,0 +1,239 @@
+---
+import { actions, isInputError } from "astro:actions";
+import { AuthFormEnhancements } from "./AuthFormEnhancements";
+
+type OtpMode = "login" | "register";
+
+interface Props {
+  mode: OtpMode;
+  email?: string;
+  name?: string;
+  returnUrl?: string;
+  step?: "email" | "code";
+  errorMessage?: string | null;
+}
+
+const {
+  mode,
+  email: initialEmail = "",
+  name: initialName = "",
+  returnUrl: initialReturnUrl = "",
+  step: initialStep,
+  errorMessage: pageError = null,
+} = Astro.props;
+
+const sendResult = Astro.getActionResult(actions.auth.sendOtp);
+
+// On a send-step error the action result has no `data` to restore form values
+// from. Read the raw form data so we can repopulate the email/name inputs and
+// avoid forcing the user to retype them after a validation error.
+let sendErrorFormFields: Record<string, string> = {};
+if (sendResult?.error) {
+  try {
+    const formData = await Astro.request.formData();
+    for (const [key, value] of formData.entries()) {
+      if (typeof value === "string") sendErrorFormFields[key] = value;
+    }
+  } catch {
+    // Body unavailable; fall back to defaults.
+  }
+}
+
+const sendInputErrors = isInputError(sendResult?.error)
+  ? sendResult.error.fields
+  : {};
+
+// Determine the current step. Priority:
+//   1. Explicit `step` prop from the page (set on a verify error redirect).
+//   2. A successful sendOtp action result (we just sent the code).
+//   3. Otherwise, render the email step.
+const onCodeStep =
+  initialStep === "code" || (sendResult !== undefined && !sendResult.error);
+
+// Source of truth for form values. After a successful sendOtp, prefer the
+// data from the action result (canonical, normalized email). On a send error
+// fall back to the raw form data we just submitted so the user does not have
+// to retype. Otherwise fall back to props (populated from query strings).
+const submittedEmail =
+  sendResult?.data?.email ?? sendErrorFormFields.email ?? initialEmail;
+const submittedName =
+  sendResult?.data?.name ?? sendErrorFormFields.name ?? initialName;
+const submittedReturnUrl =
+  sendResult?.data?.returnUrl ??
+  sendErrorFormFields.returnUrl ??
+  initialReturnUrl;
+
+const sendErrorMessage =
+  sendResult?.error && !isInputError(sendResult.error)
+    ? sendResult.error.message
+    : null;
+
+const submitLabel = mode === "register" ? "Create account" : "Sign in";
+const sendLabel =
+  mode === "register" ? "Send signup code" : "Send sign-in code";
+
+function buildAlternateHref(): string {
+  const params = new URLSearchParams();
+  if (submittedEmail) params.set("email", submittedEmail);
+  if (submittedReturnUrl) params.set("returnUrl", submittedReturnUrl);
+  const path = mode === "register" ? "/login" : "/register";
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
+}
+const alternateHref = buildAlternateHref();
+const restartHref = mode === "register" ? "/register" : "/login";
+---
+
+{onCodeStep ? (
+  <form
+    method="POST"
+    action={actions.auth.verifyOtp}
+    data-auth-form
+    class="space-y-4"
+    novalidate
+  >
+    <input type="hidden" name="email" value={submittedEmail} />
+    <input type="hidden" name="mode" value={mode} />
+    {submittedName && (
+      <input type="hidden" name="name" value={submittedName} />
+    )}
+    {submittedReturnUrl && (
+      <input type="hidden" name="returnUrl" value={submittedReturnUrl} />
+    )}
+
+    <div class="rounded-lg border border-border-default bg-bg-tertiary px-4 py-3 text-sm text-text-secondary">
+      We sent a {mode === "register" ? "signup" : "sign-in"} code to
+      <span class="font-medium text-text-primary">{submittedEmail}</span>.
+    </div>
+
+    {pageError && (
+      <div class="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
+        {pageError}
+      </div>
+    )}
+
+    <div>
+      <label for="otp" class="mb-1 block text-sm font-medium text-text-secondary">
+        {mode === "register" ? "Signup" : "Sign-in"} code
+      </label>
+      <input
+        id="otp"
+        name="otp"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        class="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
+        placeholder="123456"
+        required
+      />
+    </div>
+
+    <button
+      type="submit"
+      class="w-full rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)] disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {submitLabel}
+    </button>
+
+    <a
+      href={restartHref}
+      class="block w-full text-center text-sm text-text-tertiary transition-colors hover:text-text-primary"
+    >
+      Use a different email
+    </a>
+
+    <AuthFormEnhancements
+      pendingLabel={mode === "register" ? "Creating account..." : "Signing in..."}
+      client:idle
+    />
+  </form>
+) : (
+  <form
+    method="POST"
+    action={actions.auth.sendOtp}
+    data-auth-form
+    class="space-y-4"
+    novalidate
+  >
+    <input type="hidden" name="mode" value={mode} />
+    {submittedReturnUrl && (
+      <input type="hidden" name="returnUrl" value={submittedReturnUrl} />
+    )}
+
+    {sendErrorMessage && (
+      <div class="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
+        {sendErrorMessage}
+      </div>
+    )}
+
+    {pageError && !sendErrorMessage && (
+      <div class="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
+        {pageError}
+      </div>
+    )}
+
+    {mode === "register" && (
+      <div>
+        <label for="name" class="mb-1 block text-sm font-medium text-text-secondary">
+          Name
+        </label>
+        <input
+          id="name"
+          name="name"
+          type="text"
+          autocomplete="name"
+          value={submittedName}
+          class="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
+          placeholder="Jane Doe"
+          required
+          aria-describedby={sendInputErrors.name ? "name-error" : undefined}
+        />
+        {sendInputErrors.name && (
+          <p id="name-error" class="mt-1 text-sm text-accent-danger">
+            {sendInputErrors.name.join(", ")}
+          </p>
+        )}
+      </div>
+    )}
+
+    <div>
+      <label for="email" class="mb-1 block text-sm font-medium text-text-secondary">
+        Email
+      </label>
+      <input
+        id="email"
+        name="email"
+        type="email"
+        autocomplete="email"
+        value={submittedEmail}
+        class="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
+        placeholder="you@example.com"
+        required
+        aria-describedby={sendInputErrors.email ? "email-error" : undefined}
+      />
+      {sendInputErrors.email && (
+        <p id="email-error" class="mt-1 text-sm text-accent-danger">
+          {sendInputErrors.email.join(", ")}
+        </p>
+      )}
+    </div>
+
+    <button
+      type="submit"
+      class="w-full rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)] disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {sendLabel}
+    </button>
+
+    <p class="text-center text-sm text-text-tertiary">
+      {mode === "register" ? "Already have an account?" : "Need an account?"}{" "}
+      <a class="text-accent-primary transition-colors hover:text-accent-hover" href={alternateHref}>
+        {mode === "register" ? "Sign in" : "Sign up"}
+      </a>
+    </p>
+
+    <AuthFormEnhancements
+      pendingLabel="Sending code..."
+      client:idle
+    />
+  </form>
+)}

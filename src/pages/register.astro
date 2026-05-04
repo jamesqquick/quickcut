@@ -1,16 +1,55 @@
 ---
+import { actions } from "astro:actions";
 import Layout from "../layouts/Layout.astro";
-import { LoginOtpForm } from "../components/LoginOtpForm";
+import AuthOtpForm from "../components/AuthOtpForm.astro";
+import { getSafeReturnUrl } from "../lib/urls";
 
 const user = Astro.locals.user;
 if (user) {
   return Astro.redirect("/dashboard");
 }
 
-const error = Astro.url.searchParams.get("error");
+// Handle the verifyOtp action result. On success the action has already set
+// the better-auth session cookies via Astro.cookies; we just redirect. On
+// failure we redirect back to the code step preserving form state in the URL
+// so the page works the same with or without JavaScript.
+const verifyResult = Astro.getActionResult(actions.auth.verifyOtp);
+if (verifyResult && !verifyResult.error) {
+  return Astro.redirect(verifyResult.data.redirectTo);
+}
+if (verifyResult?.error) {
+  const params = new URLSearchParams();
+  params.set("step", "code");
+  try {
+    const formData = await Astro.request.formData();
+    const submittedEmail = formData.get("email");
+    if (typeof submittedEmail === "string" && submittedEmail) {
+      params.set("email", submittedEmail);
+    }
+    const submittedName = formData.get("name");
+    if (typeof submittedName === "string" && submittedName) {
+      params.set("name", submittedName);
+    }
+    const submittedReturnUrl = formData.get("returnUrl");
+    if (typeof submittedReturnUrl === "string" && submittedReturnUrl) {
+      params.set("returnUrl", submittedReturnUrl);
+    }
+  } catch {
+    // Body may not be a form (e.g. JSON action call from the React island).
+    // The action result already carries the error; the user can re-enter.
+  }
+  params.set("error", verifyResult.error.message);
+  return Astro.redirect(`/register?${params.toString()}`);
+}
+
 const message = Astro.url.searchParams.get("message");
+const errorParam = Astro.url.searchParams.get("error");
+const stepParam = Astro.url.searchParams.get("step");
 const email = Astro.url.searchParams.get("email") ?? undefined;
-const returnUrl = Astro.url.searchParams.get("returnUrl") ?? undefined;
+const name = Astro.url.searchParams.get("name") ?? undefined;
+const returnUrlParam = Astro.url.searchParams.get("returnUrl");
+const returnUrl = getSafeReturnUrl(returnUrlParam) ?? undefined;
+const step = stepParam === "code" ? "code" : undefined;
 ---
 
 <Layout title="Create Account">
@@ -29,17 +68,19 @@ const returnUrl = Astro.url.searchParams.get("returnUrl") ?? undefined;
             {message}
           </div>
         )}
-        {error && (
-          <div class="mb-4 rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
-            {error}
-          </div>
-        )}
 
         <p class="mb-6 text-center text-sm text-text-tertiary">
           Create your account with a one-time code sent to your email.
         </p>
 
-        <LoginOtpForm mode="register" email={email} returnUrl={returnUrl} client:load />
+        <AuthOtpForm
+          mode="register"
+          email={email}
+          name={name}
+          returnUrl={returnUrl}
+          step={step}
+          errorMessage={errorParam}
+        />
 
         <p class="mt-6 text-center text-xs text-text-tertiary">
           Use an email address where you can receive your sign-up code.
