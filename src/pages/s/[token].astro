@@ -2,11 +2,13 @@
 import Layout from "../../layouts/Layout.astro";
 import { ShareView } from "../../components/ShareView";
 import { createDb } from "../../db";
-import { shareLinks, videos } from "../../db/schema";
+import { shareLinks, scripts, spaces, videos } from "../../db/schema";
 import { and, count, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getCommentsWithNames } from "../../lib/comments";
 import { getApprovalStatus, type ApprovalStatus } from "../../lib/approvals";
+import { getProjectActivity } from "../../lib/activity";
+import { normalizeVideoPhase } from "../../types";
 
 const { token } = Astro.params;
 if (!token) return Astro.redirect("/");
@@ -28,11 +30,14 @@ const shareLink = shareLinkResult[0];
 
 const isRevoked = shareLink.status === "revoked";
 
-// Get video
+// Get video and associated data
 let video = null;
 let allComments: any[] = [];
 let versionCount = 1;
 let approvalStatus: ApprovalStatus | null = null;
+let script: { content: string; plainText: string; status: string } | null = null;
+let projectActivityItems: any[] = [];
+let videoSpace: { id: string; name: string; pipelineEnabled: boolean } | null = null;
 
 if (!isRevoked) {
   const videoResult = await db
@@ -55,15 +60,38 @@ if (!isRevoked) {
     .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)));
   versionCount = versionCountResult[0]?.count || 1;
 
-  // Surface approval state to anonymous reviewers as a read-only signal,
-  // but only when the workflow is enabled on the owning space.
   const status = await getApprovalStatus(db, video.id, video.spaceId);
   approvalStatus = status.requiredApprovals > 0 ? status : null;
+
+  // Fetch script
+  const scriptResult = await db.select().from(scripts).where(eq(scripts.videoId, video.id)).limit(1);
+  script = scriptResult[0] || null;
+
+  // Fetch project activity
+  projectActivityItems = await getProjectActivity(db, video.id);
+
+  // Fetch space info
+  const spaceResult = await db
+    .select({ id: spaces.id, name: spaces.name, pipelineEnabled: spaces.pipelineEnabled })
+    .from(spaces)
+    .where(eq(spaces.id, video.spaceId))
+    .limit(1);
+  videoSpace = spaceResult[0] ?? null;
 }
+
+const hasVideo = !!video?.streamVideoId;
+const activeTab = Astro.url.searchParams.get("tab") === "video" ? "video" : "script";
+const tabHref = (tab: "script" | "video") => {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set("tab", tab);
+  return `/s/${token}?${params.toString()}`;
+};
+const phase = video ? normalizeVideoPhase(video.phase) : "reviewing_video";
+const isPublished = phase === "published";
 ---
 
 <Layout title={video ? video.title : "Link Unavailable"}>
-  {!isRevoked && video && (
+  {!isRevoked && video && hasVideo && (
     <script src="https://embed.cloudflarestream.com/embed/sdk.latest.js" is:inline></script>
   )}
   {isRevoked ? (
@@ -76,15 +104,81 @@ if (!isRevoked) {
       </div>
     </div>
   ) : video ? (
-    <div class="mx-auto max-w-[1280px] px-4 py-6 sm:px-8 sm:py-8">
-      <ShareView
-        client:load
-        video={video}
-        versionCount={versionCount}
-        initialComments={allComments}
-        shareToken={token}
-        initialApprovalStatus={approvalStatus}
-      />
+    <div class="mx-auto max-w-[1180px] px-4 py-6 sm:px-8 sm:py-8">
+      <div class="space-y-6">
+        <!-- Project overview -->
+        <section class="rounded-2xl border border-border-default bg-bg-secondary p-5 sm:p-6">
+          <div class="min-w-0">
+            <p class="text-xs font-semibold uppercase tracking-wide text-text-tertiary">Project overview</p>
+            <div class="mt-2 flex flex-wrap items-start gap-x-6 gap-y-3">
+              <h1 class="min-w-0 break-words text-2xl font-bold text-text-primary sm:text-3xl">{video.title}</h1>
+              {versionCount > 1 && (
+                <span class="inline-flex rounded-full border border-border-default bg-bg-primary px-2.5 py-1 text-xs font-medium text-text-secondary">
+                  V{video.versionNumber} of {versionCount}
+                </span>
+              )}
+            </div>
+            {video.description && (
+              <p class="mt-4 max-w-2xl break-words text-sm text-text-secondary">{video.description}</p>
+            )}
+          </div>
+          {isPublished && (
+            <div class="mt-5 rounded-lg border border-accent-secondary/30 bg-accent-secondary/10 px-4 py-2 text-sm text-accent-secondary">
+              This project is published. Script, comments, and versions are read-only.
+            </div>
+          )}
+        </section>
+
+        <!-- Tab navigation -->
+        <div class="border-b border-border-default">
+          <nav class="flex gap-2" aria-label="Project sections">
+            <a
+              href={tabHref("script")}
+              class={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "script" ? "border-b-2 border-accent-primary text-text-primary" : "text-text-tertiary hover:text-text-secondary"}`}
+              aria-current={activeTab === "script" ? "page" : undefined}
+            >
+              Script
+            </a>
+            <a
+              href={tabHref("video")}
+              class={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "video" ? "border-b-2 border-accent-primary text-text-primary" : "text-text-tertiary hover:text-text-secondary"}`}
+              aria-current={activeTab === "video" ? "page" : undefined}
+            >
+              Video
+            </a>
+          </nav>
+        </div>
+
+        <!-- Tab content -->
+        {activeTab === "script" || hasVideo ? (
+          <ShareView
+            client:load
+            activeTab={activeTab}
+            video={video}
+            initialScriptContent={script?.content || ""}
+            initialComments={allComments}
+            shareToken={token}
+            initialApprovalStatus={approvalStatus}
+            initialActivity={projectActivityItems}
+            pipelineEnabled={videoSpace?.pipelineEnabled || false}
+          />
+        ) : (
+          <div class="rounded-xl border border-border-default bg-bg-secondary p-5 text-sm text-text-secondary">
+            No video has been uploaded yet for this project.
+          </div>
+        )}
+
+        <!-- Approvals summary at bottom -->
+        {approvalStatus && (
+          <section class="rounded-xl border border-border-default bg-bg-secondary p-5">
+            <p class="text-sm font-semibold text-text-primary">Approvals</p>
+            <p class="mt-2 text-sm text-text-secondary">
+              {approvalStatus.currentApprovals} of {approvalStatus.requiredApprovals} approvals complete.
+              {approvalStatus.isApproved ? " This project is cleared to publish." : " Publishing is locked until approvals are complete."}
+            </p>
+          </section>
+        )}
+      </div>
     </div>
   ) : (
     <div class="flex min-h-[60vh] items-center justify-center">
