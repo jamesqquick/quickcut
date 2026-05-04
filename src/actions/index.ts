@@ -30,24 +30,6 @@ function requireUser(context: { locals: App.Locals }) {
   return user;
 }
 
-// Re-export ActionError for convenience
-export { ActionError } from "astro:actions";
-
-/**
- * Helper to require authentication in an action handler.
- * Throws ActionError with UNAUTHORIZED code if user is not logged in.
- */
-function requireUser(context: { locals: App.Locals }) {
-  const user = context.locals.user;
-  if (!user) {
-    throw new ActionError({
-      code: "UNAUTHORIZED",
-      message: "You must be signed in to perform this action.",
-    });
-  }
-  return user;
-}
-
 export const server = {
   setEmailPreference: defineAction({
     input: z.object({
