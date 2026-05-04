@@ -1,5 +1,6 @@
 import { actions } from "astro:actions";
 import { useState } from "react";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { ToastViewport, useToast } from "./Toast";
 
 interface Space {
@@ -68,6 +69,12 @@ export function SpaceSettings({
 
   // General action state
   const [actionError, setActionError] = useState("");
+
+  // Destructive-action dialog state
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [leaveLoading, setLeaveLoading] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,27 +151,45 @@ export function SpaceSettings({
     }
   };
 
-  const handleLeave = async () => {
-    if (!confirm("Are you sure you want to leave this space?")) return;
+  const confirmLeave = async () => {
     setActionError("");
+    setLeaveLoading(true);
     try {
       const { error } = await actions.space.leave({ id: space.id });
       if (error) throw new Error(error.message || "Failed to leave space");
       window.location.href = "/dashboard";
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to leave");
+      setLeaveLoading(false);
+      setLeaveOpen(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to delete "${space.name}"? All videos and folders in this space will be permanently deleted.`)) return;
+  const confirmDelete = async () => {
     setActionError("");
+    setDeleteLoading(true);
     try {
       const { error } = await actions.space.delete({ id: space.id });
       if (error) throw new Error(error.message || "Failed to delete space");
+      // Persist a toast across the navigation to /dashboard. The dashboard
+      // page mounts a <PendingToast /> that consumes and displays this.
+      try {
+        sessionStorage.setItem(
+          "pendingToast",
+          JSON.stringify({
+            message: `Deleted "${space.name}"`,
+            variant: "success",
+          }),
+        );
+      } catch {
+        // Ignore storage failures (private mode, quota, etc.) — the redirect
+        // still succeeds, only the toast is lost.
+      }
       window.location.href = "/dashboard";
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to delete");
+      setDeleteLoading(false);
+      setDeleteOpen(false);
     }
   };
 
@@ -290,7 +315,7 @@ export function SpaceSettings({
           <div className="mt-4 border-t border-border-default pt-4">
             <button
               type="button"
-              onClick={handleLeave}
+              onClick={() => setLeaveOpen(true)}
               className="rounded-lg border border-accent-danger px-4 py-2 text-sm font-medium text-accent-danger transition-colors hover:bg-accent-danger/15"
             >
               Leave Space
@@ -360,13 +385,36 @@ export function SpaceSettings({
           </p>
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => setDeleteOpen(true)}
             className="mt-4 rounded-lg bg-accent-danger px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-danger/90"
           >
             Delete Space
           </button>
         </section>
       )}
+
+      <ConfirmDialog
+        isOpen={leaveOpen}
+        title="Leave this space?"
+        description="You'll lose access to all videos and folders in this space."
+        confirmLabel="Leave space"
+        variant="danger"
+        loading={leaveLoading}
+        onConfirm={confirmLeave}
+        onCancel={() => setLeaveOpen(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteOpen}
+        title={`Delete "${space.name}"?`}
+        description="All videos, folders, and data in this space will be permanently deleted. This cannot be undone."
+        confirmLabel="Delete space"
+        variant="danger"
+        loading={deleteLoading}
+        requireTypedConfirmation={space.name}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </div>
   );
 }

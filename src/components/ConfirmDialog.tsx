@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Modal } from "./Modal";
 
 type ConfirmVariant = "danger" | "primary";
@@ -11,6 +11,8 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: ConfirmVariant;
   loading?: boolean;
+  requireTypedConfirmation?: string;
+  typedConfirmationLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -23,20 +25,42 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   variant = "primary",
   loading = false,
+  requireTypedConfirmation,
+  typedConfirmationLabel,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   const headingId = useId();
+  const inputId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus the safer action per variant when the dialog opens.
+  const [typedValue, setTypedValue] = useState("");
+
+  // Clear the typed-confirmation input each time the dialog reopens.
+  useEffect(() => {
+    if (isOpen) setTypedValue("");
+  }, [isOpen]);
+
+  // Auto-focus the safer action per variant when the dialog opens. When a
+  // typed confirmation is required, focus the input instead so the user can
+  // start typing immediately.
   useEffect(() => {
     if (!isOpen) return;
-    const target = variant === "danger" ? cancelRef.current : confirmRef.current;
-    // Defer to ensure the element is mounted and visible.
+    const target = requireTypedConfirmation
+      ? inputRef.current
+      : variant === "danger"
+        ? cancelRef.current
+        : confirmRef.current;
     requestAnimationFrame(() => target?.focus());
-  }, [isOpen, variant]);
+  }, [isOpen, variant, requireTypedConfirmation]);
+
+  const typedMatches =
+    !requireTypedConfirmation ||
+    typedValue.trim() === requireTypedConfirmation;
+
+  const confirmDisabled = loading || !typedMatches;
 
   const confirmClass =
     variant === "danger"
@@ -47,6 +71,12 @@ export function ConfirmDialog({
     if (loading) return;
     onCancel();
   };
+
+  const resolvedTypedLabel =
+    typedConfirmationLabel ??
+    (requireTypedConfirmation
+      ? `Type "${requireTypedConfirmation}" to confirm`
+      : "");
 
   return (
     <Modal
@@ -64,6 +94,29 @@ export function ConfirmDialog({
       {description && (
         <p className="mt-1 text-sm text-text-secondary">{description}</p>
       )}
+      {requireTypedConfirmation && (
+        <div className="mt-4">
+          <label
+            htmlFor={inputId}
+            className="mb-1 block text-sm font-medium text-text-secondary"
+          >
+            {resolvedTypedLabel}
+          </label>
+          <input
+            id={inputId}
+            ref={inputRef}
+            type="text"
+            value={typedValue}
+            onChange={(e) => setTypedValue(e.target.value)}
+            disabled={loading}
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+          />
+        </div>
+      )}
       <div className="mt-5 flex gap-3">
         <button
           ref={cancelRef}
@@ -78,7 +131,7 @@ export function ConfirmDialog({
           ref={confirmRef}
           type="button"
           onClick={onConfirm}
-          disabled={loading}
+          disabled={confirmDisabled}
           className={confirmClass}
         >
           {loading ? `${confirmLabel}…` : confirmLabel}

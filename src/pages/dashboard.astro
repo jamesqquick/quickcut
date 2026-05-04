@@ -5,6 +5,7 @@ import FolderCard from "../components/FolderCard.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
 import { CreateFolderDialog } from "../components/CreateFolderDialog";
 import { NewProjectDialog } from "../components/NewProjectDialog";
+import { PendingToast } from "../components/PendingToast";
 import EmptyState from "../components/EmptyState.astro";
 import { createDb } from "../db";
 import { folders, videos, comments, spaceMembers, approvals } from "../db/schema";
@@ -191,6 +192,7 @@ const emptyDescription = currentFolderRecord
 ---
 
 <Layout title={currentFolderRecord ? currentFolderRecord.name : selectedSpace.name} user={user} selectedSpaceId={selectedSpaceId}>
+  <PendingToast client:load />
   <div class="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
     <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
       <div>
