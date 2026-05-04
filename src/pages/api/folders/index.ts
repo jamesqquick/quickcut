@@ -3,8 +3,6 @@ import { env } from "cloudflare:workers";
 import { and, count, eq, inArray, isNull } from "drizzle-orm";
 import { createDb } from "../../../db";
 import { folders, videos, spaceMembers } from "../../../db/schema";
-import { folderCreateSchema } from "../../../lib/validation";
-import { getDefaultSpaceForUser, verifySpaceAccess } from "../../../lib/spaces";
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (!locals.user) {
@@ -87,70 +85,4 @@ export const GET: APIRoute = async ({ locals, url }) => {
     }),
     { headers: { "Content-Type": "application/json" } },
   );
-};
-
-export const POST: APIRoute = async ({ locals, request }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const parsed = folderCreateSchema.safeParse(await request.json());
-  if (!parsed.success) {
-    return new Response(JSON.stringify({ error: parsed.error.issues[0]?.message || "Invalid input" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const db = createDb(env.DB);
-  const parentId = parsed.data.parentId ?? null;
-
-  const defaultSpace = parsed.data.spaceId ? null : await getDefaultSpaceForUser(db, locals.user.id);
-  const targetSpaceId = parsed.data.spaceId ?? defaultSpace?.id;
-  if (!targetSpaceId) {
-    return new Response(JSON.stringify({ error: "No space found for user" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const role = await verifySpaceAccess(db, locals.user.id, targetSpaceId);
-  if (!role) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  if (parentId) {
-    const parent = await db
-      .select({ id: folders.id })
-      .from(folders)
-      .where(and(eq(folders.id, parentId), eq(folders.spaceId, targetSpaceId)))
-      .limit(1);
-
-    if (parent.length === 0) {
-      return new Response(JSON.stringify({ error: "Parent folder not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-  }
-
-  const id = crypto.randomUUID();
-  await db.insert(folders).values({
-    id,
-    spaceId: targetSpaceId,
-    name: parsed.data.name,
-    parentId,
-  });
-
-  const created = await db.select().from(folders).where(eq(folders.id, id)).limit(1);
-  return new Response(JSON.stringify({ folder: created[0] }), {
-    status: 201,
-    headers: { "Content-Type": "application/json" },
-  });
 };
