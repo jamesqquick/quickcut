@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { actions } from "astro:actions";
 import { Mark } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -396,32 +397,50 @@ export function ScriptWorkspace({
     if (!editor || !selectedRange || !commentText.trim() || !isReviewMode || !canComment) return;
     setSubmittingComment(true);
     try {
-      const res = await fetch(shareToken ? `/api/share/${shareToken}/comments` : `/api/videos/${videoId}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      let createdComment: Comment | null = null;
+
+      if (shareToken) {
+        const res = await fetch(`/api/share/${shareToken}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: commentText.trim(),
+            urgency: commentUrgency,
+            phase: "script",
+            timestamp: null,
+            textRange: selectedRange,
+            name: anonymousName,
+          }),
+        });
+        const data = (await res.json().catch(() => null)) as { error?: string; comment?: Comment } | null;
+        if (!res.ok || !data?.comment) throw new Error(data?.error || "Failed to create comment");
+        createdComment = data.comment;
+      } else {
+        const { data, error: actionError } = await actions.comment.create({
+          videoId,
           text: commentText.trim(),
           urgency: commentUrgency,
           phase: "script",
           timestamp: null,
           textRange: selectedRange,
-          name: anonymousName,
-        }),
-      });
-      const data = (await res.json().catch(() => null)) as { error?: string; comment?: Comment } | null;
-      if (!res.ok || !data?.comment) throw new Error(data?.error || "Failed to create comment");
+        });
+        if (actionError || !data) throw new Error(actionError?.message || "Failed to create comment");
+        createdComment = data.comment as Comment;
+      }
+
+      if (!createdComment) throw new Error("Failed to create comment");
 
       if (canEditScript) {
         editor
           .chain()
           .focus()
           .setTextSelection({ from: selectedRange.from, to: selectedRange.to })
-          .setMark("commentHighlight", { commentId: data.comment.id })
+          .setMark("commentHighlight", { commentId: createdComment.id })
           .run();
         await saveScript(JSON.stringify(editor.getJSON()), editor.getText());
       }
 
-      setComments((current) => [...current, data.comment!]);
+      setComments((current) => [...current, createdComment!]);
       setCommentText("");
       setSelectedRange(null);
     } catch (err) {
@@ -434,6 +453,7 @@ export function ScriptWorkspace({
   const toggleResolved = async (comment: Comment) => {
     if (!canResolve) return;
     const nextResolved = !comment.isResolved;
+    // Optimistic update
     setComments((current) =>
       current.map((item) =>
         item.id === comment.id
@@ -442,12 +462,11 @@ export function ScriptWorkspace({
       ),
     );
     try {
-      const res = await fetch(`/api/comments/${comment.id}/resolve`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resolved: nextResolved }),
+      const { error: actionError } = await actions.comment.resolve({
+        id: comment.id,
+        resolved: nextResolved,
       });
-      if (!res.ok) throw new Error("Failed to resolve comment");
+      if (actionError) throw new Error(actionError.message);
     } catch (err) {
       console.error(err);
       setComments((current) => current.map((item) => (item.id === comment.id ? comment : item)));
@@ -459,17 +478,30 @@ export function ScriptWorkspace({
 
     setSubmittingReply(true);
     try {
-      const res = await fetch(shareToken ? `/api/share/${shareToken}/comments` : `/api/comments/${parentId}/reply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(shareToken
-          ? { text: replyText.trim(), name: anonymousName, parentId }
-          : { text: replyText.trim() }),
-      });
-      const data = (await res.json().catch(() => null)) as { error?: string; comment?: Comment } | null;
-      if (!res.ok || !data?.comment) throw new Error(data?.error || "Failed to post reply");
+      let replyComment: Comment | null = null;
 
-      setComments((current) => (current.some((comment) => comment.id === data.comment!.id) ? current : [...current, data.comment!]));
+      if (shareToken) {
+        const res = await fetch(`/api/share/${shareToken}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: replyText.trim(), name: anonymousName, parentId }),
+        });
+        const data = (await res.json().catch(() => null)) as { error?: string; comment?: Comment } | null;
+        if (!res.ok || !data?.comment) throw new Error(data?.error || "Failed to post reply");
+        replyComment = data.comment;
+      } else {
+        const { data, error: actionError } = await actions.comment.reply({
+          parentId,
+          text: replyText.trim(),
+        });
+        if (actionError || !data) throw new Error(actionError?.message || "Failed to post reply");
+        replyComment = data.comment as Comment;
+      }
+
+      if (!replyComment) throw new Error("Failed to post reply");
+      const created = replyComment;
+
+      setComments((current) => (current.some((comment) => comment.id === created.id) ? current : [...current, created]));
       setReplyText("");
       setReplyingTo(null);
     } catch (err) {

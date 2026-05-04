@@ -4,13 +4,26 @@ import { env } from "cloudflare:workers";
 import { eq, and, count } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { createDb } from "../db";
-import { users, videos, folders, spaces, approvals } from "../db/schema";
-import { videoUpdateSchema, phaseSchema, approveVideoSchema } from "../lib/validation";
+import { users, videos, folders, spaces, approvals, comments } from "../db/schema";
+import {
+  videoUpdateSchema,
+  phaseSchema,
+  approveVideoSchema,
+  commentSchema,
+} from "../lib/validation";
 import { verifySpaceAccess } from "../lib/spaces";
 import { getApprovalStatus } from "../lib/approvals";
 import { deleteVideo as deleteStreamVideo } from "../lib/stream";
 import { logProjectActivity } from "../lib/activity";
-import { broadcastPhaseChange, broadcastApprovalUpdate } from "../lib/broadcast";
+import {
+  broadcastPhaseChange,
+  broadcastApprovalUpdate,
+  broadcastNewComment,
+  broadcastCommentReactions,
+} from "../lib/broadcast";
+import { isCommentReactionEmoji, toggleCommentReaction } from "../lib/comments";
+import { COMMENT_REACTION_EMOJIS } from "../types";
+import { createCommentNotifications } from "../lib/notifications";
 
 // Re-export ActionError for convenience
 export { ActionError } from "astro:actions";
@@ -442,6 +455,368 @@ export const server = {
           .limit(1);
 
         return { video: updated[0] };
+      },
+    }),
+  },
+
+  comment: {
+    create: defineAction({
+      input: commentSchema.extend({
+        videoId: z.string().min(1),
+      }),
+      handler: async (input, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const videoResult = await db
+          .select()
+          .from(videos)
+          .where(eq(videos.id, input.videoId))
+          .limit(1);
+
+        if (videoResult.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        const video = videoResult[0];
+
+        if (video.phase === "published") {
+          throw new ActionError({
+            code: "FORBIDDEN",
+            message: "Cannot comment on published videos",
+          });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, video.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const { text, timestamp, annotation, urgency, phase, textRange, videoId } = input;
+
+        const commentId = crypto.randomUUID();
+        const newComment = {
+          id: commentId,
+          videoId,
+          authorType: "user" as const,
+          authorUserId: user.id,
+          authorDisplayName: user.name,
+          timestamp: timestamp != null ? Number(timestamp) : null,
+          text: text.trim(),
+          parentId: null,
+          isResolved: false,
+          resolvedBy: null,
+          resolvedAt: null,
+          resolvedReason: null,
+          annotation: annotation ? JSON.stringify(annotation) : null,
+          urgency,
+          phase,
+          textRange: textRange ? JSON.stringify(textRange) : null,
+        };
+
+        await db.insert(comments).values(newComment);
+
+        try {
+          await createCommentNotifications(
+            db,
+            {
+              commentId,
+              videoId,
+              actorUserId: user.id,
+              actorDisplayName: user.name,
+              text: newComment.text,
+              parentCommentId: null,
+              phase,
+            },
+            {
+              send: (msg) => env.EMAIL.send(msg),
+              from: env.OTP_EMAIL_FROM,
+              baseUrl: new URL(context.request.url).origin,
+            },
+          );
+        } catch (err) {
+          console.error("Failed to create comment notification", err);
+        }
+
+        const responseComment = {
+          ...newComment,
+          annotation: annotation || null,
+          textRange: textRange || null,
+          createdAt: new Date().toISOString(),
+          name: user.name,
+          reactions: [],
+        };
+
+        await broadcastNewComment(env, videoId, responseComment);
+
+        return { comment: responseComment };
+      },
+    }),
+
+    reply: defineAction({
+      input: z.object({
+        parentId: z.string().min(1),
+        text: z.string().trim().min(1, "Reply text is required").max(5000),
+      }),
+      handler: async ({ parentId, text }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const parent = await db
+          .select()
+          .from(comments)
+          .where(eq(comments.id, parentId))
+          .limit(1);
+
+        if (parent.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Parent comment not found" });
+        }
+
+        const videoRow = await db
+          .select({ spaceId: videos.spaceId })
+          .from(videos)
+          .where(eq(videos.id, parent[0].videoId))
+          .limit(1);
+
+        if (videoRow.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, videoRow[0].spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const commentId = crypto.randomUUID();
+        // Replies don't carry urgency; default to "suggestion" so the column stays
+        // populated without surfacing in the UI.
+        const newReply = {
+          id: commentId,
+          videoId: parent[0].videoId,
+          authorType: "user" as const,
+          authorUserId: user.id,
+          authorDisplayName: user.name,
+          timestamp: null,
+          text: text.trim(),
+          parentId,
+          isResolved: false,
+          resolvedBy: null,
+          resolvedAt: null,
+          resolvedReason: null,
+          annotation: null,
+          urgency: "suggestion" as const,
+          phase: parent[0].phase,
+          textRange: null,
+        };
+
+        await db.insert(comments).values(newReply);
+
+        try {
+          await createCommentNotifications(
+            db,
+            {
+              commentId,
+              videoId: parent[0].videoId,
+              actorUserId: user.id,
+              actorDisplayName: user.name,
+              text: newReply.text,
+              parentCommentId: parentId,
+              phase: parent[0].phase,
+            },
+            {
+              send: (msg) => env.EMAIL.send(msg),
+              from: env.OTP_EMAIL_FROM,
+              baseUrl: new URL(context.request.url).origin,
+            },
+          );
+        } catch (err) {
+          console.error("Failed to create reply notification", err);
+        }
+
+        const responseComment = {
+          ...newReply,
+          createdAt: new Date().toISOString(),
+          name: user.name,
+          reactions: [],
+        };
+
+        await broadcastNewComment(env, parent[0].videoId, responseComment);
+
+        return { comment: responseComment };
+      },
+    }),
+
+    resolve: defineAction({
+      input: z.object({
+        id: z.string().min(1),
+        resolved: z.boolean(),
+      }),
+      handler: async ({ id, resolved }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const comment = await db
+          .select()
+          .from(comments)
+          .where(eq(comments.id, id))
+          .limit(1);
+
+        if (comment.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Comment not found" });
+        }
+
+        if (comment[0].parentId) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "Only root comments can be resolved",
+          });
+        }
+
+        const videoRow = await db
+          .select({ spaceId: videos.spaceId })
+          .from(videos)
+          .where(eq(videos.id, comment[0].videoId))
+          .limit(1);
+
+        if (videoRow.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, videoRow[0].spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        await db
+          .update(comments)
+          .set({
+            isResolved: resolved,
+            resolvedBy: resolved ? user.id : null,
+            resolvedAt: resolved ? new Date().toISOString() : null,
+            resolvedReason: resolved ? "manual" : null,
+          })
+          .where(eq(comments.id, id));
+
+        const updated = await db
+          .select()
+          .from(comments)
+          .where(eq(comments.id, id))
+          .limit(1);
+
+        return { comment: updated[0] };
+      },
+    }),
+
+    delete: defineAction({
+      input: z.object({
+        id: z.string().min(1),
+      }),
+      handler: async ({ id }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const comment = await db
+          .select()
+          .from(comments)
+          .where(eq(comments.id, id))
+          .limit(1);
+
+        if (comment.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Comment not found" });
+        }
+
+        const videoRow = await db
+          .select({ spaceId: videos.spaceId })
+          .from(videos)
+          .where(eq(videos.id, comment[0].videoId))
+          .limit(1);
+
+        if (videoRow.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, videoRow[0].spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        if (comment[0].authorUserId !== user.id) {
+          throw new ActionError({
+            code: "FORBIDDEN",
+            message: "You can only delete your own comments",
+          });
+        }
+
+        // Delete replies if this is a root comment
+        if (!comment[0].parentId) {
+          await db.delete(comments).where(eq(comments.parentId, id));
+        }
+
+        await db.delete(comments).where(eq(comments.id, id));
+
+        return { success: true };
+      },
+    }),
+
+    toggleReaction: defineAction({
+      input: z.object({
+        id: z.string().min(1),
+        emoji: z.enum(COMMENT_REACTION_EMOJIS),
+      }),
+      handler: async ({ id, emoji }, context) => {
+        const user = requireUser(context);
+
+        if (!isCommentReactionEmoji(emoji)) {
+          throw new ActionError({ code: "BAD_REQUEST", message: "Unsupported reaction" });
+        }
+
+        const db = createDb(env.DB);
+        const comment = await db
+          .select({ videoId: comments.videoId })
+          .from(comments)
+          .where(eq(comments.id, id))
+          .limit(1);
+
+        if (comment.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Comment not found" });
+        }
+
+        const videoRow = await db
+          .select({ spaceId: videos.spaceId, phase: videos.phase })
+          .from(videos)
+          .where(eq(videos.id, comment[0].videoId))
+          .limit(1);
+
+        if (videoRow.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        if (videoRow[0].phase === "published") {
+          throw new ActionError({
+            code: "FORBIDDEN",
+            message: "Cannot react on published videos",
+          });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, videoRow[0].spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const reactions = await toggleCommentReaction(db, id, emoji, {
+          userId: user.id,
+          name: user.name,
+        });
+
+        await broadcastCommentReactions(env, comment[0].videoId, {
+          commentId: id,
+          reactions: reactions.map((reaction) => ({
+            ...reaction,
+            reactedByMe: false,
+          })),
+        });
+
+        return { commentId: id, reactions };
       },
     }),
   },

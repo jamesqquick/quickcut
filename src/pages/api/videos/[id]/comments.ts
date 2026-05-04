@@ -3,12 +3,12 @@ import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
 import { comments, users, videos } from "../../../../db/schema";
 import { eq, asc, gt, and } from "drizzle-orm";
-import { broadcastNewComment } from "../../../../lib/broadcast";
 import { verifySpaceAccess } from "../../../../lib/spaces";
 import { addReactionSummaries } from "../../../../lib/comments";
-import { createCommentNotifications } from "../../../../lib/notifications";
-import { commentSchema } from "../../../../lib/validation";
 
+// NOTE: comment mutations (create, reply, resolve, delete, react) have been
+// migrated to Astro Actions in `src/actions/index.ts`. Only GET remains here
+// because the CommentThread component polls this endpoint for live updates.
 export const GET: APIRoute = async ({ params, locals, url }) => {
   if (!locals.user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -92,120 +92,6 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   );
 
   return new Response(JSON.stringify({ comments: commentsWithNames }), {
-    headers: { "Content-Type": "application/json" },
-  });
-};
-
-export const POST: APIRoute = async ({ params, locals, request }) => {
-  if (!locals.user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const { id } = params;
-  if (!id) {
-    return new Response(JSON.stringify({ error: "Video ID required" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const parsed = commentSchema.safeParse(await request.json());
-  if (!parsed.success) {
-    return new Response(JSON.stringify({ error: parsed.error.issues[0]?.message || "Invalid input" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const { text, timestamp, annotation, urgency, phase, textRange } = parsed.data;
-
-  const db = createDb(env.DB);
-
-  // Verify video exists and user has space access
-  const video = await db
-    .select()
-    .from(videos)
-    .where(eq(videos.id, id))
-    .limit(1);
-  if (video.length === 0) {
-    return new Response(JSON.stringify({ error: "Video not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  // Block comments on published videos
-  if (video[0].phase === "published") {
-    return new Response(JSON.stringify({ error: "Cannot comment on published videos" }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const postRole = await verifySpaceAccess(db, locals.user.id, video[0].spaceId);
-  if (!postRole) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const commentId = crypto.randomUUID();
-  const newComment = {
-    id: commentId,
-    videoId: id,
-    authorType: "user" as const,
-    authorUserId: locals.user.id,
-    authorDisplayName: locals.user.name,
-    timestamp: timestamp != null ? Number(timestamp) : null,
-    text: text.trim(),
-    parentId: null,
-    isResolved: false,
-    resolvedBy: null,
-    resolvedAt: null,
-    resolvedReason: null,
-    annotation: annotation ? JSON.stringify(annotation) : null,
-    urgency,
-    phase,
-    textRange: textRange ? JSON.stringify(textRange) : null,
-  };
-
-  await db.insert(comments).values(newComment);
-
-  try {
-    await createCommentNotifications(db, {
-      commentId,
-      videoId: id,
-      actorUserId: locals.user.id,
-      actorDisplayName: locals.user.name,
-      text: newComment.text,
-      parentCommentId: null,
-      phase,
-    }, {
-      send: (msg) => env.EMAIL.send(msg),
-      from: env.OTP_EMAIL_FROM,
-      baseUrl: new URL(request.url).origin,
-    });
-  } catch (err) {
-    console.error("Failed to create comment notification", err);
-  }
-
-  const responseComment = {
-    ...newComment,
-    annotation: annotation || null,
-    textRange: textRange || null,
-    createdAt: new Date().toISOString(),
-    name: locals.user.name,
-    reactions: [],
-  };
-
-  await broadcastNewComment(env, id, responseComment);
-
-  return new Response(JSON.stringify({ comment: responseComment }), {
-    status: 201,
     headers: { "Content-Type": "application/json" },
   });
 };
