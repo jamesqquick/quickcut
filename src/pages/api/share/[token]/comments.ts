@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
-import { shareLinks, comments, users } from "../../../../db/schema";
+import { shareLinks, comments, users, videos } from "../../../../db/schema";
 import { eq, asc, gt, and } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { addReactionSummaries } from "../../../../lib/comments";
@@ -104,6 +104,26 @@ export const POST: APIRoute = async ({ params, request }) => {
   const videoId = shareLinkResult[0].videoId;
   const body = await request.json();
   const { text, timestamp, name, parentId, annotation, urgency, phase, textRange } = body;
+
+  const videoResult = await db
+    .select({ phase: videos.phase })
+    .from(videos)
+    .where(eq(videos.id, videoId))
+    .limit(1);
+
+  if (videoResult.length === 0) {
+    return new Response(JSON.stringify({ error: "Video not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (videoResult[0].phase === "published") {
+    return new Response(JSON.stringify({ error: "Cannot comment on published videos" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   if (!text || !text.trim()) {
     return new Response(JSON.stringify({ error: "Comment text is required" }), {
