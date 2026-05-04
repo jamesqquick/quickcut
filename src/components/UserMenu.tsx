@@ -1,3 +1,4 @@
+import { actions } from "astro:actions";
 import { useEffect, useRef, useState } from "react";
 
 interface UserMenuProps {
@@ -41,9 +42,8 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
   // Fetch email preference when menu opens
   useEffect(() => {
     if (!open || emailEnabled !== null) return;
-    fetch("/api/notifications/email-preference", { credentials: "same-origin" })
-      .then((res) => res.json())
-      .then((data) => setEmailEnabled(data.emailNotificationsEnabled ?? false))
+    actions.getEmailPreference()
+      .then(({ data }) => setEmailEnabled(data?.emailNotificationsEnabled ?? false))
       .catch(() => setEmailEnabled(false));
   }, [open, emailEnabled]);
 
@@ -52,13 +52,8 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
     const next = !emailEnabled;
     setEmailToggling(true);
     try {
-      await fetch("/api/notifications/email-preference", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: next }),
-        credentials: "same-origin",
-      });
-      setEmailEnabled(next);
+      const { error } = await actions.setEmailPreference({ enabled: next });
+      if (!error) setEmailEnabled(next);
     } catch {
       // Revert on failure
     } finally {
