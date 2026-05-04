@@ -1,0 +1,35 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { EmailNotificationToggle } from "../components/EmailNotificationToggle";
+import { createDb } from "../db";
+import { users } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+const db = createDb(env.DB);
+const row = await db
+  .select({ emailNotificationsEnabled: users.emailNotificationsEnabled })
+  .from(users)
+  .where(eq(users.id, user.id))
+  .limit(1);
+const emailNotificationsEnabled = row[0]?.emailNotificationsEnabled ?? false;
+---
+
+<Layout title="Settings" user={user}>
+  <div class="mx-auto max-w-3xl px-4 py-8 sm:px-8">
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-text-primary">Settings</h1>
+      <p class="mt-1 text-sm text-text-secondary">
+        Manage your account preferences.
+      </p>
+    </div>
+
+    <section>
+      <h2 class="mb-3 text-lg font-semibold text-text-primary">Notifications</h2>
+      <EmailNotificationToggle client:load enabled={emailNotificationsEnabled} />
+    </section>
+  </div>
+</Layout>

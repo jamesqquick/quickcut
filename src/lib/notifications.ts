@@ -1,12 +1,11 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "../db";
-import { comments, notifications, spaceMembers, spaces, videos } from "../db/schema";
+import { comments, notifications, spaceMembers, spaces, users, videos } from "../db/schema";
+import { buildCommentNotificationEmail } from "./email";
+import { getNotificationCopy, type NotificationType } from "./notification-copy";
 
-export type NotificationType =
-  | "comment.created"
-  | "comment.reply"
-  | "script_comment.created"
-  | "script_comment.reply";
+export type { NotificationType, NotificationCopy } from "./notification-copy";
+export { getNotificationCopy } from "./notification-copy";
 
 export interface CommentNotificationInput {
   commentId: string;
@@ -16,6 +15,12 @@ export interface CommentNotificationInput {
   text: string;
   parentCommentId: string | null;
   phase: "script" | "review";
+}
+
+export interface EmailConfig {
+  send: (msg: { to: string; from: string; subject: string; text: string; html: string }) => Promise<void>;
+  from: string;
+  baseUrl: string;
 }
 
 export interface UserNotification {
@@ -46,12 +51,6 @@ function getNotificationType(input: CommentNotificationInput): NotificationType 
   return input.parentCommentId ? "comment.reply" : "comment.created";
 }
 
-function getTitle(type: NotificationType, actorName: string, videoTitle: string): string {
-  if (type === "script_comment.created") return `${actorName} left script feedback on "${videoTitle}"`;
-  if (type === "script_comment.reply") return `${actorName} replied to your script comment on "${videoTitle}"`;
-  if (type === "comment.reply") return `${actorName} replied to your comment on "${videoTitle}"`;
-  return `${actorName} commented on "${videoTitle}"`;
-}
 
 async function filterRecipientsWithSpaceAccess(
   db: Database,
@@ -77,6 +76,7 @@ async function filterRecipientsWithSpaceAccess(
 export async function createCommentNotifications(
   db: Database,
   input: CommentNotificationInput,
+  emailConfig?: EmailConfig,
 ): Promise<void> {
   const videoRows = await db
     .select({
@@ -119,7 +119,7 @@ export async function createCommentNotifications(
 
   const type = getNotificationType(input);
   const href = `/videos/${video.id}?tab=${input.phase === "script" ? "script" : "video"}&comment=${input.commentId}`;
-  const title = getTitle(type, input.actorDisplayName, video.title);
+  const copy = getNotificationCopy(type, input.actorDisplayName, video.title);
   const body = snippet(input.text);
 
   await db.insert(notifications).values(
@@ -133,11 +133,58 @@ export async function createCommentNotifications(
       commentId: input.commentId,
       parentCommentId: input.parentCommentId,
       spaceId: video.spaceId,
-      title,
+      title: copy.title,
       body,
       href,
     })),
   );
+
+  if (!emailConfig) return;
+
+  try {
+    const emailRecipients = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(
+        and(
+          inArray(users.id, recipientIds),
+          eq(users.emailNotificationsEnabled, true),
+        ),
+      );
+
+    if (emailRecipients.length === 0) return;
+
+    const emailContent = buildCommentNotificationEmail({
+      type,
+      actorDisplayName: input.actorDisplayName,
+      videoTitle: video.title,
+      commentSnippet: body,
+      href,
+      baseUrl: emailConfig.baseUrl,
+    });
+
+    const results = await Promise.allSettled(
+      emailRecipients.map((recipient) =>
+        emailConfig.send({
+          to: recipient.email,
+          from: emailConfig.from,
+          subject: emailContent.subject,
+          text: emailContent.text,
+          html: emailContent.html,
+        }),
+      ),
+    );
+
+    const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (failures.length > 0) {
+      console.error(
+        `${failures.length}/${results.length} notification emails failed`,
+        failures.map((f) => f.reason),
+      );
+    }
+  } catch (error) {
+    console.error("Failed to send comment notification emails", error);
+  }
 }
 
 export async function getNotificationsForUser(
