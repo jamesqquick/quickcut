@@ -224,13 +224,9 @@ export interface TargetedApprovalRequestInput {
 }
 
 /**
- * Notify the specific users an uploader/owner has requested approval from
- * (issue #93). One notification row per recipient, personalized copy
- * ("X requested your approval on \"…\""), and an email when the recipient
- * has `users.emailNotificationsEnabled = true`.
- *
- * Replaces the previous fan-out helper that pinged every space member
- * regardless of whether they had been asked.
+ * Notify the specific users an uploader/owner has requested approval from.
+ * One notification row per recipient with personalized copy, and an email
+ * to recipients who have `users.emailNotificationsEnabled = true`.
  */
 export async function createTargetedApprovalRequestNotifications(
   db: Database,
@@ -354,11 +350,7 @@ export interface PendingApprovalRequestForUser {
   createdAt: string;
 }
 
-/**
- * Returns approval requests where this user is the requested approver and
- * the request is still pending. Used to surface a dedicated "Pending for me"
- * bucket in the notification center.
- */
+/** Approval requests still pending for the given user (the requested approver). */
 export async function getPendingApprovalRequestsForUser(
   db: Database,
   userId: string,
@@ -385,12 +377,7 @@ export async function getPendingApprovalRequestsForUser(
     .orderBy(desc(approvalRequests.createdAt));
 }
 
-/**
- * Mark every pending approval_request from `userId` on `videoId` as resolved.
- * Called from the approve action once an approval row is recorded so the
- * "pending for me" bucket clears for the approver, while the row is kept for
- * audit purposes.
- */
+/** Flip every pending approval_request from this user on this video to resolved. */
 export async function resolveApprovalRequestsForApprover(
   db: Database,
   videoId: string,

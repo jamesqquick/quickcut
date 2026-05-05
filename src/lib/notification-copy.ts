@@ -37,9 +37,6 @@ export function getNotificationCopy(
         heading: "New comment on your video",
       };
     case "approval.requested":
-      // Per-user copy: targeted approval requests (issue #93) generate one
-      // notification row per requested reviewer, so the wording can claim
-      // "your approval" was requested.
       return {
         title: `${actorName} requested your approval on "${videoTitle}"`,
         heading: "Approval requested",

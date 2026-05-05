@@ -492,8 +492,6 @@ export const server = {
           throw new ActionError({ code: "CONFLICT", message: "Could not record approval" });
         }
 
-        // Resolve any pending targeted approval requests for this approver,
-        // so the "Pending for me" bucket clears once they approve. Best-effort.
         try {
           await resolveApprovalRequestsForApprover(db, id, user.id);
         } catch (err) {
@@ -601,8 +599,6 @@ export const server = {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
 
-        // Only the uploader or a space owner can request approvals on a
-        // video. Member-reviewers shouldn't be able to ping each other.
         if (role !== "owner" && video.uploadedBy !== user.id) {
           throw new ActionError({
             code: "FORBIDDEN",
@@ -623,9 +619,7 @@ export const server = {
           });
         }
 
-        // Validate that every requested user is a member of the same space.
-        // Silently drops the actor and the uploader — neither can approve,
-        // so requesting approval from them is meaningless.
+        // Drop the actor and uploader — neither can approve.
         const uniqueIds = [...new Set(userIds)].filter(
           (uid) => uid !== user.id && uid !== video.uploadedBy,
         );
@@ -654,9 +648,8 @@ export const server = {
           });
         }
 
-        // Skip users who already have a pending request for this video.
-        // Approving a video does not delete the row (status flips to
-        // "resolved"), so we only filter on status = pending.
+        // Resolved/cancelled rows are kept for audit, so only block
+        // re-requesting against rows that are still pending.
         const existing = await db
           .select({ requestedUserId: approvalRequests.requestedUserId })
           .from(approvalRequests)
@@ -692,8 +685,6 @@ export const server = {
 
         await db.insert(approvalRequests).values(newRows);
 
-        // Per-user notification + email. Best-effort: dispatch failures
-        // don't roll back the request rows.
         try {
           await createTargetedApprovalRequestNotifications(
             db,

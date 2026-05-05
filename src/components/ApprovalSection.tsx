@@ -136,8 +136,6 @@ export function ApprovalSection({
     !readOnly && !!currentUserId && isSpaceMember && !isUploader && !hasApproved;
   const canUndo =
     !readOnly && !!currentUserId && isSpaceMember && hasApproved;
-  // Only the uploader or a space owner can fan out targeted approval
-  // requests. Other space members can approve, but not request.
   const canRequestApprovals =
     !readOnly &&
     !!currentUserId &&

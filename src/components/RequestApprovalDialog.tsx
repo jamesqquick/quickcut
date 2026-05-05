@@ -44,7 +44,6 @@ export function RequestApprovalDialog({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Reset transient state every time the dialog opens.
   useEffect(() => {
     if (!open) return;
     setSelected(new Set());
@@ -52,8 +51,6 @@ export function RequestApprovalDialog({
     setSubmitError(null);
   }, [open]);
 
-  // Lazy-load members the first time the dialog opens. Re-fetches if the
-  // dialog is reopened against a different space.
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController();
