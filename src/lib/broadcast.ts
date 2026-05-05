@@ -4,6 +4,7 @@ import type {
 	BroadcastCommentReactions,
 	BroadcastPhaseChange,
 } from "../durable-objects/VideoRoom";
+import type { BroadcastUserNotification } from "../durable-objects/UserNotifications";
 
 /**
  * Best-effort fan-out of a freshly persisted comment to every viewer
@@ -69,5 +70,24 @@ export async function broadcastPhaseChange(
 		await stub.broadcastPhaseChange(phaseChange);
 	} catch (err) {
 		console.error("VideoRoom phase broadcast failed", { videoId, err });
+	}
+}
+
+/**
+ * Best-effort fan-out of a freshly persisted notification (or pending
+ * space invite) to every tab the recipient has open. Failures are
+ * swallowed: D1 already has the row, so the next page load will pick
+ * up the correct badge count via SSR.
+ */
+export async function broadcastNotification(
+	env: Env,
+	userId: string,
+	notification: BroadcastUserNotification,
+): Promise<void> {
+	try {
+		const stub = env.USER_NOTIFICATIONS.getByName(userId);
+		await stub.broadcastNotification(notification);
+	} catch (err) {
+		console.error("UserNotifications broadcast failed", { userId, err });
 	}
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { connectUserNotifications } from "../lib/notifications-realtime";
 
 interface UserMenuProps {
   name: string;
@@ -33,6 +34,41 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
     return () => {
       window.removeEventListener("quickcut:invite-accepted", handler);
       window.removeEventListener("quickcut:notification-read", handler);
+    };
+  }, []);
+
+  // Real-time badge increments. The header SSRs the initial count on every
+  // navigation, so this only needs to handle notifications that arrive while
+  // the page is open. Other parts of the app can listen for the same event
+  // (e.g. to show toasts or live-update the /notifications page) without
+  // opening their own socket.
+  useEffect(() => {
+    const onNotification = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      if (detail && typeof detail === "object" && detail.kind === "invite") {
+        // Defer to the SSR'd source of truth on next navigation; for now
+        // any invite/notification simply increments the badge.
+      }
+      setCount((current) => current + 1);
+    };
+    window.addEventListener("quickcut:notification-received", onNotification);
+
+    const conn = connectUserNotifications({
+      onNotification: (notification) => {
+        window.dispatchEvent(
+          new CustomEvent("quickcut:notification-received", {
+            detail: notification,
+          }),
+        );
+      },
+    });
+
+    return () => {
+      window.removeEventListener(
+        "quickcut:notification-received",
+        onNotification,
+      );
+      conn.disconnect();
     };
   }, []);
 

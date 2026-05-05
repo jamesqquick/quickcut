@@ -39,6 +39,7 @@ import {
   broadcastApprovalUpdate,
   broadcastNewComment,
   broadcastCommentReactions,
+  broadcastNotification,
 } from "../lib/broadcast";
 import {
   isCommentReactionEmoji,
@@ -421,11 +422,15 @@ export const server = {
               .where(eq(spaces.id, video.spaceId))
               .limit(1);
             if ((spaceRow[0]?.requiredApprovals ?? 0) > 0) {
-              await createApprovalRequestNotifications(db, {
-                videoId: id,
-                actorUserId: user.id,
-                actorDisplayName: user.name,
-              });
+              await createApprovalRequestNotifications(
+                db,
+                {
+                  videoId: id,
+                  actorUserId: user.id,
+                  actorDisplayName: user.name,
+                },
+                env,
+              );
             }
           } catch (err) {
             console.error("Failed to send approval-requested notifications", err);
@@ -1157,6 +1162,7 @@ export const server = {
               from: env.OTP_EMAIL_FROM,
               baseUrl: new URL(context.request.url).origin,
             },
+            env,
           );
         } catch (err) {
           console.error("Failed to create comment notification", err);
@@ -1368,6 +1374,7 @@ export const server = {
               from: env.OTP_EMAIL_FROM,
               baseUrl: new URL(context.request.url).origin,
             },
+            env,
           );
         } catch (err) {
           console.error("Failed to create reply notification", err);
@@ -1692,6 +1699,19 @@ export const server = {
           throw new ActionError({
             code: "INTERNAL_SERVER_ERROR",
             message: "Failed to send invite email",
+          });
+        }
+
+        // If the invitee already has an account, push a real-time signal to
+        // their open tabs so the header badge increments — pending invites
+        // count toward the unread badge (see Layout.astro).
+        if (existingUser.length > 0) {
+          await broadcastNotification(env, existingUser[0].id, {
+            kind: "invite",
+            id: invite.id,
+            title: `${user.name} invited you to ${space[0].name}`,
+            href: "/notifications",
+            createdAt: new Date().toISOString(),
           });
         }
 
