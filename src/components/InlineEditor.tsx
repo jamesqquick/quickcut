@@ -55,13 +55,6 @@ export function InlineEditor({
     }
   }, [isEditing]);
 
-  // Keep displayed value in sync if the parent updates `value` prop.
-  useEffect(() => {
-    if (!isEditing) {
-      setValue(initialValue);
-    }
-  }, [initialValue, isEditing]);
-
   const save = async () => {
     const trimmed = value.trim();
     // Title is the only required field; empty input reverts to original.
