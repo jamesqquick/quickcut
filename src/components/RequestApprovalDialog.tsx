@@ -52,28 +52,30 @@ export function RequestApprovalDialog({
     setSubmitError(null);
   }, [open]);
 
-  // Lazy-load members the first time the dialog opens.
+  // Lazy-load members the first time the dialog opens. Re-fetches if the
+  // dialog is reopened against a different space.
   useEffect(() => {
-    if (!open || members !== null || loading) return;
-    let cancelled = false;
+    if (!open) return;
+    const controller = new AbortController();
     setLoading(true);
     setFetchError(null);
-    fetch(`/api/spaces/${spaceId}/members`)
+    fetch(`/api/spaces/${spaceId}/members`, { signal: controller.signal })
       .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to load space members");
+        if (!res.ok) throw new Error(`Failed to load space members (${res.status})`);
         const data = (await res.json()) as { members: SpaceMemberOption[] };
-        if (!cancelled) setMembers(data.members);
+        setMembers(data.members);
       })
       .catch((err) => {
-        if (!cancelled) setFetchError(err instanceof Error ? err.message : "Failed to load");
+        if ((err as Error).name === "AbortError") return;
+        setFetchError(err instanceof Error ? err.message : "Failed to load");
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [open, spaceId, members, loading]);
+  }, [open, spaceId]);
 
   const eligibleMembers = useMemo(() => {
     if (!members) return [];
