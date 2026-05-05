@@ -12,6 +12,11 @@ interface UploadVersionModalProps {
   title: string;
   description: string;
   transcriptsEnabled?: boolean;
+  // When `open` is provided, the parent controls open state and is
+  // responsible for rendering its own trigger. The component's built-in
+  // trigger is hidden in this mode.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 function formatFileSize(bytes: number): string {
@@ -25,10 +30,18 @@ export function UploadVersionModal({
   title: initialTitle,
   description: initialDescription,
   transcriptsEnabled = false,
+  open: controlledOpen,
+  onOpenChange,
 }: UploadVersionModalProps) {
   const headingId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [open, setOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   const [state, setState] = useState<UploadState>("idle");
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState(initialTitle);
@@ -132,13 +145,20 @@ export function UploadVersionModal({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-tertiary sm:w-auto"
-      >
-        Upload new version
-      </button>
+      {!isControlled && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-border-default bg-bg-secondary px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-tertiary"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          Upload new version
+        </button>
+      )}
 
       <Modal
         isOpen={open}
