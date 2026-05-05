@@ -28,6 +28,7 @@ import {
   folderUpdateSchema,
   projectCreateSchema,
   uploadSchema,
+  scriptUpdateSchema,
 } from "../lib/validation";
 import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
 import { getApprovalStatus } from "../lib/approvals";
@@ -1208,6 +1209,113 @@ export const server = {
           .limit(1);
 
         return { transcript: transcriptResult[0] || null };
+      },
+    }),
+  },
+
+  script: {
+    update: defineAction({
+      input: scriptUpdateSchema.extend({
+        videoId: z.string().min(1),
+      }),
+      handler: async ({ videoId, content, plainText: plainTextInput }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const videoResult = await db
+          .select()
+          .from(videos)
+          .where(eq(videos.id, videoId))
+          .limit(1);
+        const video = videoResult[0];
+
+        if (!video) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Project not found" });
+        }
+
+        if (video.phase === "published") {
+          throw new ActionError({
+            code: "FORBIDDEN",
+            message: "Cannot edit published scripts",
+          });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, video.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const now = new Date().toISOString();
+        const plainText = (plainTextInput ?? content).replace(/\s+/g, " ").trim();
+
+        const existing = await db
+          .select({ id: scripts.id })
+          .from(scripts)
+          .where(eq(scripts.videoId, videoId))
+          .limit(1);
+
+        const openScriptComments = await db
+          .select({ id: comments.id, textRange: comments.textRange })
+          .from(comments)
+          .where(
+            and(
+              eq(comments.videoId, videoId),
+              eq(comments.phase, "script"),
+              eq(comments.isResolved, false),
+            ),
+          );
+
+        const outdatedCommentIds = openScriptComments
+          .filter((comment) => {
+            if (!comment.textRange) return false;
+            try {
+              const textRange = JSON.parse(comment.textRange) as { quote?: string };
+              return (
+                !!textRange.quote &&
+                !plainText.includes(textRange.quote.replace(/\s+/g, " ").trim())
+              );
+            } catch {
+              return false;
+            }
+          })
+          .map((comment) => comment.id);
+
+        if (existing[0]) {
+          await db
+            .update(scripts)
+            .set({ content, plainText, updatedAt: now })
+            .where(eq(scripts.videoId, videoId));
+        } else {
+          await db.insert(scripts).values({
+            id: crypto.randomUUID(),
+            videoId,
+            content,
+            plainText,
+            createdBy: user.id,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+
+        for (const commentId of outdatedCommentIds) {
+          await db
+            .update(comments)
+            .set({
+              isResolved: true,
+              resolvedBy: user.id,
+              resolvedAt: now,
+              resolvedReason: "text_edited",
+            })
+            .where(eq(comments.id, commentId));
+        }
+
+        const scriptRows = await db
+          .select()
+          .from(scripts)
+          .where(eq(scripts.videoId, videoId))
+          .limit(1);
+
+        return { script: scriptRows[0], resolvedCommentIds: outdatedCommentIds };
       },
     }),
   },
