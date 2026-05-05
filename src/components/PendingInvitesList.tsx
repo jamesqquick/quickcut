@@ -1,15 +1,10 @@
+import { actions } from "astro:actions";
 import { useState } from "react";
 import type { PendingInviteForUser } from "../lib/invites";
 import { ToastViewport, useToast } from "./Toast";
 
 interface PendingInvitesListProps {
   invites: PendingInviteForUser[];
-}
-
-interface AcceptInviteResponse {
-  success?: boolean;
-  spaceId?: string;
-  error?: string;
 }
 
 interface AcceptedSpace {
@@ -27,12 +22,9 @@ export function PendingInvitesList({ invites }: PendingInvitesListProps) {
     setLoadingToken(invite.token);
 
     try {
-      const res = await fetch(`/api/invites/${invite.token}/accept`, {
-        method: "POST",
-      });
-      const data = (await res.json().catch(() => null)) as AcceptInviteResponse | null;
+      const { data, error } = await actions.space.acceptInvite({ token: invite.token });
 
-      if (!res.ok) throw new Error(data?.error || "Failed to accept invite");
+      if (error) throw new Error(error.message || "Failed to accept invite");
 
       setPendingInvites((current) => current.filter((item) => item.token !== invite.token));
       setAcceptedSpaces((current) => [
