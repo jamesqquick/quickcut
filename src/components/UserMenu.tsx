@@ -1,9 +1,85 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  applyTheme,
+  getStoredTheme,
+  setStoredTheme,
+  subscribeToSystemTheme,
+  type Theme,
+} from "../lib/theme";
 
 interface UserMenuProps {
   name: string;
   email: string;
   notificationCount?: number;
+}
+
+const THEME_OPTIONS: Array<{ value: Theme; label: string }> = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+  { value: "system", label: "System" },
+];
+
+function SunIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3v1.5m0 15V21m8.485-8.485H21m-18 0h.515M18.364 5.636l-1.06 1.06M6.696 17.304l-1.06 1.06m12.728 0l-1.06-1.06M6.696 6.696l-1.06-1.06M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+      />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"
+      />
+    </svg>
+  );
+}
+
+function MonitorIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"
+      />
+    </svg>
+  );
+}
+
+function ThemeIcon({ theme }: { theme: Theme }) {
+  if (theme === "light") return <SunIcon />;
+  if (theme === "dark") return <MoonIcon />;
+  return <MonitorIcon />;
 }
 
 function getInitials(name: string): string {
@@ -19,12 +95,30 @@ function getInitials(name: string): string {
 export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(notificationCount);
+  const [theme, setThemeState] = useState<Theme>("system");
   const containerRef = useRef<HTMLDivElement>(null);
   const hasNotifications = count > 0;
 
   useEffect(() => {
     setCount(notificationCount);
   }, [notificationCount]);
+
+  // Hydrate theme from localStorage after mount (avoids SSR mismatch).
+  useEffect(() => {
+    setThemeState(getStoredTheme());
+  }, []);
+
+  // When the user picks "system", react to OS-level changes live.
+  useEffect(() => {
+    if (theme !== "system") return;
+    return subscribeToSystemTheme(() => applyTheme("system"));
+  }, [theme]);
+
+  const handleThemeChange = (next: Theme) => {
+    setThemeState(next);
+    setStoredTheme(next);
+    applyTheme(next);
+  };
 
   useEffect(() => {
     const handler = () => setCount((current) => Math.max(0, current - 1));
@@ -103,6 +197,39 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
             </div>
             <div className="mt-0.5 truncate text-xs text-text-tertiary">
               {email}
+            </div>
+          </div>
+          <div className="border-t border-border-default" />
+          <div className="px-4 py-2">
+            <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
+              Theme
+            </div>
+            <div
+              role="radiogroup"
+              aria-label="Theme"
+              className="flex items-center gap-1 rounded-lg border border-border-default bg-bg-tertiary p-0.5"
+            >
+              {THEME_OPTIONS.map((option) => {
+                const selected = theme === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => handleThemeChange(option.value)}
+                    title={option.label}
+                    className={`flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                      selected
+                        ? "bg-bg-secondary text-text-primary shadow-sm"
+                        : "text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    <ThemeIcon theme={option.value} />
+                    <span>{option.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="border-t border-border-default" />
