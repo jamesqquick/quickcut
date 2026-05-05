@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
   applyTheme,
-  getStoredTheme,
+  getInitialTheme,
   setStoredTheme,
-  subscribeToSystemTheme,
   type Theme,
 } from "../lib/theme";
 
@@ -13,16 +12,10 @@ interface UserMenuProps {
   notificationCount?: number;
 }
 
-const THEME_OPTIONS: Array<{ value: Theme; label: string }> = [
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "system", label: "System" },
-];
-
 function SunIcon() {
   return (
     <svg
-      className="h-4 w-4"
+      className="h-4 w-4 text-text-tertiary"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -41,7 +34,7 @@ function SunIcon() {
 function MoonIcon() {
   return (
     <svg
-      className="h-4 w-4"
+      className="h-4 w-4 text-text-tertiary"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -57,31 +50,6 @@ function MoonIcon() {
   );
 }
 
-function MonitorIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"
-      />
-    </svg>
-  );
-}
-
-function ThemeIcon({ theme }: { theme: Theme }) {
-  if (theme === "light") return <SunIcon />;
-  if (theme === "dark") return <MoonIcon />;
-  return <MonitorIcon />;
-}
-
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -95,7 +63,7 @@ function getInitials(name: string): string {
 export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(notificationCount);
-  const [theme, setThemeState] = useState<Theme>("system");
+  const [theme, setThemeState] = useState<Theme>("dark");
   const containerRef = useRef<HTMLDivElement>(null);
   const hasNotifications = count > 0;
 
@@ -103,18 +71,15 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
     setCount(notificationCount);
   }, [notificationCount]);
 
-  // Hydrate theme from localStorage after mount (avoids SSR mismatch).
+  // Hydrate theme after mount. The inline script in Layout.astro has
+  // already applied the correct class to <html> before paint; this just
+  // syncs React state so the toggle UI shows the right label/icon.
   useEffect(() => {
-    setThemeState(getStoredTheme());
+    setThemeState(getInitialTheme());
   }, []);
 
-  // When the user picks "system", react to OS-level changes live.
-  useEffect(() => {
-    if (theme !== "system") return;
-    return subscribeToSystemTheme(() => applyTheme("system"));
-  }, [theme]);
-
-  const handleThemeChange = (next: Theme) => {
+  const handleToggleTheme = () => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
     setThemeState(next);
     setStoredTheme(next);
     applyTheme(next);
@@ -200,38 +165,16 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
             </div>
           </div>
           <div className="border-t border-border-default" />
-          <div className="px-4 py-2">
-            <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
-              Theme
-            </div>
-            <div
-              role="radiogroup"
-              aria-label="Theme"
-              className="flex items-center gap-1 rounded-lg border border-border-default bg-bg-tertiary p-0.5"
-            >
-              {THEME_OPTIONS.map((option) => {
-                const selected = theme === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => handleThemeChange(option.value)}
-                    title={option.label}
-                    className={`flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
-                      selected
-                        ? "bg-bg-secondary text-text-primary shadow-sm"
-                        : "text-text-secondary hover:text-text-primary"
-                    }`}
-                  >
-                    <ThemeIcon theme={option.value} />
-                    <span>{option.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <button
+            role="menuitem"
+            type="button"
+            onClick={handleToggleTheme}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-tertiary"
+          >
+            {theme === "dark" ? <MoonIcon /> : <SunIcon />}
+            <span>{theme === "dark" ? "Dark mode" : "Light mode"}</span>
+          </button>
           <div className="border-t border-border-default" />
           <a
             role="menuitem"

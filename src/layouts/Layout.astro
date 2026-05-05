@@ -33,18 +33,19 @@ const headerSpaceId = selectedSpaceId ?? Astro.url.searchParams.get("space") ?? 
     <meta name="description" content={metaDescription} />
     <script is:inline>
       // Apply theme before paint to avoid FOUC. Mirrors logic in src/lib/theme.ts.
+      // Stored value wins; otherwise fall back to OS preference for the first visit.
       (function () {
+        var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var isDark = prefersDark;
         try {
           var stored = localStorage.getItem("quickcut:theme");
-          var mode = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
-          var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-          var isDark = mode === "dark" || (mode === "system" && prefersDark);
-          document.documentElement.classList.toggle("dark", isDark);
+          if (stored === "light" || stored === "dark") {
+            isDark = stored === "dark";
+          }
         } catch (_) {
-          // localStorage may be unavailable (e.g. private mode); fall back to system preference.
-          var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-          document.documentElement.classList.toggle("dark", !!prefersDark);
+          // localStorage may be unavailable (e.g. private mode); use system preference.
         }
+        document.documentElement.classList.toggle("dark", isDark);
       })();
     </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
