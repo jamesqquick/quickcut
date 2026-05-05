@@ -5,6 +5,55 @@ import { isTranscriptGenerationEnabled } from "./flags";
 
 export type { TranscriptStatus } from "./transcript-status";
 
+interface TranscriptPanelUser {
+  id: string;
+  email: string;
+  name: string;
+}
+
+export interface TranscriptPanelData {
+  transcript: typeof transcripts.$inferSelect | null;
+  transcriptRequested: boolean;
+  transcriptsEnabled: boolean;
+  videoStatus: string;
+}
+
+/**
+ * Server-side equivalent of the `transcript.get` action. Use this from Astro
+ * pages to render `<TranscriptPanel>` without requiring a client-side fetch.
+ * Returns `null` when the video does not exist.
+ */
+export async function loadTranscriptPanelData(
+  env: Env,
+  db: Database,
+  videoId: string,
+  user: TranscriptPanelUser | null,
+): Promise<TranscriptPanelData | null> {
+  const videoResult = await db
+    .select({ status: videos.status, transcriptRequested: videos.transcriptRequested })
+    .from(videos)
+    .where(eq(videos.id, videoId))
+    .limit(1);
+
+  const video = videoResult[0];
+  if (!video) return null;
+
+  const transcriptResult = await db
+    .select()
+    .from(transcripts)
+    .where(eq(transcripts.videoId, videoId))
+    .limit(1);
+
+  const transcriptsEnabled = user ? await isTranscriptGenerationEnabled(env, user) : false;
+
+  return {
+    transcript: transcriptResult[0] ?? null,
+    transcriptRequested: video.transcriptRequested,
+    transcriptsEnabled,
+    videoStatus: video.status,
+  };
+}
+
 export interface TranscriptWorkflowParams {
   transcriptId: string;
   videoId: string;
