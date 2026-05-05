@@ -21,6 +21,13 @@ export interface CommentNotificationEmailParams {
   baseUrl: string;
 }
 
+export interface ApprovalRequestEmailParams {
+  actorDisplayName: string;
+  videoTitle: string;
+  href: string;
+  baseUrl: string;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -63,6 +70,51 @@ export function buildInviteEmail({ inviteUrl, inviterName, spaceName }: InviteEm
           <a href="${safeInviteUrl}" style="color: #6c5ce7; word-break: break-all;">${safeInviteUrl}</a>
         </p>
         <p style="margin: 24px 0 0; color: #9ca3af; font-size: 12px;">If you were not expecting this invite, you can ignore this email.</p>
+      </div>
+    </div>
+  `;
+
+  return { subject, text, html };
+}
+
+export function buildApprovalRequestEmail({
+  actorDisplayName,
+  videoTitle,
+  href,
+  baseUrl,
+}: ApprovalRequestEmailParams) {
+  const safeActor = escapeHtml(actorDisplayName);
+  const safeTitle = escapeHtml(videoTitle);
+  const fullUrl = `${baseUrl}${href}`;
+  const safeFullUrl = escapeHtml(fullUrl);
+  const subject = sanitizeSubjectPart(
+    `${actorDisplayName} requested your approval on "${videoTitle}"`,
+  );
+
+  const text = [
+    `${actorDisplayName} requested your approval on "${videoTitle}".`,
+    "",
+    `Review the video and approve or leave feedback: ${fullUrl}`,
+    "",
+    "You're receiving this because you have email notifications enabled on Quick Cuts. You can turn them off in your account menu.",
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; color: #111827; line-height: 1.5; background: #f9fafb; padding: 32px;">
+      <div style="max-width: 520px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 32px;">
+        <p style="margin: 0 0 8px; color: #6c5ce7; font-size: 14px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;">Quick Cuts</p>
+        <h1 style="font-size: 24px; line-height: 1.25; margin: 0 0 16px; color: #111827;">Approval requested</h1>
+        <p style="margin: 0 0 24px; color: #4b5563; font-size: 16px;">
+          <strong style="color: #111827;">${safeActor}</strong> requested your approval on <strong style="color: #111827;">${safeTitle}</strong>.
+        </p>
+        <a href="${safeFullUrl}" style="display: inline-block; background: #6c5ce7; color: #ffffff; text-decoration: none; font-weight: 700; border-radius: 10px; padding: 12px 18px;">Review video</a>
+        <p style="margin: 24px 0 0; color: #6b7280; font-size: 13px;">
+          If the button does not work, copy and paste this link into your browser:<br />
+          <a href="${safeFullUrl}" style="color: #6c5ce7; word-break: break-all;">${safeFullUrl}</a>
+        </p>
+        <p style="margin: 24px 0 0; color: #9ca3af; font-size: 12px;">
+          You&rsquo;re receiving this because you have email notifications enabled. You can turn them off from the account menu in Quick Cuts.
+        </p>
       </div>
     </div>
   `;

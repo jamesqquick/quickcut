@@ -1,12 +1,16 @@
 import { actions } from "astro:actions";
 import { useState } from "react";
 import type { PendingInviteForUser } from "../lib/invites";
-import type { UserNotification } from "../lib/notifications";
+import type {
+  PendingApprovalRequestForUser,
+  UserNotification,
+} from "../lib/notifications";
 import { ToastViewport, useToast } from "./Toast";
 
 interface NotificationCenterProps {
   invites: PendingInviteForUser[];
   notifications: UserNotification[];
+  pendingApprovals?: PendingApprovalRequestForUser[];
 }
 
 interface AcceptedSpace {
@@ -24,12 +28,17 @@ function formatDate(value: string): string {
 }
 
 function getNotificationLabel(type: UserNotification["type"]): string {
+  if (type === "approval.requested") return "Approval requested";
   if (type.startsWith("script_comment")) return "Script feedback";
   if (type.endsWith("reply")) return "Reply";
   return "Video comment";
 }
 
-export function NotificationCenter({ invites, notifications }: NotificationCenterProps) {
+export function NotificationCenter({
+  invites,
+  notifications,
+  pendingApprovals = [],
+}: NotificationCenterProps) {
   const [pendingInvites, setPendingInvites] = useState(invites);
   const [commentNotifications, setCommentNotifications] = useState(notifications);
   const [loadingToken, setLoadingToken] = useState<string | null>(null);
@@ -94,7 +103,10 @@ export function NotificationCenter({ invites, notifications }: NotificationCente
     }
   };
 
-  const hasAnyNotifications = pendingInvites.length > 0 || commentNotifications.length > 0;
+  const hasAnyNotifications =
+    pendingInvites.length > 0 ||
+    commentNotifications.length > 0 ||
+    pendingApprovals.length > 0;
 
   return (
     <>
@@ -127,7 +139,7 @@ export function NotificationCenter({ invites, notifications }: NotificationCente
           </div>
           <h2 className="text-lg font-semibold text-text-primary">No pending notifications</h2>
           <p className="mt-2 text-sm text-text-secondary">
-            Space invites, comment activity, and replies will appear here.
+            Space invites, approval requests, and comment activity will appear here.
           </p>
         </div>
       ) : (
@@ -173,6 +185,50 @@ export function NotificationCenter({ invites, notifications }: NotificationCente
                     </li>
                   );
                 })}
+              </ul>
+            </section>
+          )}
+
+          {pendingApprovals.length > 0 && (
+            <section>
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-tertiary">
+                Pending approval requests
+              </h2>
+              <ul className="space-y-3">
+                {pendingApprovals.map((request) => (
+                  <li
+                    key={request.id}
+                    className="rounded-2xl border border-accent-primary/40 bg-accent-primary/10 p-5"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-xs font-medium text-text-secondary">
+                            Approval requested
+                          </span>
+                          <span className="text-xs text-text-tertiary">
+                            {formatDate(request.createdAt)}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm font-semibold text-text-primary">
+                          {request.requesterDisplayName} requested your approval on &ldquo;
+                          {request.videoTitle}&rdquo;
+                        </p>
+                        <p className="mt-1 text-xs text-text-tertiary">
+                          In {request.spaceName}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <a
+                          href={`/videos/${request.videoId}?tab=video`}
+                          className="rounded-lg bg-accent-primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+                        >
+                          Review video
+                        </a>
+                      </div>
+                    </div>
+                  </li>
+                ))}
               </ul>
             </section>
           )}

@@ -1,8 +1,16 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "../db";
-import { comments, notifications, spaceMembers, spaces, users, videos } from "../db/schema";
+import {
+  approvalRequests,
+  comments,
+  notifications,
+  spaceMembers,
+  spaces,
+  users,
+  videos,
+} from "../db/schema";
 import { broadcastNotification } from "./broadcast";
-import { buildCommentNotificationEmail } from "./email";
+import { buildApprovalRequestEmail, buildCommentNotificationEmail } from "./email";
 import { getNotificationCopy, type NotificationType } from "./notification-copy";
 
 export type { NotificationType, NotificationCopy } from "./notification-copy";
@@ -207,28 +215,31 @@ export async function createCommentNotifications(
   }
 }
 
-export interface ApprovalRequestNotificationInput {
+export interface TargetedApprovalRequestInput {
   videoId: string;
+  /** User ids the approval is being requested from. Already validated as space members. */
+  requestedUserIds: string[];
   actorUserId: string | null;
   actorDisplayName: string;
 }
 
 /**
- * Notify all space members (excluding the actor and the video uploader)
- * that a video has entered review and requires their approval. Fires when
- * a video transitions into `reviewing_video` and the space has
- * `requiredApprovals > 0`.
+ * Notify the specific users an uploader/owner has requested approval from.
+ * One notification row per recipient with personalized copy, and an email
+ * to recipients who have `users.emailNotificationsEnabled = true`.
  */
-export async function createApprovalRequestNotifications(
+export async function createTargetedApprovalRequestNotifications(
   db: Database,
-  input: ApprovalRequestNotificationInput,
+  input: TargetedApprovalRequestInput,
+  emailConfig?: EmailConfig,
   realtimeEnv?: Env,
 ): Promise<void> {
+  if (input.requestedUserIds.length === 0) return;
+
   const videoRows = await db
     .select({
       id: videos.id,
       title: videos.title,
-      uploadedBy: videos.uploadedBy,
       spaceId: videos.spaceId,
     })
     .from(videos)
@@ -238,19 +249,7 @@ export async function createApprovalRequestNotifications(
   const video = videoRows[0];
   if (!video) return;
 
-  const memberRows = await db
-    .select({ userId: spaceMembers.userId })
-    .from(spaceMembers)
-    .where(eq(spaceMembers.spaceId, video.spaceId));
-
-  const exclude = new Set<string>();
-  if (input.actorUserId) exclude.add(input.actorUserId);
-  if (video.uploadedBy) exclude.add(video.uploadedBy);
-
-  const recipientIds = memberRows
-    .map((row) => row.userId)
-    .filter((id) => !exclude.has(id));
-
+  const recipientIds = [...new Set(input.requestedUserIds.filter(Boolean))];
   if (recipientIds.length === 0) return;
 
   const copy = getNotificationCopy(
@@ -292,6 +291,108 @@ export async function createApprovalRequestNotifications(
       ),
     );
   }
+
+  if (!emailConfig) return;
+
+  try {
+    const emailRecipients = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(
+        and(
+          inArray(users.id, recipientIds),
+          eq(users.emailNotificationsEnabled, true),
+        ),
+      );
+
+    if (emailRecipients.length === 0) return;
+
+    const emailContent = buildApprovalRequestEmail({
+      actorDisplayName: input.actorDisplayName,
+      videoTitle: video.title,
+      href,
+      baseUrl: emailConfig.baseUrl,
+    });
+
+    const results = await Promise.allSettled(
+      emailRecipients.map((recipient) =>
+        emailConfig.send({
+          to: recipient.email,
+          from: emailConfig.from,
+          subject: emailContent.subject,
+          text: emailContent.text,
+          html: emailContent.html,
+        }),
+      ),
+    );
+
+    const failures = results.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
+    );
+    if (failures.length > 0) {
+      console.error(
+        `${failures.length}/${results.length} approval-request emails failed`,
+        failures.map((f) => f.reason),
+      );
+    }
+  } catch (error) {
+    console.error("Failed to send approval-request emails", error);
+  }
+}
+
+export interface PendingApprovalRequestForUser {
+  id: string;
+  videoId: string;
+  videoTitle: string;
+  spaceId: string;
+  spaceName: string;
+  requesterDisplayName: string;
+  createdAt: string;
+}
+
+/** Approval requests still pending for the given user (the requested approver). */
+export async function getPendingApprovalRequestsForUser(
+  db: Database,
+  userId: string,
+): Promise<PendingApprovalRequestForUser[]> {
+  return db
+    .select({
+      id: approvalRequests.id,
+      videoId: approvalRequests.videoId,
+      videoTitle: videos.title,
+      spaceId: approvalRequests.spaceId,
+      spaceName: spaces.name,
+      requesterDisplayName: approvalRequests.requesterDisplayName,
+      createdAt: approvalRequests.createdAt,
+    })
+    .from(approvalRequests)
+    .innerJoin(videos, eq(approvalRequests.videoId, videos.id))
+    .innerJoin(spaces, eq(approvalRequests.spaceId, spaces.id))
+    .where(
+      and(
+        eq(approvalRequests.requestedUserId, userId),
+        eq(approvalRequests.status, "pending"),
+      ),
+    )
+    .orderBy(desc(approvalRequests.createdAt));
+}
+
+/** Flip every pending approval_request from this user on this video to resolved. */
+export async function resolveApprovalRequestsForApprover(
+  db: Database,
+  videoId: string,
+  userId: string,
+): Promise<void> {
+  await db
+    .update(approvalRequests)
+    .set({ status: "resolved", resolvedAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(approvalRequests.videoId, videoId),
+        eq(approvalRequests.requestedUserId, userId),
+        eq(approvalRequests.status, "pending"),
+      ),
+    );
 }
 
 export async function getNotificationsForUser(

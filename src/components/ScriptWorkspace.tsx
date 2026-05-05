@@ -297,18 +297,17 @@ export function ScriptWorkspace({
     try {
       if (!canEditScript) return;
 
-      const res = await fetch(`/api/videos/${videoId}/script`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, plainText }),
+      const { data, error } = await actions.script.update({
+        videoId,
+        content,
+        plainText,
       });
-      const data = (await res.json().catch(() => null)) as { resolvedCommentIds?: string[] } | null;
-      if (!res.ok) throw new Error("Failed to save script");
-      if (data?.resolvedCommentIds?.length) {
+      if (error || !data) throw new Error(error?.message || "Failed to save script");
+      if (data.resolvedCommentIds?.length) {
         const resolvedAt = new Date().toISOString();
         setComments((current) =>
           current.map((comment) =>
-            data.resolvedCommentIds!.includes(comment.id)
+            data.resolvedCommentIds.includes(comment.id)
               ? { ...comment, isResolved: true, resolvedAt, resolvedReason: "text_edited" }
               : comment,
           ),

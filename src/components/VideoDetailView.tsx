@@ -306,6 +306,8 @@ export function VideoDetailView({
           readOnly={isShareMode || isPublished}
           shareToken={shareToken}
           onStatusChange={setApprovalStatus}
+          spaceId={spaceId}
+          userRole={userRole === "owner" ? "owner" : "member"}
         />
       )}
     </>
