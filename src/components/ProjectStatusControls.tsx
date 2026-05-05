@@ -3,6 +3,7 @@ import { actions } from "astro:actions";
 import { PROJECT_STATUS_LABELS, PROJECT_STATUSES, normalizeVideoPhase, type ProjectStatus } from "../types";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 import { ToastViewport, useToast } from "./Toast";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { PublishOverrideDialog } from "./PublishOverrideDialog";
 import {
   connectVideoRoom,
@@ -34,6 +35,7 @@ export function ProjectStatusControls({
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus | null>(initialApprovalStatus);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [overrideError, setOverrideError] = useState<string | null>(null);
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
   const { toasts, showToast, dismissToast } = useToast();
   const isPublished = status === "published";
 
@@ -125,16 +127,18 @@ export function ProjectStatusControls({
         setOverrideOpen(true);
         return;
       }
-      if (
-        !window.confirm(
-          "Publishing locks the project. Script, comments, and video versions become read-only.",
-        )
-      ) {
-        return;
-      }
+      // Approvals satisfied (or not required) — confirm via overlay before
+      // locking the project.
+      setPublishConfirmOpen(true);
+      return;
     }
 
     await performStatusUpdate(nextStatus);
+  };
+
+  const confirmPublish = async () => {
+    const ok = await performStatusUpdate("published");
+    if (ok) setPublishConfirmOpen(false);
   };
 
   const confirmOverride = async () => {
@@ -191,6 +195,19 @@ export function ProjectStatusControls({
           currentApprovals={approvalStatus.currentApprovals}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={publishConfirmOpen}
+        title="Mark project as published?"
+        description="Publishing locks the project. Script, comments, and video versions become read-only."
+        confirmLabel="Mark as published"
+        variant="primary"
+        loading={saving}
+        onConfirm={confirmPublish}
+        onCancel={() => {
+          if (!saving) setPublishConfirmOpen(false);
+        }}
+      />
     </div>
   );
 }
