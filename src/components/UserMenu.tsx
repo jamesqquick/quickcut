@@ -1,9 +1,53 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  applyTheme,
+  getInitialTheme,
+  setStoredTheme,
+  type Theme,
+} from "../lib/theme";
 
 interface UserMenuProps {
   name: string;
   email: string;
   notificationCount?: number;
+}
+
+function SunIcon() {
+  return (
+    <svg
+      className="h-4 w-4 text-text-tertiary"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3v1.5m0 15V21m8.485-8.485H21m-18 0h.515M18.364 5.636l-1.06 1.06M6.696 17.304l-1.06 1.06m12.728 0l-1.06-1.06M6.696 6.696l-1.06-1.06M16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z"
+      />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg
+      className="h-4 w-4 text-text-tertiary"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"
+      />
+    </svg>
+  );
 }
 
 function getInitials(name: string): string {
@@ -19,12 +63,27 @@ function getInitials(name: string): string {
 export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(notificationCount);
+  const [theme, setThemeState] = useState<Theme>("dark");
   const containerRef = useRef<HTMLDivElement>(null);
   const hasNotifications = count > 0;
 
   useEffect(() => {
     setCount(notificationCount);
   }, [notificationCount]);
+
+  // Hydrate theme after mount. The inline script in Layout.astro has
+  // already applied the correct class to <html> before paint; this just
+  // syncs React state so the toggle UI shows the right label/icon.
+  useEffect(() => {
+    setThemeState(getInitialTheme());
+  }, []);
+
+  const handleToggleTheme = () => {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setThemeState(next);
+    setStoredTheme(next);
+    applyTheme(next);
+  };
 
   useEffect(() => {
     const handler = () => setCount((current) => Math.max(0, current - 1));
@@ -105,6 +164,17 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
               {email}
             </div>
           </div>
+          <div className="border-t border-border-default" />
+          <button
+            role="menuitem"
+            type="button"
+            onClick={handleToggleTheme}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-text-primary transition-colors hover:bg-bg-tertiary"
+          >
+            {theme === "dark" ? <MoonIcon /> : <SunIcon />}
+            <span>{theme === "dark" ? "Dark mode" : "Light mode"}</span>
+          </button>
           <div className="border-t border-border-default" />
           <a
             role="menuitem"
