@@ -42,4 +42,3 @@ If a worktree was created without step 3, symptoms include:
 - Conventional commit messages (e.g. `feat(actions): ...`, `fix(...)`,
   `chore(...)`, `docs(...)`).
 - Reference issues with `Closes #<n>` in the PR body when applicable.
-- Don't push to remote or open PRs without confirmation from the user.
