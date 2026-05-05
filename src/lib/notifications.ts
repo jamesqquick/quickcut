@@ -187,6 +187,76 @@ export async function createCommentNotifications(
   }
 }
 
+export interface ApprovalRequestNotificationInput {
+  videoId: string;
+  actorUserId: string | null;
+  actorDisplayName: string;
+}
+
+/**
+ * Notify all space members (excluding the actor and the video uploader)
+ * that a video has entered review and requires their approval. Fires when
+ * a video transitions into `reviewing_video` and the space has
+ * `requiredApprovals > 0`.
+ */
+export async function createApprovalRequestNotifications(
+  db: Database,
+  input: ApprovalRequestNotificationInput,
+): Promise<void> {
+  const videoRows = await db
+    .select({
+      id: videos.id,
+      title: videos.title,
+      uploadedBy: videos.uploadedBy,
+      spaceId: videos.spaceId,
+    })
+    .from(videos)
+    .where(eq(videos.id, input.videoId))
+    .limit(1);
+
+  const video = videoRows[0];
+  if (!video) return;
+
+  const memberRows = await db
+    .select({ userId: spaceMembers.userId })
+    .from(spaceMembers)
+    .where(eq(spaceMembers.spaceId, video.spaceId));
+
+  const exclude = new Set<string>();
+  if (input.actorUserId) exclude.add(input.actorUserId);
+  if (video.uploadedBy) exclude.add(video.uploadedBy);
+
+  const recipientIds = memberRows
+    .map((row) => row.userId)
+    .filter((id) => !exclude.has(id));
+
+  if (recipientIds.length === 0) return;
+
+  const copy = getNotificationCopy(
+    "approval.requested",
+    input.actorDisplayName,
+    video.title,
+  );
+  const href = `/videos/${video.id}?tab=video`;
+
+  await db.insert(notifications).values(
+    recipientIds.map((userId) => ({
+      id: crypto.randomUUID(),
+      userId,
+      actorUserId: input.actorUserId,
+      actorDisplayName: input.actorDisplayName,
+      type: "approval.requested" as const,
+      videoId: video.id,
+      commentId: null,
+      parentCommentId: null,
+      spaceId: video.spaceId,
+      title: copy.title,
+      body: null,
+      href,
+    })),
+  );
+}
+
 export async function getNotificationsForUser(
   db: Database,
   userId: string,

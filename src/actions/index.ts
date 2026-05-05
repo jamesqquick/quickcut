@@ -44,7 +44,10 @@ import {
   isCommentReactionEmoji,
   toggleCommentReaction,
 } from "../lib/comments";
-import { createCommentNotifications } from "../lib/notifications";
+import {
+  createCommentNotifications,
+  createApprovalRequestNotifications,
+} from "../lib/notifications";
 import { buildInviteAuthPath, buildInviteEmail } from "../lib/email";
 
 // Re-export ActionError for convenience
@@ -263,8 +266,9 @@ export const server = {
       input: z.object({
         id: z.string().min(1),
         phase: phaseSchema,
+        override: z.boolean().optional(),
       }),
-      handler: async ({ id, phase }, context) => {
+      handler: async ({ id, phase, override }, context) => {
         const user = requireUser(context);
         const db = createDb(env.DB);
 
@@ -295,6 +299,36 @@ export const server = {
           });
         }
 
+        // Server-side approval gate. Only enforced on transitions INTO
+        // published — already-published videos can be unpublished freely,
+        // and increasing requiredApprovals later does not retroactively
+        // un-publish anything.
+        let publishedWithOverride = false;
+        let shortApprovalsBy = 0;
+        if (phase === "published" && video.phase !== "published") {
+          const status = await getApprovalStatus(db, id, video.spaceId);
+          if (status.requiredApprovals > 0 && !status.isApproved) {
+            if (override) {
+              if (role !== "owner") {
+                throw new ActionError({
+                  code: "FORBIDDEN",
+                  message: "Only the space owner can publish without full approvals",
+                });
+              }
+              publishedWithOverride = true;
+              shortApprovalsBy = Math.max(
+                0,
+                status.requiredApprovals - status.currentApprovals,
+              );
+            } else {
+              throw new ActionError({
+                code: "FORBIDDEN",
+                message: "Required approvals not met",
+              });
+            }
+          }
+        }
+
         const now = new Date().toISOString();
         await db
           .update(videos)
@@ -310,11 +344,47 @@ export const server = {
           createdAt: now,
         });
 
+        if (publishedWithOverride) {
+          await logProjectActivity(db, {
+            videoId: id,
+            actorUserId: user.id,
+            actorDisplayName: user.name,
+            type: "phase.published_with_override",
+            data: { shortApprovalsBy },
+            createdAt: now,
+          });
+        }
+
         await broadcastPhaseChange(env, id, {
           videoId: id,
           phase,
           changedBy: user.name,
         });
+
+        // Fire approval-requested notifications when the project enters
+        // `reviewing_video` and the space requires approvals. Don't fail
+        // the action if notification dispatch errors.
+        if (
+          phase === "reviewing_video" &&
+          video.phase !== "reviewing_video"
+        ) {
+          try {
+            const spaceRow = await db
+              .select({ requiredApprovals: spaces.requiredApprovals })
+              .from(spaces)
+              .where(eq(spaces.id, video.spaceId))
+              .limit(1);
+            if ((spaceRow[0]?.requiredApprovals ?? 0) > 0) {
+              await createApprovalRequestNotifications(db, {
+                videoId: id,
+                actorUserId: user.id,
+                actorDisplayName: user.name,
+              });
+            }
+          } catch (err) {
+            console.error("Failed to send approval-requested notifications", err);
+          }
+        }
 
         const updated = await db
           .select()
@@ -397,6 +467,18 @@ export const server = {
         const status = await getApprovalStatus(db, id, video.spaceId);
         await broadcastApprovalUpdate(env, id, status);
 
+        await logProjectActivity(db, {
+          videoId: id,
+          actorUserId: user.id,
+          actorDisplayName: user.name,
+          type: "approval.given",
+          data: {
+            approverUserId: user.id,
+            approverDisplayName: user.name,
+          },
+          createdAt: now,
+        });
+
         return { approvalStatus: status };
       },
     }),
@@ -441,6 +523,17 @@ export const server = {
 
         const status = await getApprovalStatus(db, id, video.spaceId);
         await broadcastApprovalUpdate(env, id, status);
+
+        await logProjectActivity(db, {
+          videoId: id,
+          actorUserId: user.id,
+          actorDisplayName: user.name,
+          type: "approval.revoked",
+          data: {
+            approverUserId: user.id,
+            approverDisplayName: user.name,
+          },
+        });
 
         return { approvalStatus: status };
       },
@@ -865,6 +958,57 @@ export const server = {
           createdAt: now,
           updatedAt: now,
         });
+
+        // Reset approvals when a new version is uploaded. We hard-delete
+        // approval rows for ALL prior versions in this version group so the
+        // approver list starts fresh on the new version. Old versions are
+        // archived/read-only anyway.
+        try {
+          const groupVersions = await db
+            .select({ id: videos.id })
+            .from(videos)
+            .where(
+              and(
+                eq(videos.spaceId, baseVideo.spaceId),
+                eq(videos.versionGroupId, versionGroupId),
+              ),
+            );
+          const priorIds = groupVersions
+            .map((row) => row.id)
+            .filter((existingId) => existingId !== videoId);
+
+          if (priorIds.length > 0) {
+            const existingApprovals = await db
+              .select({ id: approvals.id })
+              .from(approvals)
+              .where(inArray(approvals.videoId, priorIds))
+              .limit(1);
+
+            if (existingApprovals.length > 0) {
+              await db
+                .delete(approvals)
+                .where(inArray(approvals.videoId, priorIds));
+
+              await logProjectActivity(db, {
+                videoId,
+                actorUserId: user.id,
+                actorDisplayName: user.name,
+                type: "approvals.reset",
+                data: { reason: "new_version" },
+                createdAt: now,
+              });
+
+              const status = await getApprovalStatus(
+                db,
+                videoId,
+                baseVideo.spaceId,
+              );
+              await broadcastApprovalUpdate(env, videoId, status);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to reset approvals on new version", err);
+        }
 
         return { videoId, uploadUrl };
       },

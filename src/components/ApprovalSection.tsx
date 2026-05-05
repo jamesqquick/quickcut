@@ -127,6 +127,17 @@ export function ApprovalSection({
   const canUndo =
     !readOnly && !!currentUserId && isSpaceMember && hasApproved;
 
+  const dispatchLocalApprovalUpdate = useCallback(
+    (next: ApprovalStatus) => {
+      window.dispatchEvent(
+        new CustomEvent("quickcut:approval-update", {
+          detail: { videoId, status: next },
+        }),
+      );
+    },
+    [videoId],
+  );
+
   const approve = useCallback(async () => {
     setBusy(true);
     setError(null);
@@ -136,13 +147,16 @@ export function ApprovalSection({
         setError(error.message || "Could not approve");
         return;
       }
-      if (data?.approvalStatus) setStatus(data.approvalStatus);
+      if (data?.approvalStatus) {
+        setStatus(data.approvalStatus);
+        dispatchLocalApprovalUpdate(data.approvalStatus);
+      }
     } catch {
       setError("Network error");
     } finally {
       setBusy(false);
     }
-  }, [videoId]);
+  }, [videoId, dispatchLocalApprovalUpdate]);
 
   const undoApproval = useCallback(async () => {
     setBusy(true);
@@ -153,13 +167,16 @@ export function ApprovalSection({
         setError(error.message || "Could not remove approval");
         return;
       }
-      if (data?.approvalStatus) setStatus(data.approvalStatus);
+      if (data?.approvalStatus) {
+        setStatus(data.approvalStatus);
+        dispatchLocalApprovalUpdate(data.approvalStatus);
+      }
     } catch {
       setError("Network error");
     } finally {
       setBusy(false);
     }
-  }, [videoId]);
+  }, [videoId, dispatchLocalApprovalUpdate]);
 
   // Don't render at all if the workflow isn't enabled. Defensive check —
   // callers normally gate the section on requiredApprovals > 0.

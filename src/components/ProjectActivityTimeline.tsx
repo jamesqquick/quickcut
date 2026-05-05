@@ -47,6 +47,38 @@ function getActivityCopy(item: ProjectActivityItem): { title: string; detail: st
       title: "Uploaded first cut",
       detail: typeof data.fileName === "string" ? data.fileName : "Video upload started",
     }),
+    "approval.given": () => ({
+      title: "Approved video",
+      detail:
+        typeof data.approverDisplayName === "string"
+          ? `${data.approverDisplayName} approved this version`
+          : "Video approved",
+    }),
+    "approval.revoked": () => ({
+      title: "Revoked approval",
+      detail:
+        typeof data.approverDisplayName === "string"
+          ? `${data.approverDisplayName} removed their approval`
+          : "Approval revoked",
+    }),
+    "approvals.reset": () => ({
+      title: "Approvals reset",
+      detail:
+        data.reason === "new_version"
+          ? "Approvals cleared for new video version"
+          : "Approvals cleared",
+    }),
+    "phase.published_with_override": () => {
+      const short =
+        typeof data.shortApprovalsBy === "number" ? data.shortApprovalsBy : 0;
+      return {
+        title: "Published without full approvals",
+        detail:
+          short > 0
+            ? `Owner override skipped ${short} pending approval${short === 1 ? "" : "s"}`
+            : "Owner override",
+      };
+    },
   };
 
   return copy[item.type]?.() || { title: item.type, detail: "" };
@@ -58,6 +90,10 @@ function getActivityIcon(type: ProjectActivityType): string {
     "phase.changed": "->",
     "target_date.changed": "cal",
     "first_cut.uploaded": "up",
+    "approval.given": "ok",
+    "approval.revoked": "x",
+    "approvals.reset": "rst",
+    "phase.published_with_override": "!",
   };
   return icons[type];
 }
