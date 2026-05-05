@@ -96,6 +96,8 @@ export function ShareView({
         takeaway3={video.takeaway3}
         primaryCta={video.primaryCta}
         outro={video.outro}
+        targetDate={video.targetDate}
+        canSetTargetDate={false}
       />
     );
   }
@@ -128,7 +130,6 @@ export function ShareView({
       title={video.title}
       uploadDate={video.createdAt}
       fileName={video.fileName}
-      targetDate={video.targetDate}
       transcriptsEnabled={false}
       uploadedBy={video.uploadedBy}
       initialApprovalStatus={initialApprovalStatus}

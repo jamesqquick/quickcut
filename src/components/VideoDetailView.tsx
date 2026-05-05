@@ -8,7 +8,6 @@ import { TranscriptPanel, type TranscriptResponse } from "./TranscriptPanel";
 import { VideoBriefPanel } from "./VideoBriefPanel";
 import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { ProjectPhaseControls } from "./ProjectPhaseControls";
-import { TargetDateEditor } from "./TargetDateEditor";
 import { ProjectActivityTimeline } from "./ProjectActivityTimeline";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
 import { normalizeVideoPhase, PROJECT_STATUS_LABELS, type Annotation, type Comment, type VideoPhase } from "../types";
@@ -28,7 +27,6 @@ interface VideoDetailViewProps {
   title: string;
   uploadDate: string;
   fileName: string | null;
-  targetDate: string | null;
   transcriptsEnabled: boolean;
   uploadedBy: string | null;
   /** Null when the space has requiredApprovals = 0; the section is hidden. */
@@ -80,7 +78,6 @@ export function VideoDetailView({
   currentUserName,
   title,
   uploadDate,
-  targetDate,
   transcriptsEnabled,
   uploadedBy,
   initialApprovalStatus,
@@ -275,14 +272,6 @@ export function VideoDetailView({
             <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
             {formatDuration(videoDuration)}
           </span>
-        )}
-        {pipelineEnabled && (
-          <TargetDateEditor
-            videoId={videoId}
-            initialTargetDate={targetDate}
-            canEdit={canChangePhase}
-            variant="metadata"
-          />
         )}
       </div>
 

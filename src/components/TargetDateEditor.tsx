@@ -104,8 +104,8 @@ export function TargetDateEditor({ videoId, initialTargetDate, canEdit, variant 
             value={targetDate}
             onChange={(value) => saveTargetDate(value)}
             disabled={saving}
-            ariaLabel="Target publish date"
-            placeholder="Set target publish date"
+            ariaLabel="Publish date"
+            placeholder="Set publish date"
             className="inline-flex w-auto min-w-48 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-left text-sm text-text-primary transition-colors hover:border-border-hover focus:border-accent-primary focus:outline-none disabled:opacity-50"
           />
         ) : (

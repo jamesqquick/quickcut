@@ -53,14 +53,15 @@ export function NewProjectDialog({ spaceId, folderId = null }: NewProjectDialogP
       <Button
         onClick={() => setOpen(true)}
         aria-label="Create a new video project"
+        className="px-3 py-2.5 sm:px-5"
         icon={(
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 5v14" />
-            <path d="M5 12h14" />
+            <path d="m22 8-6 4 6 4V8Z" />
+            <rect x="2" y="6" width="14" height="12" rx="2" ry="2" />
           </svg>
         )}
       >
-        New Project
+        <span className="hidden sm:inline">New Project</span>
       </Button>
 
       <Modal

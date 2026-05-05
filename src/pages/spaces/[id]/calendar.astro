@@ -1,0 +1,86 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { CalendarView } from "../../../components/CalendarView";
+import type { DashboardVideo } from "../../../components/dashboard-types";
+import { createDb } from "../../../db";
+import { spaces, videos, scripts, users } from "../../../db/schema";
+import { and, desc, eq } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+import { verifySpaceAccess } from "../../../lib/spaces";
+import { normalizeVideoPhase, type ScriptStatus } from "../../../types";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/dashboard");
+
+const db = createDb(env.DB);
+
+const role = await verifySpaceAccess(db, user.id, id);
+if (!role) return Astro.redirect("/dashboard");
+
+const space = await db.select().from(spaces).where(eq(spaces.id, id)).limit(1);
+if (space.length === 0) return Astro.redirect("/dashboard");
+
+// Pull every current-version video in the space. Joining scripts so PipelineBoard-style
+// consumers of DashboardVideo could reuse this data, even though CalendarView only needs
+// targetDate and phase.
+const rows = await db
+  .select({
+    id: videos.id,
+    title: videos.title,
+    status: videos.status,
+    phase: videos.phase,
+    thumbnailUrl: videos.thumbnailUrl,
+    duration: videos.duration,
+    createdAt: videos.createdAt,
+    targetDate: videos.targetDate,
+    scriptStatus: scripts.status,
+    ownerName: users.name,
+  })
+  .from(videos)
+  .leftJoin(scripts, eq(scripts.videoId, videos.id))
+  .leftJoin(users, eq(users.id, videos.uploadedBy))
+  .where(and(eq(videos.spaceId, id), eq(videos.isCurrentVersion, true)))
+  .orderBy(desc(videos.createdAt));
+
+const calendarVideos: DashboardVideo[] = rows.map((row) => ({
+  id: row.id,
+  title: row.title,
+  status: row.status as DashboardVideo["status"],
+  phase: normalizeVideoPhase(row.phase),
+  scriptStatus: (row.scriptStatus as ScriptStatus | null) ?? null,
+  thumbnailUrl: row.thumbnailUrl,
+  duration: row.duration,
+  createdAt: row.createdAt,
+  targetDate: row.targetDate,
+  // CalendarView does not read these, but DashboardVideo requires them.
+  commentCount: 0,
+  approvalCount: 0,
+  requiredApprovals: space[0].requiredApprovals,
+  ownerName: row.ownerName ?? null,
+}));
+---
+
+<Layout title={`${space[0].name} Launch Calendar`} user={user} selectedSpaceId={id}>
+  <div class="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <a
+          href={`/dashboard?space=${id}`}
+          class="inline-flex items-center gap-1 text-sm text-text-secondary transition-colors hover:text-text-primary"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back to Dashboard
+        </a>
+        <h1 class="mt-2 text-2xl font-bold text-text-primary">Launch Calendar</h1>
+        <p class="text-sm text-text-secondary">{space[0].name}</p>
+      </div>
+    </div>
+
+    <CalendarView client:load spaceId={id} initialVideos={calendarVideos} />
+  </div>
+</Layout>

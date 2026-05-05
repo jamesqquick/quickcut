@@ -40,7 +40,7 @@ interface VideoHeaderProps {
   uploadVersion?: UploadVersionConfig | null;
 }
 
-export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to videos", spaceName, versions, uploadVersion = null }: VideoHeaderProps) {
+export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to Dashboard", spaceName, versions, uploadVersion = null }: VideoHeaderProps) {
   const [shareLink, setShareLink] = useState(initialLink);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);

@@ -42,6 +42,29 @@ function getCalendarDays(month: Date) {
   });
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function OwnerAvatar({ name }: { name: string | null }) {
+  if (!name) return null;
+  return (
+    <span
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[10px] font-medium text-white"
+      title={`Owner: ${name}`}
+      aria-label={`Owner: ${name}`}
+    >
+      {getInitials(name)}
+    </span>
+  );
+}
+
 function getRiskLabel(video: DashboardVideo) {
   if (!video.targetDate || video.phase === "published") return null;
   const today = new Date();
@@ -122,22 +145,34 @@ export function CalendarView({ initialVideos, spaceId }: CalendarViewProps) {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border-default bg-bg-secondary">
-        <div className="grid grid-cols-7 border-b border-border-default bg-bg-tertiary/50">
+        {/* Weekday header is only meaningful when the cells are arranged in a 7-col grid.
+            Below the lg breakpoint we stack one day per row, so hide the strip there. */}
+        <div className="hidden border-b border-border-default bg-bg-tertiary/50 lg:grid lg:grid-cols-7">
           {weekdayLabels.map((day) => (
             <div key={day} className="px-2 py-2 text-center text-xs font-semibold text-text-tertiary">
               {day}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-7">
+        {/* Stack one day per row until lg (1024px). Below that the 7-col grid leaves cells
+            too narrow to fit the card content (title, phase, risk pill, avatar, date picker). */}
+        <div className="grid grid-cols-1 lg:grid-cols-7">
           {days.map((day) => {
             const dateKey = toDateKey(day);
             const dayVideos = scheduledByDate.get(dateKey) || [];
             const outsideMonth = day.getMonth() !== month.getMonth();
+            // When stacked, hide rows that fall outside the current month so the list
+            // doesn't pad with empty cells. The 7-col grid still shows them for layout.
             return (
-              <div key={dateKey} className={`min-h-[150px] border-b border-r border-border-default p-2 ${outsideMonth ? "bg-bg-primary/40" : "bg-bg-secondary"}`}>
+              <div
+                key={dateKey}
+                className={`border-b border-r border-border-default p-2 lg:min-h-[150px] ${outsideMonth ? "hidden bg-bg-primary/40 lg:block" : "bg-bg-secondary"}`}
+              >
                 <div className={`mb-2 text-xs font-medium ${outsideMonth ? "text-text-tertiary" : "text-text-secondary"}`}>
-                  {day.getDate()}
+                  <span className="lg:hidden">
+                    {day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                  </span>
+                  <span className="hidden lg:inline">{day.getDate()}</span>
                 </div>
                 <div className="space-y-2">
                   {dayVideos.map((video) => {
@@ -151,11 +186,12 @@ export function CalendarView({ initialVideos, spaceId }: CalendarViewProps) {
                               <h3 className="truncate text-xs font-semibold text-text-primary">{video.title}</h3>
                               <p className="mt-0.5 text-[10px] text-text-tertiary">{PHASE_LABELS[video.phase]}</p>
                               {riskLabel && (
-                                <span className="mt-1 inline-flex rounded-full bg-accent-danger/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent-danger">
+                                <span className="mt-1 inline-flex whitespace-nowrap rounded-full bg-accent-danger/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent-danger">
                                   {riskLabel}
                                 </span>
                               )}
                             </div>
+                            <OwnerAvatar name={video.ownerName} />
                           </div>
                         </a>
                         <div className="mt-2 text-[10px] text-text-tertiary">
@@ -185,9 +221,12 @@ export function CalendarView({ initialVideos, spaceId }: CalendarViewProps) {
           <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {unscheduled.map((video) => (
               <article key={video.id} className="rounded-lg border border-border-default bg-bg-primary p-3">
-                <a href={`/videos/${video.id}?space=${spaceId}`} className="text-sm font-semibold text-text-primary hover:text-accent-primary">
-                  {video.title}
-                </a>
+                <div className="flex items-start justify-between gap-2">
+                  <a href={`/videos/${video.id}?space=${spaceId}`} className="min-w-0 flex-1 text-sm font-semibold text-text-primary hover:text-accent-primary">
+                    <span className="block truncate">{video.title}</span>
+                  </a>
+                  <OwnerAvatar name={video.ownerName} />
+                </div>
                 <p className="mt-1 text-xs text-text-tertiary">{PHASE_LABELS[video.phase]}</p>
                 <div className="mt-2 text-xs text-text-tertiary">
                   <span>Set launch date</span>
