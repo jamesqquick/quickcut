@@ -321,6 +321,40 @@ export const approvals = sqliteTable("approvals", {
     .default(sql`(datetime('now'))`),
 });
 
+export const approvalRequests = sqliteTable(
+  "approval_requests",
+  {
+    id: text("id").primaryKey(),
+    videoId: text("video_id")
+      .notNull()
+      .references(() => videos.id, { onDelete: "cascade" }),
+    spaceId: text("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    requesterUserId: text("requester_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    requesterDisplayName: text("requester_display_name").notNull(),
+    requestedUserId: text("requested_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: text("status", { enum: ["pending", "resolved", "cancelled"] })
+      .notNull()
+      .default("pending"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    resolvedAt: text("resolved_at"),
+  },
+  (table) => [
+    index("approval_requests_requested_user_pending_idx").on(
+      table.requestedUserId,
+      table.status,
+    ),
+    index("approval_requests_video_idx").on(table.videoId),
+  ],
+);
+
 export const comments = sqliteTable("comments", {
   id: text("id").primaryKey(),
   videoId: text("video_id")
