@@ -46,6 +46,7 @@ export function UploadVersionModal({
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
+  const [versionNotes, setVersionNotes] = useState("");
   const [generateTranscript, setGenerateTranscript] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
@@ -56,6 +57,7 @@ export function UploadVersionModal({
     setFile(null);
     setTitle(initialTitle);
     setDescription(initialDescription);
+    setVersionNotes("");
     setGenerateTranscript(false);
     setProgress(0);
     setError("");
@@ -104,6 +106,7 @@ export function UploadVersionModal({
         title: title.trim() || undefined,
         description: description.trim(),
         generateTranscript: transcriptsEnabled ? generateTranscript : false,
+        versionNotes: versionNotes.trim() || undefined,
       });
 
       if (actionError || !data?.videoId || !data.uploadUrl) {
@@ -233,6 +236,22 @@ export function UploadVersionModal({
               rows={3}
               className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
             />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">What changed?</label>
+            <textarea
+              value={versionNotes}
+              onChange={(event) => setVersionNotes(event.target.value)}
+              disabled={state === "uploading"}
+              rows={3}
+              maxLength={2000}
+              placeholder="Example: tightened intro, replaced b-roll at 0:42, fixed audio levels."
+              className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+            />
+            <p className="mt-1 text-xs text-text-tertiary">
+              Optional. Summarize what reviewers should look for in this cut.
+            </p>
           </div>
 
           {transcriptsEnabled && (

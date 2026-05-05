@@ -28,6 +28,7 @@ interface Video {
   takeaway3: string | null;
   primaryCta: string | null;
   outro: string | null;
+  versionNotes: string | null;
 }
 
 interface ShareViewProps {
@@ -139,6 +140,11 @@ export function ShareView({
       shareToken={shareToken}
       initialActivity={initialActivity}
       initialTranscriptData={initialTranscriptData}
+      hook={video.hook}
+      takeaway1={video.takeaway1}
+      takeaway2={video.takeaway2}
+      takeaway3={video.takeaway3}
+      versionNotes={video.versionNotes}
     />
   );
 }

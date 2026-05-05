@@ -12,6 +12,7 @@ export interface VersionSummary {
   isCurrentVersion: boolean;
   createdAt: string;
   commentCount: number;
+  versionNotes: string | null;
 }
 
 interface VersionContext {
@@ -67,5 +68,6 @@ export async function getVideoVersions(
     isCurrentVersion: version.isCurrentVersion,
     createdAt: version.createdAt,
     commentCount: commentCounts[version.id] || 0,
+    versionNotes: version.versionNotes ?? null,
   }));
 }

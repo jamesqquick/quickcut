@@ -130,6 +130,7 @@ export const videos = sqliteTable("videos", {
   takeaway3: text("takeaway3"),
   primaryCta: text("primary_cta"),
   outro: text("outro"),
+  versionNotes: text("version_notes"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),
