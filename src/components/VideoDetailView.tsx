@@ -5,6 +5,7 @@ import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import { TranscriptPanel, type TranscriptResponse } from "./TranscriptPanel";
+import { VideoBriefPanel } from "./VideoBriefPanel";
 import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { ProjectPhaseControls } from "./ProjectPhaseControls";
 import { TargetDateEditor } from "./TargetDateEditor";
@@ -46,6 +47,11 @@ interface VideoDetailViewProps {
   initialActivity?: ProjectActivityItem[];
   /** Server-rendered transcript data so the panel renders without a client fetch. */
   initialTranscriptData?: TranscriptResponse | null;
+  /** Hook from project metadata, surfaced read-only on the review tab. */
+  hook?: string | null;
+  takeaway1?: string | null;
+  takeaway2?: string | null;
+  takeaway3?: string | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -86,6 +92,10 @@ export function VideoDetailView({
   shareToken,
   initialActivity = [],
   initialTranscriptData = null,
+  hook = null,
+  takeaway1 = null,
+  takeaway2 = null,
+  takeaway3 = null,
 }: VideoDetailViewProps) {
   const isShareMode = !!shareToken;
   const initialReviewComments = initialComments.filter((comment) => comment.phase !== "script");
@@ -95,16 +105,46 @@ export function VideoDetailView({
   const [liveComments, setLiveComments] = useState(initialReviewComments);
   const isPublished = currentPhase === "published";
   const canChangePhase = !isShareMode && pipelineEnabled && (userRole === "owner" || uploadedBy === currentUserId);
+  const isOwner = userRole === "owner";
   const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
-  const canMarkAsPublished = !isPublished && canChangePhase && (!approvalStatus || approvalStatus.isApproved);
-  const primaryAction = canMarkAsPublished
-    ? {
-        type: "phase" as const,
+  const requiresApproval =
+    !!approvalStatus && approvalStatus.requiredApprovals > 0;
+  const isApprovalBlocked =
+    requiresApproval && !approvalStatus!.isApproved;
+  const shortApprovalsBy = approvalStatus
+    ? Math.max(
+        0,
+        approvalStatus.requiredApprovals - approvalStatus.currentApprovals,
+      )
+    : 0;
+
+  let primaryAction: React.ComponentProps<typeof ProjectPhaseControls>["primaryAction"] = null;
+  if (!isPublished && canChangePhase) {
+    if (!isApprovalBlocked) {
+      primaryAction = {
+        type: "phase",
         label: "Mark as Published",
-        phase: "published" as const,
-        confirmMessage: "Marking this project as published locks the script, comments, and versions. This assumes you have published the video manually elsewhere.",
-      }
-    : null;
+        phase: "published",
+        confirmMessage:
+          "Marking this project as published locks the script, comments, and versions. This assumes you have published the video manually elsewhere.",
+      };
+    } else if (isOwner) {
+      primaryAction = {
+        type: "phase",
+        label: "Publish without approvals",
+        phase: "published",
+        override: true,
+        approvalStatus,
+      };
+    } else {
+      primaryAction = {
+        type: "phase",
+        label: "Mark as Published",
+        phase: "published",
+        disabledReason: `Needs ${shortApprovalsBy} more approval${shortApprovalsBy === 1 ? "" : "s"}.`,
+      };
+    }
+  }
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
   const [activeTool, setActiveTool] = useState<AnnotationTool>("none");
   const [pendingAnnotation, setPendingAnnotation] = useState<Annotation | null>(null);
@@ -245,6 +285,14 @@ export function VideoDetailView({
           />
         )}
       </div>
+
+      {/* Read-only "brief" so reviewers see authorial intent alongside the cut. */}
+      <VideoBriefPanel
+        hook={hook}
+        takeaway1={takeaway1}
+        takeaway2={takeaway2}
+        takeaway3={takeaway3}
+      />
 
       {/* Approval status — shown inside Video when the space requires signoff. */}
       {approvalStatus && (

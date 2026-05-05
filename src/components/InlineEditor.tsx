@@ -1,14 +1,29 @@
 import { useState, useRef, useEffect } from "react";
 import { actions } from "astro:actions";
 
+export type InlineEditorField =
+  | "title"
+  | "description"
+  | "targetAudience"
+  | "hook"
+  | "takeaway1"
+  | "takeaway2"
+  | "takeaway3"
+  | "primaryCta"
+  | "outro";
+
 interface InlineEditorProps {
   value: string;
-  field: "title" | "description";
+  field: InlineEditorField;
   videoId: string;
   isOwner: boolean;
   as?: "h1" | "p";
   placeholder?: string;
   className?: string;
+  /** Render a multi-line textarea instead of a single-line input. */
+  multiline?: boolean;
+  /** Maximum number of characters allowed. */
+  maxLength?: number;
 }
 
 export function InlineEditor({
@@ -19,7 +34,15 @@ export function InlineEditor({
   as: Tag = "p",
   placeholder = "Click to edit...",
   className = "",
+  multiline,
+  maxLength,
 }: InlineEditorProps) {
+  // Title and description preserve their historical multiline behavior:
+  // title is single-line, description is multi-line. New fields opt in via
+  // the explicit `multiline` prop.
+  const isMultiline =
+    multiline !== undefined ? multiline : field === "description";
+
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(initialValue);
   const [saving, setSaving] = useState(false);
@@ -34,6 +57,7 @@ export function InlineEditor({
 
   const save = async () => {
     const trimmed = value.trim();
+    // Title is the only required field; empty input reverts to original.
     if (!trimmed && field === "title") {
       setValue(initialValue);
       setIsEditing(false);
@@ -47,10 +71,13 @@ export function InlineEditor({
 
     setSaving(true);
     try {
-      const { error } = await actions.video.update({
+      // For optional metadata fields, an empty string clears the value.
+      // The server normalizes "" to null, so we just send the trimmed string.
+      const payload: Record<string, string> = {
         id: videoId,
         [field]: trimmed,
-      });
+      };
+      const { error } = await actions.video.update(payload as never);
       if (!error) {
         setValue(trimmed);
       } else {
@@ -64,7 +91,13 @@ export function InlineEditor({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && field === "title") {
+    // Single-line fields commit on Enter. Multi-line fields commit on
+    // Cmd/Ctrl+Enter so newlines stay accessible.
+    if (e.key === "Enter" && !isMultiline) {
+      e.preventDefault();
+      save();
+    }
+    if (e.key === "Enter" && isMultiline && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       save();
     }
@@ -75,17 +108,18 @@ export function InlineEditor({
   };
 
   if (!isOwner) {
-    const readOnlyDescStyles =
-      field === "description" ? "w-full min-h-[2.5rem] whitespace-pre-wrap" : "";
+    const readOnlyMultilineStyles = isMultiline
+      ? "w-full min-h-[2.5rem] whitespace-pre-wrap"
+      : "";
     return (
-      <Tag className={`${readOnlyDescStyles} ${className}`}>
+      <Tag className={`${readOnlyMultilineStyles} ${className}`}>
         {value || placeholder}
       </Tag>
     );
   }
 
   if (isEditing) {
-    if (field === "description") {
+    if (isMultiline) {
       return (
         <textarea
           ref={inputRef as React.RefObject<HTMLTextAreaElement>}
@@ -95,6 +129,7 @@ export function InlineEditor({
           onKeyDown={handleKeyDown}
           disabled={saving}
           rows={3}
+          maxLength={maxLength}
           className={`w-full resize-none rounded-lg border border-accent-primary bg-bg-input px-3 py-2 text-sm text-text-primary focus:outline-none ${className}`}
           placeholder={placeholder}
         />
@@ -110,21 +145,22 @@ export function InlineEditor({
         onBlur={save}
         onKeyDown={handleKeyDown}
         disabled={saving}
+        maxLength={maxLength}
         className={`w-full rounded-lg border border-accent-primary bg-bg-input px-3 py-2 text-text-primary focus:outline-none ${className}`}
+        placeholder={placeholder}
       />
     );
   }
 
-  const descriptionStyles =
-    field === "description"
-      ? "w-full min-h-[5.25rem] whitespace-pre-wrap border border-accent-primary/25 py-2 hover:border-accent-primary/50"
-      : "";
-  const displayPadding = field === "description" ? "px-3" : "px-0 py-0";
+  const multilineStyles = isMultiline
+    ? "w-full min-h-[5.25rem] whitespace-pre-wrap border border-accent-primary/25 py-2 hover:border-accent-primary/50"
+    : "";
+  const displayPadding = isMultiline ? "px-3" : "px-0 py-0";
 
   return (
     <Tag
       onClick={() => setIsEditing(true)}
-      className={`cursor-pointer rounded-lg ${displayPadding} transition-colors hover:bg-bg-tertiary ${descriptionStyles} ${className} ${!value ? "text-text-tertiary italic" : ""}`}
+      className={`cursor-pointer rounded-lg ${displayPadding} transition-colors hover:bg-bg-tertiary ${multilineStyles} ${className} ${!value ? "text-text-tertiary italic" : ""}`}
       title="Click to edit"
     >
       {value || placeholder}

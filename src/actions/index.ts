@@ -44,7 +44,10 @@ import {
   isCommentReactionEmoji,
   toggleCommentReaction,
 } from "../lib/comments";
-import { createCommentNotifications } from "../lib/notifications";
+import {
+  createCommentNotifications,
+  createApprovalRequestNotifications,
+} from "../lib/notifications";
 import { buildInviteAuthPath, buildInviteEmail } from "../lib/email";
 
 // Re-export ActionError for convenience
@@ -110,6 +113,13 @@ export const server = {
         description: z.string().max(2000).optional(),
         targetDate: z.string().date().nullable().optional(),
         folderId: z.string().uuid().nullable().optional(),
+        targetAudience: z.string().max(200).nullable().optional(),
+        hook: z.string().max(500).nullable().optional(),
+        takeaway1: z.string().max(200).nullable().optional(),
+        takeaway2: z.string().max(200).nullable().optional(),
+        takeaway3: z.string().max(200).nullable().optional(),
+        primaryCta: z.string().max(200).nullable().optional(),
+        outro: z.string().max(500).nullable().optional(),
       }),
       handler: async (input, context) => {
         const user = requireUser(context);
@@ -136,18 +146,57 @@ export const server = {
           input.targetDate !== undefined &&
           input.title === undefined &&
           input.description === undefined &&
-          input.folderId === undefined;
+          input.folderId === undefined &&
+          input.targetAudience === undefined &&
+          input.hook === undefined &&
+          input.takeaway1 === undefined &&
+          input.takeaway2 === undefined &&
+          input.takeaway3 === undefined &&
+          input.primaryCta === undefined &&
+          input.outro === undefined;
 
         if (video.phase === "published" && !targetDateOnly) {
           throw new ActionError({ code: "FORBIDDEN", message: "Cannot edit published videos" });
         }
 
-        const updates: { title?: string; description?: string; targetDate?: string | null } = {};
+        const updates: {
+          title?: string;
+          description?: string;
+          targetDate?: string | null;
+          targetAudience?: string | null;
+          hook?: string | null;
+          takeaway1?: string | null;
+          takeaway2?: string | null;
+          takeaway3?: string | null;
+          primaryCta?: string | null;
+          outro?: string | null;
+        } = {};
         let folderUpdate: string | null | undefined;
+
+        const normalizeMetadata = (value: string | null | undefined) => {
+          if (value === undefined) return undefined;
+          if (value === null) return null;
+          const trimmed = value.trim();
+          return trimmed.length === 0 ? null : trimmed;
+        };
 
         if (input.title !== undefined) updates.title = input.title.trim();
         if (input.description !== undefined) updates.description = input.description.trim();
         if (input.targetDate !== undefined) updates.targetDate = input.targetDate;
+        const audience = normalizeMetadata(input.targetAudience);
+        if (audience !== undefined) updates.targetAudience = audience;
+        const hookValue = normalizeMetadata(input.hook);
+        if (hookValue !== undefined) updates.hook = hookValue;
+        const t1 = normalizeMetadata(input.takeaway1);
+        if (t1 !== undefined) updates.takeaway1 = t1;
+        const t2 = normalizeMetadata(input.takeaway2);
+        if (t2 !== undefined) updates.takeaway2 = t2;
+        const t3 = normalizeMetadata(input.takeaway3);
+        if (t3 !== undefined) updates.takeaway3 = t3;
+        const cta = normalizeMetadata(input.primaryCta);
+        if (cta !== undefined) updates.primaryCta = cta;
+        const outroValue = normalizeMetadata(input.outro);
+        if (outroValue !== undefined) updates.outro = outroValue;
         if (input.folderId !== undefined) {
           const folderId = input.folderId ?? null;
           if (folderId) {
@@ -263,8 +312,9 @@ export const server = {
       input: z.object({
         id: z.string().min(1),
         phase: phaseSchema,
+        override: z.boolean().optional(),
       }),
-      handler: async ({ id, phase }, context) => {
+      handler: async ({ id, phase, override }, context) => {
         const user = requireUser(context);
         const db = createDb(env.DB);
 
@@ -295,6 +345,36 @@ export const server = {
           });
         }
 
+        // Server-side approval gate. Only enforced on transitions INTO
+        // published — already-published videos can be unpublished freely,
+        // and increasing requiredApprovals later does not retroactively
+        // un-publish anything.
+        let publishedWithOverride = false;
+        let shortApprovalsBy = 0;
+        if (phase === "published" && video.phase !== "published") {
+          const status = await getApprovalStatus(db, id, video.spaceId);
+          if (status.requiredApprovals > 0 && !status.isApproved) {
+            if (override) {
+              if (role !== "owner") {
+                throw new ActionError({
+                  code: "FORBIDDEN",
+                  message: "Only the space owner can publish without full approvals",
+                });
+              }
+              publishedWithOverride = true;
+              shortApprovalsBy = Math.max(
+                0,
+                status.requiredApprovals - status.currentApprovals,
+              );
+            } else {
+              throw new ActionError({
+                code: "FORBIDDEN",
+                message: "Required approvals not met",
+              });
+            }
+          }
+        }
+
         const now = new Date().toISOString();
         await db
           .update(videos)
@@ -310,11 +390,47 @@ export const server = {
           createdAt: now,
         });
 
+        if (publishedWithOverride) {
+          await logProjectActivity(db, {
+            videoId: id,
+            actorUserId: user.id,
+            actorDisplayName: user.name,
+            type: "phase.published_with_override",
+            data: { shortApprovalsBy },
+            createdAt: now,
+          });
+        }
+
         await broadcastPhaseChange(env, id, {
           videoId: id,
           phase,
           changedBy: user.name,
         });
+
+        // Fire approval-requested notifications when the project enters
+        // `reviewing_video` and the space requires approvals. Don't fail
+        // the action if notification dispatch errors.
+        if (
+          phase === "reviewing_video" &&
+          video.phase !== "reviewing_video"
+        ) {
+          try {
+            const spaceRow = await db
+              .select({ requiredApprovals: spaces.requiredApprovals })
+              .from(spaces)
+              .where(eq(spaces.id, video.spaceId))
+              .limit(1);
+            if ((spaceRow[0]?.requiredApprovals ?? 0) > 0) {
+              await createApprovalRequestNotifications(db, {
+                videoId: id,
+                actorUserId: user.id,
+                actorDisplayName: user.name,
+              });
+            }
+          } catch (err) {
+            console.error("Failed to send approval-requested notifications", err);
+          }
+        }
 
         const updated = await db
           .select()
@@ -397,6 +513,18 @@ export const server = {
         const status = await getApprovalStatus(db, id, video.spaceId);
         await broadcastApprovalUpdate(env, id, status);
 
+        await logProjectActivity(db, {
+          videoId: id,
+          actorUserId: user.id,
+          actorDisplayName: user.name,
+          type: "approval.given",
+          data: {
+            approverUserId: user.id,
+            approverDisplayName: user.name,
+          },
+          createdAt: now,
+        });
+
         return { approvalStatus: status };
       },
     }),
@@ -441,6 +569,17 @@ export const server = {
 
         const status = await getApprovalStatus(db, id, video.spaceId);
         await broadcastApprovalUpdate(env, id, status);
+
+        await logProjectActivity(db, {
+          videoId: id,
+          actorUserId: user.id,
+          actorDisplayName: user.name,
+          type: "approval.revoked",
+          data: {
+            approverUserId: user.id,
+            approverDisplayName: user.name,
+          },
+        });
 
         return { approvalStatus: status };
       },
@@ -496,95 +635,6 @@ export const server = {
           .limit(1);
 
         return { video: updated[0] };
-      },
-    }),
-
-    initUpload: defineAction({
-      input: uploadSchema,
-      handler: async (input, context) => {
-        const user = requireUser(context);
-        const { fileName, fileSize, title, description, folderId, generateTranscript, spaceId } = input;
-
-        const ext = fileName.split(".").pop()?.toLowerCase();
-        if (!ext || !UPLOAD_ALLOWED_EXTENSIONS.includes(ext)) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: "Unsupported file type. Please upload MP4, MOV, WebM, AVI, or MKV.",
-          });
-        }
-
-        const db = createDb(env.DB);
-
-        const defaultSpace = spaceId ? null : await getDefaultSpaceForUser(db, user.id);
-        const targetSpaceId = spaceId ?? defaultSpace?.id;
-        if (!targetSpaceId) {
-          throw new ActionError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "No space found for user",
-          });
-        }
-
-        const role = await verifySpaceAccess(db, user.id, targetSpaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
-
-        if (folderId) {
-          const folder = await db
-            .select({ id: folders.id })
-            .from(folders)
-            .where(and(eq(folders.id, folderId), eq(folders.spaceId, targetSpaceId)))
-            .limit(1);
-
-          if (folder.length === 0) {
-            throw new ActionError({ code: "NOT_FOUND", message: "Folder not found" });
-          }
-        }
-
-        let uploadUrl: string;
-        let streamVideoId: string;
-        try {
-          const direct = await createDirectUpload(
-            env.STREAM_ACCOUNT_ID,
-            env.STREAM_API_TOKEN,
-            fileName,
-            fileSize,
-          );
-          uploadUrl = direct.uploadUrl;
-          streamVideoId = direct.streamVideoId;
-        } catch (error) {
-          console.error("Upload error:", error);
-          throw new ActionError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Upload service is temporarily unavailable. Please try again.",
-          });
-        }
-
-        const videoId = crypto.randomUUID();
-        const videoTitle = title?.trim() || fileName.replace(/\.[^.]+$/, "");
-        const transcriptRequested = generateTranscript
-          ? await isTranscriptGenerationEnabled(env, user)
-          : false;
-
-        await db.insert(videos).values({
-          id: videoId,
-          spaceId: targetSpaceId,
-          uploadedBy: user.id,
-          folderId: folderId || null,
-          title: videoTitle,
-          description: description?.trim() || null,
-          status: "processing",
-          versionGroupId: videoId,
-          versionNumber: 1,
-          isCurrentVersion: true,
-          streamVideoId,
-          fileName,
-          fileSize,
-          phase: "reviewing_video",
-          transcriptRequested,
-        });
-
-        return { videoId, uploadUrl };
       },
     }),
 
@@ -865,6 +915,57 @@ export const server = {
           createdAt: now,
           updatedAt: now,
         });
+
+        // Reset approvals when a new version is uploaded. We hard-delete
+        // approval rows for ALL prior versions in this version group so the
+        // approver list starts fresh on the new version. Old versions are
+        // archived/read-only anyway.
+        try {
+          const groupVersions = await db
+            .select({ id: videos.id })
+            .from(videos)
+            .where(
+              and(
+                eq(videos.spaceId, baseVideo.spaceId),
+                eq(videos.versionGroupId, versionGroupId),
+              ),
+            );
+          const priorIds = groupVersions
+            .map((row) => row.id)
+            .filter((existingId) => existingId !== videoId);
+
+          if (priorIds.length > 0) {
+            const existingApprovals = await db
+              .select({ id: approvals.id })
+              .from(approvals)
+              .where(inArray(approvals.videoId, priorIds))
+              .limit(1);
+
+            if (existingApprovals.length > 0) {
+              await db
+                .delete(approvals)
+                .where(inArray(approvals.videoId, priorIds));
+
+              await logProjectActivity(db, {
+                videoId,
+                actorUserId: user.id,
+                actorDisplayName: user.name,
+                type: "approvals.reset",
+                data: { reason: "new_version" },
+                createdAt: now,
+              });
+
+              const status = await getApprovalStatus(
+                db,
+                videoId,
+                baseVideo.spaceId,
+              );
+              await broadcastApprovalUpdate(env, videoId, status);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to reset approvals on new version", err);
+        }
 
         return { videoId, uploadUrl };
       },
