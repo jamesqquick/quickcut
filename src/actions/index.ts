@@ -1767,6 +1767,29 @@ export const server = {
           });
         }
 
+        // Delete Stream assets before the DB cascade removes the rows that
+        // reference them, otherwise the Stream videos are leaked permanently.
+        const spaceVideos = await db
+          .select({ streamVideoId: videos.streamVideoId })
+          .from(videos)
+          .where(eq(videos.spaceId, id));
+
+        for (const video of spaceVideos) {
+          if (!video.streamVideoId) continue;
+          try {
+            await deleteStreamVideo(
+              env.STREAM_ACCOUNT_ID,
+              env.STREAM_API_TOKEN,
+              video.streamVideoId,
+            );
+          } catch (err) {
+            console.error(
+              `Failed to delete Stream video ${video.streamVideoId} during space ${id} deletion:`,
+              err,
+            );
+          }
+        }
+
         // CASCADE will handle space_members, space_invites, folders, videos
         await db.delete(spaces).where(eq(spaces.id, id));
 
