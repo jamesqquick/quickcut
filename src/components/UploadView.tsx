@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { actions } from "astro:actions";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024;
@@ -65,23 +66,25 @@ export function UploadView({
     setProgress(0);
 
     try {
-      const res = await fetch(`/api/videos/${videoId}/${isFirstCut ? "first-cut" : "versions"}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileSize: file.size,
-          title: isFirstCut ? undefined : title.trim() || undefined,
-          description: isFirstCut ? undefined : description.trim(),
-          generateTranscript: transcriptsEnabled ? generateTranscript : false,
-        }),
-      });
+      const { data, error: actionError } = isFirstCut
+        ? await actions.video.uploadFirstCut({
+            id: videoId,
+            fileName: file.name,
+            fileSize: file.size,
+            generateTranscript: transcriptsEnabled ? generateTranscript : false,
+          })
+        : await actions.video.uploadVersion({
+            id: videoId,
+            fileName: file.name,
+            fileSize: file.size,
+            title: title.trim() || undefined,
+            description: description.trim(),
+            generateTranscript: transcriptsEnabled ? generateTranscript : false,
+          });
 
-      const data = (await res.json().catch(() => null)) as
-        | { videoId?: string; uploadUrl?: string; error?: string }
-        | null;
-
-      if (!res.ok || !data?.uploadUrl) throw new Error(data?.error || "Failed to create upload");
+      if (actionError || !data?.uploadUrl) {
+        throw new Error(actionError?.message || "Failed to create upload");
+      }
 
       const targetVideoId = data.videoId || videoId;
       const xhr = new XMLHttpRequest();

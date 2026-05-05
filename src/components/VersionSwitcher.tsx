@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { actions } from "astro:actions";
 
 interface VersionSummary {
   id: string;
@@ -31,10 +32,11 @@ export function VersionSwitcher({ videoId }: VersionSwitcherProps) {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`/api/videos/${videoId}/versions`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { versions?: VersionSummary[] } | null) => {
-        if (!cancelled && data?.versions) setVersions(data.versions);
+    actions.video
+      .listVersions({ id: videoId })
+      .then(({ data, error }) => {
+        if (cancelled || error || !data?.versions) return;
+        setVersions(data.versions);
       })
       .catch(() => {});
 
