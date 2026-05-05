@@ -1,12 +1,13 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { createDb } from "../../../../db";
-import { comments, videos } from "../../../../db/schema";
+import { videos } from "../../../../db/schema";
 import { createDirectUpload } from "../../../../lib/stream";
 import { uploadSchema } from "../../../../lib/validation";
 import { isTranscriptGenerationEnabled } from "../../../../lib/flags";
 import { verifySpaceAccess } from "../../../../lib/spaces";
+import { getVideoVersions } from "../../../../lib/versions";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024;
@@ -33,39 +34,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const getRole = await verifySpaceAccess(db, locals.user.id, video.spaceId);
   if (!getRole) return json({ error: "Forbidden" }, 403);
 
-  const versionGroupId = video.versionGroupId || video.id;
-  const versionRows = await db
-    .select()
-    .from(videos)
-    .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)))
-    .orderBy(desc(videos.versionNumber));
+  const versions = await getVideoVersions(db, video);
 
-  const versionIds = versionRows.map((version) => version.id);
-  let commentCounts: Record<string, number> = {};
-
-  if (versionIds.length > 0) {
-    const counts = await db
-      .select({ videoId: comments.videoId, count: count() })
-      .from(comments)
-      .where(sql`${comments.videoId} IN (${sql.join(versionIds.map((versionId) => sql`${versionId}`), sql`, `)})`)
-      .groupBy(comments.videoId);
-
-    commentCounts = Object.fromEntries(counts.map((row) => [row.videoId, row.count]));
-  }
-
-  return json({
-    versions: versionRows.map((version) => ({
-      id: version.id,
-      title: version.title,
-      status: version.status,
-      thumbnailUrl: version.thumbnailUrl,
-      duration: version.duration,
-      versionNumber: version.versionNumber,
-      isCurrentVersion: version.isCurrentVersion,
-      createdAt: version.createdAt,
-      commentCount: commentCounts[version.id] || 0,
-    })),
-  });
+  return json({ versions });
 };
 
 export const POST: APIRoute = async ({ params, locals, request }) => {

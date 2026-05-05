@@ -16,6 +16,7 @@ import { getCommentsWithNames } from "../../../lib/comments";
 import { isTranscriptGenerationEnabled } from "../../../lib/flags";
 import { getProjectActivity } from "../../../lib/activity";
 import { verifySpaceAccess } from "../../../lib/spaces";
+import { getVideoVersions } from "../../../lib/versions";
 import { normalizeVideoPhase } from "../../../types";
 
 const user = Astro.locals.user;
@@ -50,6 +51,7 @@ const commentsWithNames = await getCommentsWithNames(db, id, {
   name: user.name,
 });
 const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
+const versions = await getVideoVersions(db, video);
 const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
 const phase = normalizeVideoPhase(video.phase);
 const isPublished = phase === "published";
@@ -76,6 +78,7 @@ const tabHref = (tab: "script" | "video") => {
       spaceId={video.spaceId}
       backHref={backHref}
       spaceName={videoSpace.name}
+      versions={versions}
     />
 
     <div class="space-y-6">

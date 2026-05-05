@@ -13,6 +13,7 @@ interface VersionSummary {
 
 interface VersionSwitcherProps {
   videoId: string;
+  versions: VersionSummary[];
 }
 
 function formatDate(dateStr: string): string {
@@ -23,25 +24,9 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export function VersionSwitcher({ videoId }: VersionSwitcherProps) {
-  const [versions, setVersions] = useState<VersionSummary[]>([]);
+export function VersionSwitcher({ videoId, versions }: VersionSwitcherProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    fetch(`/api/videos/${videoId}/versions`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { versions?: VersionSummary[] } | null) => {
-        if (!cancelled && data?.versions) setVersions(data.versions);
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, [videoId]);
 
   useEffect(() => {
     if (!open) return;

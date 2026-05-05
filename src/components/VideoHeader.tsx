@@ -10,6 +10,17 @@ interface ShareLink {
   viewCount: number;
 }
 
+interface VersionSummary {
+  id: string;
+  title: string;
+  status: string;
+  thumbnailUrl: string | null;
+  versionNumber: number;
+  isCurrentVersion: boolean;
+  createdAt: string;
+  commentCount: number;
+}
+
 interface VideoHeaderProps {
   videoId: string;
   shareLink: ShareLink | null;
@@ -19,9 +30,10 @@ interface VideoHeaderProps {
   backLabel?: string;
   spaceName?: string;
   uploadVersionHref?: string | null;
+  versions: VersionSummary[];
 }
 
-export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to videos", spaceName, uploadVersionHref = null }: VideoHeaderProps) {
+export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to videos", spaceName, uploadVersionHref = null, versions }: VideoHeaderProps) {
   const [shareLink, setShareLink] = useState(initialLink);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -181,7 +193,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <VersionSwitcher videoId={videoId} />
+        <VersionSwitcher videoId={videoId} versions={versions} />
 
         <div className="relative" ref={moreMenuRef}>
           <button
