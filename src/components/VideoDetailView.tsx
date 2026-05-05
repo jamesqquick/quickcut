@@ -4,7 +4,7 @@ import { CommentThread } from "./CommentThread";
 import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
 import { AnnotationOverlay } from "./AnnotationOverlay";
-import { TranscriptPanel } from "./TranscriptPanel";
+import { TranscriptPanel, type TranscriptResponse } from "./TranscriptPanel";
 import { VideoBriefPanel } from "./VideoBriefPanel";
 import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { ProjectPhaseControls } from "./ProjectPhaseControls";
@@ -45,6 +45,8 @@ interface VideoDetailViewProps {
   enabledSteps?: PipelineStep[];
   shareToken?: string;
   initialActivity?: ProjectActivityItem[];
+  /** Server-rendered transcript data so the panel renders without a client fetch. */
+  initialTranscriptData?: TranscriptResponse | null;
   /** Hook from project metadata, surfaced read-only on the review tab. */
   hook?: string | null;
   takeaway1?: string | null;
@@ -89,6 +91,7 @@ export function VideoDetailView({
   enabledSteps,
   shareToken,
   initialActivity = [],
+  initialTranscriptData = null,
   hook = null,
   takeaway1 = null,
   takeaway2 = null,
@@ -316,6 +319,7 @@ export function VideoDetailView({
         transcriptsEnabled={transcriptsEnabled}
         apiUrl={isShareMode ? `/api/share/${shareToken}/transcript` : undefined}
         canManageTranscript={!isShareMode}
+        initialTranscriptData={initialTranscriptData}
       />
       {initialActivity.length > 0 && <ProjectActivityTimeline activity={initialActivity} />}
     </div>
