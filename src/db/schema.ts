@@ -123,6 +123,13 @@ export const videos = sqliteTable("videos", {
     .notNull()
     .default("reviewing_video"),
   targetDate: text("target_date"),
+  targetAudience: text("target_audience"),
+  hook: text("hook"),
+  takeaway1: text("takeaway1"),
+  takeaway2: text("takeaway2"),
+  takeaway3: text("takeaway3"),
+  primaryCta: text("primary_cta"),
+  outro: text("outro"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),
