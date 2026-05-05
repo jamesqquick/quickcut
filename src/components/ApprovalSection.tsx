@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { actions } from "astro:actions";
 import { connectVideoRoom, type BroadcastApprovalStatus } from "../lib/realtime";
+import { RequestApprovalDialog } from "./RequestApprovalDialog";
+import { ToastViewport, useToast } from "./Toast";
 
 export interface ApprovalRecord {
   id: string;
@@ -34,6 +36,10 @@ interface ApprovalSectionProps {
   shareToken?: string;
   /** Notifies parent UI when approval status changes. */
   onStatusChange?: (status: ApprovalStatus) => void;
+  /** Space the video belongs to. Required to enable the request-approval picker. */
+  spaceId?: string;
+  /** Current user's role in the space. Owners can always request approvals. */
+  userRole?: "owner" | "member";
 }
 
 function formatTimeAgo(iso: string): string {
@@ -91,10 +97,14 @@ export function ApprovalSection({
   viewerName,
   shareToken,
   onStatusChange,
+  spaceId,
+  userRole,
 }: ApprovalSectionProps) {
   const [status, setStatus] = useState<ApprovalStatus>(initialStatus);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requestOpen, setRequestOpen] = useState(false);
+  const { toasts, showToast, dismissToast } = useToast();
 
   useEffect(() => {
     onStatusChange?.(status);
@@ -126,6 +136,14 @@ export function ApprovalSection({
     !readOnly && !!currentUserId && isSpaceMember && !isUploader && !hasApproved;
   const canUndo =
     !readOnly && !!currentUserId && isSpaceMember && hasApproved;
+  // Only the uploader or a space owner can fan out targeted approval
+  // requests. Other space members can approve, but not request.
+  const canRequestApprovals =
+    !readOnly &&
+    !!currentUserId &&
+    !!spaceId &&
+    isSpaceMember &&
+    (isUploader || userRole === "owner");
 
   const dispatchLocalApprovalUpdate = useCallback(
     (next: ApprovalStatus) => {
@@ -208,27 +226,39 @@ export function ApprovalSection({
           </p>
         </div>
 
-        {canApprove && (
-          <button
-            type="button"
-            onClick={approve}
-            disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
-          >
-            <CheckIcon className="h-4 w-4" />
-            Approve
-          </button>
-        )}
-        {canUndo && (
-          <button
-            type="button"
-            onClick={undoApproval}
-            disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-tertiary px-3 py-1.5 text-sm font-medium text-text-primary transition-colors hover:border-border-hover hover:bg-bg-secondary disabled:opacity-60"
-          >
-            Undo Approval
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canRequestApprovals && (
+            <button
+              type="button"
+              onClick={() => setRequestOpen(true)}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-tertiary px-3 py-1.5 text-sm font-medium text-text-primary transition-colors hover:border-border-hover hover:bg-bg-secondary disabled:opacity-60"
+            >
+              Request approval…
+            </button>
+          )}
+          {canApprove && (
+            <button
+              type="button"
+              onClick={approve}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
+            >
+              <CheckIcon className="h-4 w-4" />
+              Approve
+            </button>
+          )}
+          {canUndo && (
+            <button
+              type="button"
+              onClick={undoApproval}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-bg-tertiary px-3 py-1.5 text-sm font-medium text-text-primary transition-colors hover:border-border-hover hover:bg-bg-secondary disabled:opacity-60"
+            >
+              Undo Approval
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Progress bar */}
@@ -286,6 +316,28 @@ export function ApprovalSection({
           {error}
         </p>
       )}
+
+      {canRequestApprovals && spaceId && currentUserId && (
+        <RequestApprovalDialog
+          open={requestOpen}
+          onClose={() => setRequestOpen(false)}
+          videoId={videoId}
+          spaceId={spaceId}
+          currentUserId={currentUserId}
+          uploadedBy={uploadedBy}
+          onRequested={(count) => {
+            if (count > 0) {
+              showToast(
+                `Requested approval from ${count} ${count === 1 ? "person" : "people"}`,
+              );
+            } else {
+              showToast("Those people already have a pending request");
+            }
+          }}
+        />
+      )}
+
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
     </section>
   );
 }

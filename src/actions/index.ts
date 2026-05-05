@@ -12,6 +12,7 @@ import {
   spaceMembers,
   spaceInvites,
   approvals,
+  approvalRequests,
   comments,
   scripts,
   transcripts,
@@ -47,7 +48,8 @@ import {
 } from "../lib/comments";
 import {
   createCommentNotifications,
-  createApprovalRequestNotifications,
+  createTargetedApprovalRequestNotifications,
+  resolveApprovalRequestsForApprover,
 } from "../lib/notifications";
 import { buildInviteAuthPath, buildInviteEmail } from "../lib/email";
 
@@ -408,34 +410,9 @@ export const server = {
           changedBy: user.name,
         });
 
-        // Fire approval-requested notifications when the project enters
-        // `reviewing_video` and the space requires approvals. Don't fail
-        // the action if notification dispatch errors.
-        if (
-          phase === "reviewing_video" &&
-          video.phase !== "reviewing_video"
-        ) {
-          try {
-            const spaceRow = await db
-              .select({ requiredApprovals: spaces.requiredApprovals })
-              .from(spaces)
-              .where(eq(spaces.id, video.spaceId))
-              .limit(1);
-            if ((spaceRow[0]?.requiredApprovals ?? 0) > 0) {
-              await createApprovalRequestNotifications(
-                db,
-                {
-                  videoId: id,
-                  actorUserId: user.id,
-                  actorDisplayName: user.name,
-                },
-                env,
-              );
-            }
-          } catch (err) {
-            console.error("Failed to send approval-requested notifications", err);
-          }
-        }
+        // NOTE: per issue #93 the generic fan-out of approval.requested
+        // notifications to every space member has been removed. Approvals
+        // are now requested explicitly via `video.requestApprovals`.
 
         const updated = await db
           .select()
@@ -515,6 +492,14 @@ export const server = {
           throw new ActionError({ code: "CONFLICT", message: "Could not record approval" });
         }
 
+        // Resolve any pending targeted approval requests for this approver,
+        // so the "Pending for me" bucket clears once they approve. Best-effort.
+        try {
+          await resolveApprovalRequestsForApprover(db, id, user.id);
+        } catch (err) {
+          console.error("Failed to resolve approval requests on approve", err);
+        }
+
         const status = await getApprovalStatus(db, id, video.spaceId);
         await broadcastApprovalUpdate(env, id, status);
 
@@ -587,6 +572,152 @@ export const server = {
         });
 
         return { approvalStatus: status };
+      },
+    }),
+
+    requestApprovals: defineAction({
+      input: z.object({
+        id: z.string().min(1),
+        userIds: z.array(z.string().min(1)).min(1).max(50),
+      }),
+      handler: async ({ id, userIds }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const videoResult = await db
+          .select()
+          .from(videos)
+          .where(eq(videos.id, id))
+          .limit(1);
+
+        if (videoResult.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        const video = videoResult[0];
+
+        const role = await verifySpaceAccess(db, user.id, video.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        // Only the uploader or a space owner can request approvals on a
+        // video. Member-reviewers shouldn't be able to ping each other.
+        if (role !== "owner" && video.uploadedBy !== user.id) {
+          throw new ActionError({
+            code: "FORBIDDEN",
+            message: "Only the uploader or a space owner can request approvals",
+          });
+        }
+
+        const spaceRow = await db
+          .select({ requiredApprovals: spaces.requiredApprovals })
+          .from(spaces)
+          .where(eq(spaces.id, video.spaceId))
+          .limit(1);
+
+        if (!spaceRow[0] || spaceRow[0].requiredApprovals <= 0) {
+          throw new ActionError({
+            code: "FORBIDDEN",
+            message: "Approval workflow is not enabled for this space",
+          });
+        }
+
+        // Validate that every requested user is a member of the same space.
+        // Silently drops the actor and the uploader — neither can approve,
+        // so requesting approval from them is meaningless.
+        const uniqueIds = [...new Set(userIds)].filter(
+          (uid) => uid !== user.id && uid !== video.uploadedBy,
+        );
+
+        if (uniqueIds.length === 0) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "No valid approvers selected",
+          });
+        }
+
+        const memberRows = await db
+          .select({ userId: spaceMembers.userId })
+          .from(spaceMembers)
+          .where(
+            and(
+              eq(spaceMembers.spaceId, video.spaceId),
+              inArray(spaceMembers.userId, uniqueIds),
+            ),
+          );
+        const validMemberIds = memberRows.map((row) => row.userId);
+        if (validMemberIds.length !== uniqueIds.length) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "One or more selected users are not members of this space",
+          });
+        }
+
+        // Skip users who already have a pending request for this video.
+        // Approving a video does not delete the row (status flips to
+        // "resolved"), so we only filter on status = pending.
+        const existing = await db
+          .select({ requestedUserId: approvalRequests.requestedUserId })
+          .from(approvalRequests)
+          .where(
+            and(
+              eq(approvalRequests.videoId, id),
+              eq(approvalRequests.status, "pending"),
+              inArray(approvalRequests.requestedUserId, validMemberIds),
+            ),
+          );
+        const alreadyPending = new Set(existing.map((r) => r.requestedUserId));
+        const toCreate = validMemberIds.filter((uid) => !alreadyPending.has(uid));
+
+        if (toCreate.length === 0) {
+          return {
+            created: 0,
+            alreadyPending: validMemberIds.length,
+          };
+        }
+
+        const now = new Date().toISOString();
+        const newRows = toCreate.map((requestedUserId) => ({
+          id: nanoid(),
+          videoId: id,
+          spaceId: video.spaceId,
+          requesterUserId: user.id,
+          requesterDisplayName: user.name,
+          requestedUserId,
+          status: "pending" as const,
+          createdAt: now,
+          resolvedAt: null,
+        }));
+
+        await db.insert(approvalRequests).values(newRows);
+
+        // Per-user notification + email. Best-effort: dispatch failures
+        // don't roll back the request rows.
+        try {
+          await createTargetedApprovalRequestNotifications(
+            db,
+            {
+              videoId: id,
+              requestedUserIds: toCreate,
+              actorUserId: user.id,
+              actorDisplayName: user.name,
+            },
+            {
+              send: (msg) => env.EMAIL.send(msg),
+              from: env.OTP_EMAIL_FROM,
+              baseUrl: new URL(context.request.url).origin,
+            },
+            env,
+          );
+        } catch (err) {
+          console.error("Failed to dispatch targeted approval-request notifications", err);
+        }
+
+        return {
+          created: toCreate.length,
+          alreadyPending: alreadyPending.size,
+        };
       },
     }),
 

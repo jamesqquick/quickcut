@@ -1,5 +1,5 @@
 import { eq, and, asc } from "drizzle-orm";
-import { spaces, spaceMembers } from "../db/schema";
+import { spaces, spaceMembers, users } from "../db/schema";
 import type { Database } from "../db";
 
 export type SpaceRole = "owner" | "member";
@@ -58,6 +58,37 @@ export async function verifySpaceAccess(
 
   if (row.length === 0) return null;
   return row[0].role as SpaceRole;
+}
+
+export interface SpaceMember {
+  id: string;
+  userId: string;
+  role: SpaceRole;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+/** Return every member of a space joined with their user info. */
+export async function getSpaceMembers(
+  db: Database,
+  spaceId: string,
+): Promise<SpaceMember[]> {
+  const rows = await db
+    .select({
+      id: spaceMembers.id,
+      userId: spaceMembers.userId,
+      role: spaceMembers.role,
+      createdAt: spaceMembers.createdAt,
+      name: users.name,
+      email: users.email,
+    })
+    .from(spaceMembers)
+    .innerJoin(users, eq(spaceMembers.userId, users.id))
+    .where(eq(spaceMembers.spaceId, spaceId))
+    .orderBy(asc(spaceMembers.createdAt));
+
+  return rows as SpaceMember[];
 }
 
 /**

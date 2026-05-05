@@ -3,7 +3,10 @@ import Layout from "../layouts/Layout.astro";
 import { NotificationCenter } from "../components/NotificationCenter";
 import { createDb } from "../db";
 import { getPendingInvitesForUser } from "../lib/invites";
-import { getNotificationsForUser } from "../lib/notifications";
+import {
+  getNotificationsForUser,
+  getPendingApprovalRequestsForUser,
+} from "../lib/notifications";
 import { env } from "cloudflare:workers";
 
 const user = Astro.locals.user;
@@ -12,6 +15,7 @@ if (!user) return Astro.redirect("/login");
 const db = createDb(env.DB);
 const pendingInvites = await getPendingInvitesForUser(db, user.email);
 const notifications = await getNotificationsForUser(db, user.id);
+const pendingApprovals = await getPendingApprovalRequestsForUser(db, user.id);
 ---
 
 <Layout title="Notifications" user={user}>
@@ -19,10 +23,15 @@ const notifications = await getNotificationsForUser(db, user.id);
     <div class="mb-8">
       <h1 class="text-2xl font-bold text-text-primary">Notifications</h1>
       <p class="mt-1 text-sm text-text-secondary">
-        Review pending invites and recent comment activity.
+        Review pending invites, approval requests, and recent comment activity.
       </p>
     </div>
 
-    <NotificationCenter client:load invites={pendingInvites} notifications={notifications} />
+    <NotificationCenter
+      client:load
+      invites={pendingInvites}
+      notifications={notifications}
+      pendingApprovals={pendingApprovals}
+    />
   </div>
 </Layout>
