@@ -5,6 +5,7 @@ import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import { TranscriptPanel } from "./TranscriptPanel";
+import { VideoBriefPanel } from "./VideoBriefPanel";
 import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { ProjectPhaseControls } from "./ProjectPhaseControls";
 import { TargetDateEditor } from "./TargetDateEditor";
@@ -44,6 +45,11 @@ interface VideoDetailViewProps {
   enabledSteps?: PipelineStep[];
   shareToken?: string;
   initialActivity?: ProjectActivityItem[];
+  /** Hook from project metadata, surfaced read-only on the review tab. */
+  hook?: string | null;
+  takeaway1?: string | null;
+  takeaway2?: string | null;
+  takeaway3?: string | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -83,6 +89,10 @@ export function VideoDetailView({
   enabledSteps,
   shareToken,
   initialActivity = [],
+  hook = null,
+  takeaway1 = null,
+  takeaway2 = null,
+  takeaway3 = null,
 }: VideoDetailViewProps) {
   const isShareMode = !!shareToken;
   const initialReviewComments = initialComments.filter((comment) => comment.phase !== "script");
@@ -272,6 +282,14 @@ export function VideoDetailView({
           />
         )}
       </div>
+
+      {/* Read-only "brief" so reviewers see authorial intent alongside the cut. */}
+      <VideoBriefPanel
+        hook={hook}
+        takeaway1={takeaway1}
+        takeaway2={takeaway2}
+        takeaway3={takeaway3}
+      />
 
       {/* Approval status — shown inside Video when the space requires signoff. */}
       {approvalStatus && (

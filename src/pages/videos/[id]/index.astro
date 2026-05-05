@@ -7,6 +7,7 @@ import { ScriptWorkspace } from "../../../components/ScriptWorkspace";
 import { UploadView } from "../../../components/UploadView";
 import { UploadVersionModal } from "../../../components/UploadVersionModal";
 import { VideoDetailView } from "../../../components/VideoDetailView";
+import { VideoDetailsPanel } from "../../../components/VideoDetailsPanel";
 import { VideoHeader } from "../../../components/VideoHeader";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
@@ -60,8 +61,13 @@ const hasVideo = !!video.streamVideoId;
 const isOwner = role === "owner";
 const canEditStatus = !isPublished && (role === "owner" || video.uploadedBy === user.id);
 const showApprovals = approvalStatus.requiredApprovals > 0;
-const activeTab = Astro.url.searchParams.get("tab") === "video" ? "video" : "script";
-const tabHref = (tab: "script" | "video") => {
+const tabParam = Astro.url.searchParams.get("tab");
+// Default to the Details tab so users land on the project brief whenever
+// they open a project without an explicit tab in the URL. Notifications and
+// other internal links that include `?tab=...` still take precedence.
+const activeTab: "script" | "video" | "details" =
+  tabParam === "video" ? "video" : tabParam === "script" ? "script" : "details";
+const tabHref = (tab: "script" | "video" | "details") => {
   const params = new URLSearchParams(Astro.url.searchParams);
   params.set("tab", tab);
   return `/videos/${video.id}?${params.toString()}`;
@@ -117,17 +123,6 @@ const tabHref = (tab: "script" | "video") => {
               )}
             </div>
           </div>
-          <div class="mt-4">
-            <InlineEditor
-              client:load
-              value={video.description || ""}
-              field="description"
-              videoId={video.id}
-              isOwner={isOwner && !isPublished}
-              placeholder="Add a description..."
-              className="max-w-2xl break-words text-sm text-text-secondary"
-            />
-          </div>
         </div>
 
         {isPublished && (
@@ -139,6 +134,13 @@ const tabHref = (tab: "script" | "video") => {
 
       <div class="border-b border-border-default">
         <nav class="flex gap-2" aria-label="Project sections">
+          <a
+            href={tabHref("details")}
+            class={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "details" ? "border-b-2 border-accent-primary text-text-primary" : "text-text-tertiary hover:text-text-secondary"}`}
+            aria-current={activeTab === "details" ? "page" : undefined}
+          >
+            Details
+          </a>
           <a
             href={tabHref("script")}
             class={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "script" ? "border-b-2 border-accent-primary text-text-primary" : "text-text-tertiary hover:text-text-secondary"}`}
@@ -156,7 +158,21 @@ const tabHref = (tab: "script" | "video") => {
         </nav>
       </div>
 
-      {activeTab === "script" ? (
+      {activeTab === "details" ? (
+        <VideoDetailsPanel
+          client:load
+          videoId={video.id}
+          isOwner={isOwner && !isPublished}
+          description={video.description ?? null}
+          targetAudience={video.targetAudience ?? null}
+          hook={video.hook ?? null}
+          takeaway1={video.takeaway1 ?? null}
+          takeaway2={video.takeaway2 ?? null}
+          takeaway3={video.takeaway3 ?? null}
+          primaryCta={video.primaryCta ?? null}
+          outro={video.outro ?? null}
+        />
+      ) : activeTab === "script" ? (
         <ScriptWorkspace
           client:load
           videoId={video.id}
@@ -190,6 +206,10 @@ const tabHref = (tab: "script" | "video") => {
             userRole={role}
             spaceId={video.spaceId}
             initialActivity={projectActivity}
+            hook={video.hook ?? null}
+            takeaway1={video.takeaway1 ?? null}
+            takeaway2={video.takeaway2 ?? null}
+            takeaway3={video.takeaway3 ?? null}
           />
           {!isPublished && isOwner && (
             <div class="flex justify-end">
