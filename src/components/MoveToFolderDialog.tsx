@@ -14,7 +14,7 @@ interface MoveToFolderDialogProps {
   entityId: string;
   entityType: "video" | "folder";
   currentFolderId?: string | null;
-  spaceId?: string | null;
+  folders: Folder[];
   onClose: () => void;
 }
 
@@ -63,13 +63,11 @@ export function MoveToFolderDialog({
   entityId,
   entityType,
   currentFolderId = null,
-  spaceId = null,
+  folders,
   onClose,
 }: MoveToFolderDialogProps) {
   const headingId = useId();
-  const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string>(currentFolderId ?? "root");
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -77,17 +75,7 @@ export function MoveToFolderDialog({
     if (!isOpen) return;
     setSelectedFolderId(currentFolderId ?? "root");
     setError("");
-    setLoading(true);
-
-    fetch(spaceId ? `/api/folders?space=${spaceId}` : "/api/folders")
-      .then(async (res) => await res.json() as { folders?: Folder[]; error?: string })
-      .then((data) => {
-        if (data.error) throw new Error(data.error);
-        setFolders(data.folders || []);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load folders"))
-      .finally(() => setLoading(false));
-  }, [currentFolderId, isOpen, spaceId]);
+  }, [currentFolderId, isOpen]);
 
   const handleMove = async () => {
     setSaving(true);
@@ -110,7 +98,10 @@ export function MoveToFolderDialog({
     }
   };
 
-  const treeOptions = buildFolderOptions(folders, entityType === "folder" ? entityId : undefined);
+  const treeOptions = useMemo(
+    () => buildFolderOptions(folders, entityType === "folder" ? entityId : undefined),
+    [folders, entityType, entityId],
+  );
 
   const dropdownOptions: DropdownOption[] = useMemo(
     () => [
@@ -149,7 +140,7 @@ export function MoveToFolderDialog({
           options={dropdownOptions}
           value={selectedFolderId}
           onChange={setSelectedFolderId}
-          disabled={loading || saving}
+          disabled={saving}
           menuAlign="left"
           menuWidth="w-full"
         />
@@ -173,7 +164,7 @@ export function MoveToFolderDialog({
         <button
           type="button"
           onClick={handleMove}
-          disabled={loading || saving}
+          disabled={saving}
           className="flex-1 rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover disabled:opacity-50"
         >
           {saving ? "Moving..." : "Move"}
