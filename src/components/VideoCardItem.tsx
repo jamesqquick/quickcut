@@ -1,0 +1,190 @@
+import { StatusBadge } from "./StatusBadge";
+import { VideoCardMenu } from "./VideoCardMenu";
+
+export interface UrgencyCounts {
+  idea: number;
+  suggestion: number;
+  important: number;
+  critical: number;
+}
+
+interface FolderOption {
+  id: string;
+  name: string;
+  parentId: string | null;
+}
+
+export interface VideoCardItemData {
+  id: string;
+  title: string;
+  thumbnailUrl: string | null;
+  duration: number | null;
+  status: "draft" | "processing" | "ready" | "failed";
+  createdAt: string;
+  commentCount: number;
+  urgencyCounts: UrgencyCounts;
+  versionNumber: number;
+  versionCount: number;
+  folderId: string | null;
+  spaceId: string;
+  requiredApprovals: number;
+  approvalCount: number;
+  phase: string | null;
+}
+
+interface VideoCardItemProps {
+  video: VideoCardItemData;
+  folders: FolderOption[];
+  onDeleted: (id: string) => void;
+  onMoved: (id: string, folderId: string | null) => void;
+}
+
+const phaseStyles: Record<string, string> = {
+  creating_script: "bg-accent-primary/15 text-accent-primary",
+  reviewing_script: "bg-accent-info/15 text-accent-info",
+  reviewing_video: "bg-accent-warning/15 text-accent-warning",
+  video_approved: "bg-accent-secondary/15 text-accent-secondary",
+  published: "bg-accent-secondary/15 text-accent-secondary",
+};
+
+const phaseLabels: Record<string, string> = {
+  script: "Creating Script",
+  review: "Reviewing Video",
+  creating_script: "Creating Script",
+  reviewing_script: "Reviewing Script",
+  reviewing_video: "Reviewing Video",
+  video_approved: "Video Approved",
+  published: "Published",
+};
+
+function formatDuration(seconds: number | null): string {
+  if (!seconds) return "";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+export function VideoCardItem({ video, folders, onDeleted, onMoved }: VideoCardItemProps) {
+  const {
+    id,
+    title,
+    thumbnailUrl,
+    duration,
+    status,
+    createdAt,
+    commentCount,
+    urgencyCounts,
+    versionNumber,
+    versionCount,
+    folderId,
+    spaceId,
+    requiredApprovals,
+    approvalCount,
+    phase,
+  } = video;
+
+  const showApprovalBadge = requiredApprovals > 0;
+  const isApproved = showApprovalBadge && approvalCount >= requiredApprovals;
+
+  const urgencyBadges = [
+    { key: "critical", count: urgencyCounts.critical, dot: "bg-accent-danger" },
+    { key: "important", count: urgencyCounts.important, dot: "bg-accent-warning" },
+    { key: "suggestion", count: urgencyCounts.suggestion, dot: "bg-accent-info" },
+    { key: "idea", count: urgencyCounts.idea, dot: "bg-accent-primary" },
+  ].filter((b) => b.count > 0);
+
+  return (
+    <div className="group relative overflow-hidden rounded-xl border border-border-default bg-bg-secondary transition-all duration-200 hover:scale-[1.02] hover:border-border-hover hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
+      <a href={`/videos/${id}?space=${spaceId}`} className="block">
+        <div className="relative aspect-video bg-bg-tertiary">
+          {thumbnailUrl ? (
+            <img src={thumbnailUrl} alt={title} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <svg className="h-12 w-12 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+              </svg>
+            </div>
+          )}
+          {status !== "ready" && (
+            <div className="absolute left-2 top-2">
+              <StatusBadge status={status} />
+            </div>
+          )}
+          {versionCount > 1 && (
+            <div className="absolute left-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-xs font-medium text-white">
+              V{versionNumber}
+            </div>
+          )}
+          {duration && (
+            <div className="absolute bottom-2 right-2 rounded bg-black/75 px-1.5 py-0.5 font-mono text-xs text-white">
+              {formatDuration(duration)}
+            </div>
+          )}
+        </div>
+        <div className="p-4">
+          <h3 className="truncate text-sm font-semibold text-text-primary">{title}</h3>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-tertiary">
+            <span>{formatDate(createdAt)}</span>
+            {commentCount > 0 && (
+              <span className="flex items-center gap-1">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z" />
+                </svg>
+                {commentCount}
+              </span>
+            )}
+            {phase && (
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${phaseStyles[phase] || "bg-bg-tertiary text-text-tertiary"}`}>
+                {phaseLabels[phase] || phase}
+              </span>
+            )}
+            {showApprovalBadge && (
+              isApproved ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent-secondary/15 px-2 py-0.5 font-medium text-accent-secondary" title={`${approvalCount} of ${requiredApprovals} approvals`}>
+                  <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fillRule="evenodd" d="M16.704 5.296a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L8 12.586l7.29-7.29a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Approved
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-accent-warning/15 px-2 py-0.5 font-medium text-accent-warning" title="Pending approval">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent-warning" aria-hidden="true"></span>
+                  {approvalCount}/{requiredApprovals} approvals
+                </span>
+              )
+            )}
+          </div>
+          {urgencyBadges.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              {urgencyBadges.map((badge) => (
+                <span
+                  key={badge.key}
+                  className="inline-flex items-center gap-1 text-xs text-text-secondary"
+                  title={`${badge.count} unresolved ${badge.key} comment${badge.count === 1 ? "" : "s"}`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} aria-hidden="true" />
+                  {badge.count}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </a>
+      <div className="absolute right-2 top-2 z-10">
+        <VideoCardMenu
+          videoId={id}
+          folderId={folderId}
+          folders={folders}
+          onDeleted={onDeleted}
+          onMoved={onMoved}
+        />
+      </div>
+    </div>
+  );
+}

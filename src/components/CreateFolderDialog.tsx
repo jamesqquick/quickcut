@@ -2,12 +2,21 @@ import { useId, useState } from "react";
 import { actions } from "astro:actions";
 import { Modal } from "./Modal";
 
-interface CreateFolderDialogProps {
-  parentId?: string | null;
+export interface CreatedFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
   spaceId: string;
 }
 
-export function CreateFolderDialog({ parentId = null, spaceId }: CreateFolderDialogProps) {
+interface CreateFolderDialogProps {
+  parentId?: string | null;
+  spaceId: string;
+  /** Called after a successful create with the new folder. */
+  onCreated: (folder: CreatedFolder) => void;
+}
+
+export function CreateFolderDialog({ parentId = null, spaceId, onCreated }: CreateFolderDialogProps) {
   const headingId = useId();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -22,13 +31,23 @@ export function CreateFolderDialog({ parentId = null, spaceId }: CreateFolderDia
     setError("");
 
     try {
-      const { error: actionError } = await actions.folder.create({
+      const { data, error: actionError } = await actions.folder.create({
         name: name.trim(),
         parentId,
         spaceId,
       });
       if (actionError) throw new Error(actionError.message || "Failed to create folder");
-      window.location.reload();
+      if (!data?.folder) throw new Error("Folder was created but no data returned");
+      onCreated({
+        id: data.folder.id,
+        name: data.folder.name,
+        parentId: data.folder.parentId ?? null,
+        spaceId: data.folder.spaceId,
+      });
+      setSaving(false);
+      setOpen(false);
+      setName("");
+      setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create folder");
       setSaving(false);

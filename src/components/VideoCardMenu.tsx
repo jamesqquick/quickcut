@@ -13,9 +13,19 @@ interface VideoCardMenuProps {
   videoId: string;
   folderId?: string | null;
   folders: Folder[];
+  /** Called when the video is deleted. */
+  onDeleted: (id: string) => void;
+  /** Called when the video is moved. */
+  onMoved: (id: string, folderId: string | null) => void;
 }
 
-export function VideoCardMenu({ videoId, folderId = null, folders }: VideoCardMenuProps) {
+export function VideoCardMenu({
+  videoId,
+  folderId = null,
+  folders,
+  onDeleted,
+  onMoved,
+}: VideoCardMenuProps) {
   const [open, setOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -52,8 +62,9 @@ export function VideoCardMenu({ videoId, folderId = null, folders }: VideoCardMe
     try {
       const { error } = await actions.video.delete({ id: videoId });
       if (!error) {
-        // Refresh dashboard to remove the card.
-        window.location.reload();
+        onDeleted(videoId);
+        setConfirmOpen(false);
+        setDeleting(false);
         return;
       }
       alert(error.message || "Failed to delete video");
@@ -137,6 +148,7 @@ export function VideoCardMenu({ videoId, folderId = null, folders }: VideoCardMe
         currentFolderId={folderId}
         folders={folders}
         onClose={() => setMoveOpen(false)}
+        onMoved={onMoved}
       />
 
       <ConfirmDialog

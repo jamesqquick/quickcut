@@ -14,11 +14,24 @@ interface FolderCardMenuProps {
   folderId: string;
   folderName: string;
   parentId?: string | null;
-  spaceId: string;
   folders: Folder[];
+  /** Called after a successful rename. */
+  onRenamed: (id: string, name: string) => void;
+  /** Called after a successful move. */
+  onMoved: (id: string, parentId: string | null) => void;
+  /** Called after a successful delete. */
+  onDeleted: (id: string) => void;
 }
 
-export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId, folders }: FolderCardMenuProps) {
+export function FolderCardMenu({
+  folderId,
+  folderName,
+  parentId = null,
+  folders,
+  onRenamed,
+  onMoved,
+  onDeleted,
+}: FolderCardMenuProps) {
   const headingId = useId();
   const [open, setOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -28,6 +41,10 @@ export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setName(folderName);
+  }, [folderName]);
 
   useEffect(() => {
     if (!open) return;
@@ -76,12 +93,15 @@ export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId,
     setError("");
 
     try {
+      const trimmed = name.trim();
       const { error: actionError } = await actions.folder.update({
         id: folderId,
-        name: name.trim(),
+        name: trimmed,
       });
       if (actionError) throw new Error(actionError.message || "Failed to rename folder");
-      window.location.reload();
+      onRenamed(folderId, trimmed);
+      setSaving(false);
+      setRenameOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to rename folder");
       setSaving(false);
@@ -93,7 +113,9 @@ export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId,
     try {
       const { error: actionError } = await actions.folder.delete({ id: folderId });
       if (actionError) throw new Error(actionError.message || "Failed to delete folder");
-      window.location.href = parentId ? `/dashboard?space=${spaceId}&folderId=${parentId}` : `/dashboard?space=${spaceId}`;
+      onDeleted(folderId);
+      setSaving(false);
+      setConfirmOpen(false);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete folder");
       setSaving(false);
@@ -202,6 +224,7 @@ export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId,
         currentFolderId={parentId}
         folders={folders}
         onClose={() => setMoveOpen(false)}
+        onMoved={onMoved}
       />
 
       <ConfirmDialog

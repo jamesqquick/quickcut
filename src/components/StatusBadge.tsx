@@ -1,0 +1,28 @@
+interface StatusBadgeProps {
+  status: "draft" | "processing" | "ready" | "failed";
+}
+
+const styles: Record<StatusBadgeProps["status"], string> = {
+  draft: "bg-accent-primary/15 text-accent-primary",
+  processing: "bg-accent-warning/15 text-accent-warning",
+  ready: "bg-accent-secondary/15 text-accent-secondary",
+  failed: "bg-accent-danger/15 text-accent-danger",
+};
+
+const labels: Record<StatusBadgeProps["status"], string> = {
+  draft: "Draft",
+  processing: "Processing",
+  ready: "Ready",
+  failed: "Failed",
+};
+
+export function StatusBadge({ status }: StatusBadgeProps) {
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}>
+      {status === "processing" && (
+        <span className="mr-1.5 h-1.5 w-1.5 animate-pulse rounded-full bg-accent-warning" />
+      )}
+      {labels[status]}
+    </span>
+  );
+}

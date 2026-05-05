@@ -16,6 +16,12 @@ interface MoveToFolderDialogProps {
   currentFolderId?: string | null;
   folders: Folder[];
   onClose: () => void;
+  /**
+   * Called after a successful move with the new parent identifier. For videos
+   * this is the new folder id (or null for the space root). For folders this
+   * is the new parent folder id (or null for top-level).
+   */
+  onMoved: (entityId: string, newParentId: string | null) => void;
 }
 
 function buildFolderOptions(folders: Folder[], movingFolderId?: string) {
@@ -65,6 +71,7 @@ export function MoveToFolderDialog({
   currentFolderId = null,
   folders,
   onClose,
+  onMoved,
 }: MoveToFolderDialogProps) {
   const headingId = useId();
   const [selectedFolderId, setSelectedFolderId] = useState<string>(currentFolderId ?? "root");
@@ -91,7 +98,9 @@ export function MoveToFolderDialog({
         const { error } = await actions.folder.move({ id: entityId, parentId: folderId });
         if (error) throw new Error(error.message || "Failed to move item");
       }
-      window.location.reload();
+      onMoved(entityId, folderId);
+      setSaving(false);
+      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to move item");
       setSaving(false);
