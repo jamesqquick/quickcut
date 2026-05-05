@@ -212,7 +212,7 @@ export const POST: APIRoute = async ({ params, request }) => {
       send: (msg) => env.EMAIL.send(msg),
       from: env.OTP_EMAIL_FROM,
       baseUrl: new URL(request.url).origin,
-    });
+    }, env);
   } catch (err) {
     console.error("Failed to create share comment notification", err);
   }
