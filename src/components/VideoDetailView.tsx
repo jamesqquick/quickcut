@@ -8,7 +8,6 @@ import { TranscriptPanel, type TranscriptResponse } from "./TranscriptPanel";
 import { VideoBriefPanel } from "./VideoBriefPanel";
 import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { ProjectPhaseControls } from "./ProjectPhaseControls";
-import { TargetDateEditor } from "./TargetDateEditor";
 import { ProjectActivityTimeline } from "./ProjectActivityTimeline";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
 import { normalizeVideoPhase, PROJECT_STATUS_LABELS, type Annotation, type Comment, type VideoPhase } from "../types";
@@ -28,7 +27,6 @@ interface VideoDetailViewProps {
   title: string;
   uploadDate: string;
   fileName: string | null;
-  targetDate: string | null;
   transcriptsEnabled: boolean;
   uploadedBy: string | null;
   /** Null when the space has requiredApprovals = 0; the section is hidden. */
@@ -80,7 +78,6 @@ export function VideoDetailView({
   currentUserName,
   title,
   uploadDate,
-  targetDate,
   transcriptsEnabled,
   uploadedBy,
   initialApprovalStatus,
@@ -105,10 +102,6 @@ export function VideoDetailView({
   const [liveComments, setLiveComments] = useState(initialReviewComments);
   const isPublished = currentPhase === "published";
   const canChangePhase = !isShareMode && pipelineEnabled && (userRole === "owner" || uploadedBy === currentUserId);
-  // Launch date is editable any time the user is an owner or the uploader, regardless
-  // of whether the space has the pipeline workflow enabled. The launch calendar relies
-  // on this so spaces without pipeline mode can still schedule launches.
-  const canSetTargetDate = !isShareMode && (userRole === "owner" || uploadedBy === currentUserId);
   const isOwner = userRole === "owner";
   const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
   const requiresApproval =
@@ -280,12 +273,6 @@ export function VideoDetailView({
             {formatDuration(videoDuration)}
           </span>
         )}
-        <TargetDateEditor
-          videoId={videoId}
-          initialTargetDate={targetDate}
-          canEdit={canSetTargetDate}
-          variant="metadata"
-        />
       </div>
 
       {/* Read-only "brief" so reviewers see authorial intent alongside the cut. */}

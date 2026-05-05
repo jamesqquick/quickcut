@@ -61,6 +61,9 @@ const isPublished = phase === "published";
 const hasVideo = !!video.streamVideoId;
 const isOwner = role === "owner";
 const canEditStatus = !isPublished && (role === "owner" || video.uploadedBy === user.id);
+// Launch date stays editable even on published projects so teams can correct
+// records after the fact. Mirrors the special-case allowance in actions.video.update.
+const canSetTargetDate = role === "owner" || video.uploadedBy === user.id;
 const showApprovals = approvalStatus.requiredApprovals > 0;
 const tabParam = Astro.url.searchParams.get("tab");
 // Default to the Details tab so users land on the project brief whenever
@@ -177,6 +180,8 @@ const tabHref = (tab: "script" | "video" | "details") => {
           takeaway3={video.takeaway3 ?? null}
           primaryCta={video.primaryCta ?? null}
           outro={video.outro ?? null}
+          targetDate={video.targetDate ?? null}
+          canSetTargetDate={canSetTargetDate}
         />
       ) : activeTab === "script" ? (
         <ScriptWorkspace
@@ -202,7 +207,6 @@ const tabHref = (tab: "script" | "video" | "details") => {
           title={video.title}
           uploadDate={video.createdAt}
           fileName={video.fileName}
-          targetDate={video.targetDate}
           transcriptsEnabled={transcriptsEnabled}
           uploadedBy={video.uploadedBy}
           initialApprovalStatus={showApprovals ? approvalStatus : null}

@@ -1,4 +1,5 @@
 import { MetadataField } from "./MetadataField";
+import { TargetDateEditor } from "./TargetDateEditor";
 
 interface VideoDetailsPanelProps {
   videoId: string;
@@ -11,6 +12,9 @@ interface VideoDetailsPanelProps {
   takeaway3: string | null;
   primaryCta: string | null;
   outro: string | null;
+  targetDate: string | null;
+  /** Whether the current viewer can edit the launch date. */
+  canSetTargetDate: boolean;
 }
 
 function Section({
@@ -41,6 +45,8 @@ export function VideoDetailsPanel({
   takeaway3,
   primaryCta,
   outro,
+  targetDate,
+  canSetTargetDate,
 }: VideoDetailsPanelProps) {
   return (
     <div className="space-y-6">
@@ -60,6 +66,22 @@ export function VideoDetailsPanel({
           multiline
           maxLength={2000}
         />
+        {(canSetTargetDate || targetDate) && (
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+              Launch date
+            </label>
+            <TargetDateEditor
+              videoId={videoId}
+              initialTargetDate={targetDate}
+              canEdit={canSetTargetDate}
+              variant="plain"
+            />
+            <p className="text-xs text-text-tertiary">
+              Shown on the team launch calendar so the space can plan publishing.
+            </p>
+          </div>
+        )}
       </Section>
 
       <Section title="Audience & Positioning">
