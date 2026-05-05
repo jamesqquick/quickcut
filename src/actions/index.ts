@@ -1767,6 +1767,34 @@ export const server = {
           });
         }
 
+        // Delete Stream videos before the DB cascade removes their rows.
+        // The DB cascade only knows about D1 — it cannot reach Cloudflare
+        // Stream, so without this loop every space deletion permanently
+        // leaks Stream assets. Errors are logged but don't block the
+        // space deletion: a stale Stream asset is recoverable, but a
+        // half-deleted space (rows gone, Stream still there, no way to
+        // reach it) is worse.
+        const spaceVideos = await db
+          .select({ streamVideoId: videos.streamVideoId })
+          .from(videos)
+          .where(eq(videos.spaceId, id));
+
+        for (const video of spaceVideos) {
+          if (!video.streamVideoId) continue;
+          try {
+            await deleteStreamVideo(
+              env.STREAM_ACCOUNT_ID,
+              env.STREAM_API_TOKEN,
+              video.streamVideoId,
+            );
+          } catch (err) {
+            console.error(
+              `Failed to delete Stream video ${video.streamVideoId} during space ${id} deletion:`,
+              err,
+            );
+          }
+        }
+
         // CASCADE will handle space_members, space_invites, folders, videos
         await db.delete(spaces).where(eq(spaces.id, id));
 
