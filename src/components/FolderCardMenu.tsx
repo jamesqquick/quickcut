@@ -4,14 +4,21 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { Modal } from "./Modal";
 import { MoveToFolderDialog } from "./MoveToFolderDialog";
 
+interface Folder {
+  id: string;
+  name: string;
+  parentId: string | null;
+}
+
 interface FolderCardMenuProps {
   folderId: string;
   folderName: string;
   parentId?: string | null;
   spaceId: string;
+  folders: Folder[];
 }
 
-export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId }: FolderCardMenuProps) {
+export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId, folders }: FolderCardMenuProps) {
   const headingId = useId();
   const [open, setOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
@@ -193,7 +200,7 @@ export function FolderCardMenu({ folderId, folderName, parentId = null, spaceId 
         entityId={folderId}
         entityType="folder"
         currentFolderId={parentId}
-        spaceId={spaceId}
+        folders={folders}
         onClose={() => setMoveOpen(false)}
       />
 
