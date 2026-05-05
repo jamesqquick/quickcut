@@ -92,16 +92,46 @@ export function VideoDetailView({
   const [liveComments, setLiveComments] = useState(initialReviewComments);
   const isPublished = currentPhase === "published";
   const canChangePhase = !isShareMode && pipelineEnabled && (userRole === "owner" || uploadedBy === currentUserId);
+  const isOwner = userRole === "owner";
   const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
-  const canMarkAsPublished = !isPublished && canChangePhase && (!approvalStatus || approvalStatus.isApproved);
-  const primaryAction = canMarkAsPublished
-    ? {
-        type: "phase" as const,
+  const requiresApproval =
+    !!approvalStatus && approvalStatus.requiredApprovals > 0;
+  const isApprovalBlocked =
+    requiresApproval && !approvalStatus!.isApproved;
+  const shortApprovalsBy = approvalStatus
+    ? Math.max(
+        0,
+        approvalStatus.requiredApprovals - approvalStatus.currentApprovals,
+      )
+    : 0;
+
+  let primaryAction: React.ComponentProps<typeof ProjectPhaseControls>["primaryAction"] = null;
+  if (!isPublished && canChangePhase) {
+    if (!isApprovalBlocked) {
+      primaryAction = {
+        type: "phase",
         label: "Mark as Published",
-        phase: "published" as const,
-        confirmMessage: "Marking this project as published locks the script, comments, and versions. This assumes you have published the video manually elsewhere.",
-      }
-    : null;
+        phase: "published",
+        confirmMessage:
+          "Marking this project as published locks the script, comments, and versions. This assumes you have published the video manually elsewhere.",
+      };
+    } else if (isOwner) {
+      primaryAction = {
+        type: "phase",
+        label: "Publish without approvals",
+        phase: "published",
+        override: true,
+        approvalStatus,
+      };
+    } else {
+      primaryAction = {
+        type: "phase",
+        label: "Mark as Published",
+        phase: "published",
+        disabledReason: `Needs ${shortApprovalsBy} more approval${shortApprovalsBy === 1 ? "" : "s"}.`,
+      };
+    }
+  }
   const [focusRequest, setFocusRequest] = useState<{ id: string; nonce: number } | null>(null);
   const [activeTool, setActiveTool] = useState<AnnotationTool>("none");
   const [pendingAnnotation, setPendingAnnotation] = useState<Annotation | null>(null);

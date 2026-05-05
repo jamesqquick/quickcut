@@ -1,6 +1,7 @@
 ---
 import Layout from "../../../layouts/Layout.astro";
 import { ProjectStatusControls } from "../../../components/ProjectStatusControls";
+import { ApprovalStatusPill } from "../../../components/ApprovalStatusPill";
 import { InlineEditor } from "../../../components/InlineEditor";
 import { ScriptWorkspace } from "../../../components/ScriptWorkspace";
 import { UploadView } from "../../../components/UploadView";
@@ -96,7 +97,22 @@ const tabHref = (tab: "script" | "video") => {
                 as="h1"
                 className="min-w-0 break-words text-2xl font-bold text-text-primary sm:text-3xl"
               />
-              <ProjectStatusControls client:load videoId={video.id} initialStatus={phase} canEdit={canEditStatus} />
+              <ProjectStatusControls
+                client:load
+                videoId={video.id}
+                initialStatus={phase}
+                canEdit={canEditStatus}
+                initialApprovalStatus={showApprovals ? approvalStatus : null}
+                isOwner={isOwner}
+              />
+              <ApprovalStatusPill
+                client:load
+                videoId={video.id}
+                initialStatus={showApprovals ? approvalStatus : null}
+                isPublished={isPublished}
+                currentUserId={user.id}
+                viewerName={user.name}
+              />
             </div>
           </div>
           <div class="mt-4">

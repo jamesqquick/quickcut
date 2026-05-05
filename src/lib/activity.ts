@@ -6,7 +6,11 @@ export type ProjectActivityType =
   | "project.created"
   | "phase.changed"
   | "target_date.changed"
-  | "first_cut.uploaded";
+  | "first_cut.uploaded"
+  | "approval.given"
+  | "approval.revoked"
+  | "approvals.reset"
+  | "phase.published_with_override";
 
 export interface ProjectActivityItem {
   id: string;

@@ -3,11 +3,24 @@ import { actions } from "astro:actions";
 import { FullscreenOverlay } from "./FullscreenOverlay";
 import { PhaseStepper, type PipelineStep } from "./PhaseStepper";
 import { normalizeVideoPhase, type VideoPhase } from "../types";
+import { PublishOverrideDialog } from "./PublishOverrideDialog";
+import type { ApprovalStatus } from "./ApprovalSection";
 
 type PrimaryAction =
   | { type: "link"; label: string; href: string }
   | { type: "event"; label: string; eventName: string }
-  | { type: "phase"; label: string; phase: VideoPhase; confirmMessage?: string };
+  | {
+      type: "phase";
+      label: string;
+      phase: VideoPhase;
+      confirmMessage?: string;
+      /** When true, this primary action represents an owner override publish. */
+      override?: boolean;
+      /** Optional approval status snapshot for override-path dialog copy. */
+      approvalStatus?: ApprovalStatus | null;
+      /** Tooltip when the action is disabled (e.g. waiting on approvals). */
+      disabledReason?: string;
+    };
 
 interface ProjectPhaseControlsProps {
   videoId: string;
@@ -32,6 +45,7 @@ export function ProjectPhaseControls({
   const [currentPhase, setCurrentPhase] = useState(() => normalizeVideoPhase(initialPhase));
   const [savingPrimaryAction, setSavingPrimaryAction] = useState(false);
   const [confirmPhaseOpen, setConfirmPhaseOpen] = useState(false);
+  const [overrideOpen, setOverrideOpen] = useState(false);
   const [phaseError, setPhaseError] = useState("");
 
   const handlePhaseChange = (phase: VideoPhase) => {
@@ -43,10 +57,15 @@ export function ProjectPhaseControls({
     setSavingPrimaryAction(true);
     setPhaseError("");
     try {
-      const { error } = await actions.video.setPhase({ id: videoId, phase: action.phase });
+      const { error } = await actions.video.setPhase({
+        id: videoId,
+        phase: action.phase,
+        override: action.override,
+      });
       if (error) throw new Error(error.message || "Failed to update phase");
       handlePhaseChange(action.phase);
       setConfirmPhaseOpen(false);
+      setOverrideOpen(false);
     } catch (err) {
       setPhaseError(err instanceof Error ? err.message : "Failed to update phase");
       console.error(err);
@@ -64,6 +83,11 @@ export function ProjectPhaseControls({
     }
 
     if (primaryAction.type === "phase") {
+      if (primaryAction.override) {
+        setPhaseError("");
+        setOverrideOpen(true);
+        return;
+      }
       if (primaryAction.confirmMessage) {
         setPhaseError("");
         setConfirmPhaseOpen(true);
@@ -72,6 +96,16 @@ export function ProjectPhaseControls({
       void runPhaseAction(primaryAction);
     }
   };
+
+  const overrideAction =
+    primaryAction?.type === "phase" && primaryAction.override ? primaryAction : null;
+  const overrideStatus = overrideAction?.approvalStatus ?? null;
+  const overrideShortBy = overrideStatus
+    ? Math.max(
+        0,
+        overrideStatus.requiredApprovals - overrideStatus.currentApprovals,
+      )
+    : 0;
 
   return (
     <>
@@ -104,21 +138,48 @@ export function ProjectPhaseControls({
                 {primaryAction.label}
               </a>
             )}
-            {primaryAction.type !== "link" && (
-              <button
-                type="button"
-                onClick={runPrimaryAction}
-                disabled={savingPrimaryAction}
-                className="inline-flex w-full justify-center rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 sm:flex-1 lg:w-44 lg:flex-none"
-              >
-                {savingPrimaryAction ? "Saving..." : primaryAction.label}
-              </button>
-            )}
+            {primaryAction.type !== "link" && (() => {
+              const isPhase = primaryAction.type === "phase";
+              const reason = isPhase ? primaryAction.disabledReason : undefined;
+              const isDisabled = savingPrimaryAction || !!reason;
+              const isOverride = isPhase && primaryAction.override;
+              const buttonClass = isOverride
+                ? "inline-flex w-full justify-center rounded-lg border border-accent-warning/40 bg-accent-warning/15 px-4 py-2 text-sm font-medium text-accent-warning transition-colors hover:bg-accent-warning/25 disabled:opacity-50 sm:flex-1 lg:w-44 lg:flex-none"
+                : "inline-flex w-full justify-center rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 sm:flex-1 lg:w-44 lg:flex-none";
+              return (
+                <button
+                  type="button"
+                  onClick={runPrimaryAction}
+                  disabled={isDisabled}
+                  title={reason}
+                  className={buttonClass}
+                >
+                  {savingPrimaryAction ? "Saving..." : primaryAction.label}
+                </button>
+              );
+            })()}
           </div>
         )}
       </div>
 
-      {primaryAction?.type === "phase" && primaryAction.confirmMessage && (
+      {overrideAction && overrideStatus && (
+        <PublishOverrideDialog
+          isOpen={overrideOpen}
+          onCancel={() => {
+            if (!savingPrimaryAction) setOverrideOpen(false);
+          }}
+          onConfirm={() => {
+            void runPhaseAction(overrideAction);
+          }}
+          loading={savingPrimaryAction}
+          error={phaseError || undefined}
+          shortBy={overrideShortBy}
+          requiredApprovals={overrideStatus.requiredApprovals}
+          currentApprovals={overrideStatus.currentApprovals}
+        />
+      )}
+
+      {primaryAction?.type === "phase" && !primaryAction.override && primaryAction.confirmMessage && (
         <FullscreenOverlay
           isOpen={confirmPhaseOpen}
           onClose={() => {

@@ -168,6 +168,10 @@ export const projectActivity = sqliteTable("project_activity", {
       "phase.changed",
       "target_date.changed",
       "first_cut.uploaded",
+      "approval.given",
+      "approval.revoked",
+      "approvals.reset",
+      "phase.published_with_override",
     ],
   }).notNull(),
   data: text("data"),
@@ -365,14 +369,15 @@ export const notifications = sqliteTable(
         "comment.reply",
         "script_comment.created",
         "script_comment.reply",
+        "approval.requested",
       ],
     }).notNull(),
     videoId: text("video_id")
       .notNull()
       .references(() => videos.id, { onDelete: "cascade" }),
-    commentId: text("comment_id")
-      .notNull()
-      .references(() => comments.id, { onDelete: "cascade" }),
+    commentId: text("comment_id").references(() => comments.id, {
+      onDelete: "cascade",
+    }),
     parentCommentId: text("parent_comment_id").references(() => comments.id, {
       onDelete: "cascade",
     }),

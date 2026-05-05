@@ -2,7 +2,8 @@ export type NotificationType =
   | "comment.created"
   | "comment.reply"
   | "script_comment.created"
-  | "script_comment.reply";
+  | "script_comment.reply"
+  | "approval.requested";
 
 export interface NotificationCopy {
   title: string;
@@ -34,6 +35,11 @@ export function getNotificationCopy(
       return {
         title: `${actorName} commented on "${videoTitle}"`,
         heading: "New comment on your video",
+      };
+    case "approval.requested":
+      return {
+        title: `${actorName} requested your approval on "${videoTitle}"`,
+        heading: "Approval requested",
       };
   }
 }
