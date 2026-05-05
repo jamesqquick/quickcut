@@ -1,6 +1,12 @@
 ---
 import { FolderCardMenu } from "./FolderCardMenu";
 
+interface FolderOption {
+  id: string;
+  name: string;
+  parentId: string | null;
+}
+
 interface Props {
   id: string;
   name: string;
@@ -8,9 +14,11 @@ interface Props {
   spaceId: string;
   videoCount: number;
   thumbnails: string[];
+  /** All folders in the space; used by the move-to-folder dialog. */
+  folders?: FolderOption[];
 }
 
-const { id, name, parentId, spaceId, videoCount, thumbnails } = Astro.props;
+const { id, name, parentId, spaceId, videoCount, thumbnails, folders = [] } = Astro.props;
 const remaining = Math.max(videoCount - thumbnails.length, 0);
 ---
 
@@ -43,6 +51,6 @@ const remaining = Math.max(videoCount - thumbnails.length, 0);
     </div>
   </a>
   <div class="absolute right-2 top-2 z-10">
-    <FolderCardMenu client:load folderId={id} folderName={name} parentId={parentId} spaceId={spaceId} />
+    <FolderCardMenu client:load folderId={id} folderName={name} parentId={parentId} spaceId={spaceId} folders={folders} />
   </div>
 </div>

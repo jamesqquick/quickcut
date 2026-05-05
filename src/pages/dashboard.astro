@@ -62,6 +62,13 @@ const childFolders = allFolders.filter((folder) => {
   if (currentFolderId) return folder.parentId === currentFolderId;
   return folder.parentId === null;
 });
+// Lightweight folder list passed down to cards so the move-to-folder dialog
+// can render the destination tree without a client-side fetch.
+const folderOptions = allFolders.map((folder) => ({
+  id: folder.id,
+  name: folder.name,
+  parentId: folder.parentId,
+}));
 const childFolderIds = childFolders.map((folder) => folder.id);
 
 let folderVideoCounts: Record<string, number> = {};
@@ -231,6 +238,7 @@ const emptyDescription = currentFolderRecord
             spaceId={selectedSpaceId}
             videoCount={folderVideoCounts[folder.id] || 0}
             thumbnails={folderThumbnails[folder.id] || []}
+            folders={folderOptions}
           />
         ))}
         {userVideos.map((video) => (
@@ -250,6 +258,7 @@ const emptyDescription = currentFolderRecord
             requiredApprovals={selectedSpace.requiredApprovals}
             approvalCount={approvalCountsByVideo[video.id] || 0}
             phase={video.phase}
+            folders={folderOptions}
           />
         ))}
       </div>
