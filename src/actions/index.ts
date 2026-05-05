@@ -53,6 +53,7 @@ import {
   createCommentNotifications,
   createTargetedApprovalRequestNotifications,
   resolveApprovalRequestsForApprover,
+  markNotificationRead,
 } from "../lib/notifications";
 import { buildInviteAuthPath, buildInviteEmail } from "../lib/email";
 
@@ -1992,6 +1993,127 @@ export const server = {
           .update(spaceInvites)
           .set({ status: "revoked" })
           .where(eq(spaceInvites.id, inviteId));
+
+        return { success: true };
+      },
+    }),
+
+    acceptInvite: defineAction({
+      input: z.object({
+        token: z.string().min(1),
+      }),
+      handler: async ({ token }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const invite = await db
+          .select()
+          .from(spaceInvites)
+          .where(eq(spaceInvites.token, token))
+          .limit(1);
+
+        if (invite.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Invite not found" });
+        }
+
+        const inv = invite[0];
+
+        if (inv.status !== "pending") {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: `Invite has already been ${inv.status}`,
+          });
+        }
+
+        if (user.email.toLowerCase() !== inv.email.toLowerCase()) {
+          throw new ActionError({
+            code: "FORBIDDEN",
+            message: "This invite was sent to a different email address",
+          });
+        }
+
+        const existingMembership = await db
+          .select({ id: spaceMembers.id })
+          .from(spaceMembers)
+          .where(
+            and(
+              eq(spaceMembers.spaceId, inv.spaceId),
+              eq(spaceMembers.userId, user.id),
+            ),
+          )
+          .limit(1);
+
+        if (existingMembership.length === 0) {
+          await db.insert(spaceMembers).values({
+            id: crypto.randomUUID(),
+            spaceId: inv.spaceId,
+            userId: user.id,
+            role: "member",
+          });
+        }
+
+        await db
+          .update(spaceInvites)
+          .set({ status: "accepted", acceptedAt: new Date().toISOString() })
+          .where(eq(spaceInvites.id, inv.id));
+
+        return { success: true, spaceId: inv.spaceId };
+      },
+    }),
+
+    declineInvite: defineAction({
+      input: z.object({
+        token: z.string().min(1),
+      }),
+      handler: async ({ token }, context) => {
+        requireUser(context);
+        const db = createDb(env.DB);
+
+        const invite = await db
+          .select()
+          .from(spaceInvites)
+          .where(eq(spaceInvites.token, token))
+          .limit(1);
+
+        if (invite.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Invite not found" });
+        }
+
+        const inv = invite[0];
+
+        if (inv.status !== "pending") {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: `Invite has already been ${inv.status}`,
+          });
+        }
+
+        await db
+          .update(spaceInvites)
+          .set({ status: "declined" })
+          .where(eq(spaceInvites.id, inv.id));
+
+        return { success: true };
+      },
+    }),
+  },
+
+  notification: {
+    markRead: defineAction({
+      input: z.object({
+        id: z.string().min(1),
+      }),
+      handler: async ({ id }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const found = await markNotificationRead(db, id, user.id);
+        if (!found) {
+          throw new ActionError({
+            code: "NOT_FOUND",
+            message: "Notification not found",
+          });
+        }
 
         return { success: true };
       },

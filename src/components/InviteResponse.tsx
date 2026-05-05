@@ -1,3 +1,4 @@
+import { actions } from "astro:actions";
 import { useState } from "react";
 
 interface InviteResponseProps {
@@ -16,12 +17,12 @@ export function InviteResponse({ token, spaceName, spaceId }: InviteResponseProp
     setError("");
 
     try {
-      const res = await fetch(`/api/invites/${token}/${action}`, {
-        method: "POST",
-      });
-      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      const { error: actionError } =
+        action === "accept"
+          ? await actions.space.acceptInvite({ token })
+          : await actions.space.declineInvite({ token });
 
-      if (!res.ok) throw new Error(data?.error || `Failed to ${action} invite`);
+      if (actionError) throw new Error(actionError.message || `Failed to ${action} invite`);
 
       setResult(action === "accept" ? "accepted" : "declined");
 
