@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from "react";
+import { actions } from "astro:actions";
 import { Modal } from "./Modal";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
@@ -83,26 +84,20 @@ export function UploadVersionModal({
     setProgress(0);
 
     try {
-      const res = await fetch(`/api/videos/${videoId}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          fileSize: file.size,
-          title: title.trim() || undefined,
-          description: description.trim(),
-          generateTranscript: transcriptsEnabled ? generateTranscript : false,
-        }),
+      const { data, error: actionError } = await actions.video.uploadVersion({
+        id: videoId,
+        fileName: file.name,
+        fileSize: file.size,
+        title: title.trim() || undefined,
+        description: description.trim(),
+        generateTranscript: transcriptsEnabled ? generateTranscript : false,
       });
 
-      const data = (await res.json().catch(() => null)) as
-        | { videoId?: string; uploadUrl?: string; error?: string }
-        | null;
-
-      if (!res.ok || !data?.videoId || !data.uploadUrl) {
-        throw new Error(data?.error || "Failed to create upload");
+      if (actionError || !data?.videoId || !data.uploadUrl) {
+        throw new Error(actionError?.message || "Failed to create upload");
       }
 
+      const newVideoId = data.videoId;
       const xhr = new XMLHttpRequest();
       xhr.open("PATCH", data.uploadUrl);
       xhr.setRequestHeader("Tus-Resumable", "1.0.0");
@@ -116,7 +111,7 @@ export function UploadVersionModal({
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           setState("processing");
-          window.location.href = `/videos/${data.videoId}?tab=video`;
+          window.location.href = `/videos/${newVideoId}?tab=video`;
           return;
         }
         setError("Upload failed. Please try again.");

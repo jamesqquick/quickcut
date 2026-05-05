@@ -1,7 +1,7 @@
 import { defineAction, ActionError } from "astro:actions";
 import { z } from "astro/zod";
 import { env } from "cloudflare:workers";
-import { eq, and, count, inArray } from "drizzle-orm";
+import { eq, and, count, desc, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { createDb } from "../db";
 import {
@@ -13,6 +13,8 @@ import {
   spaceInvites,
   approvals,
   comments,
+  scripts,
+  transcripts,
 } from "../db/schema";
 import {
   videoUpdateSchema,
@@ -23,12 +25,14 @@ import {
   inviteCreateSchema,
   folderCreateSchema,
   folderUpdateSchema,
+  projectCreateSchema,
   uploadSchema,
 } from "../lib/validation";
 import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
 import { getApprovalStatus } from "../lib/approvals";
 import { createDirectUpload, deleteVideo as deleteStreamVideo } from "../lib/stream";
 import { isTranscriptGenerationEnabled } from "../lib/flags";
+import { queueTranscriptForVideo } from "../lib/transcripts";
 import { logProjectActivity } from "../lib/activity";
 import {
   broadcastPhaseChange,
@@ -47,6 +51,23 @@ import { buildInviteAuthPath, buildInviteEmail } from "../lib/email";
 export { ActionError } from "astro:actions";
 
 const UPLOAD_ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
+const UPLOAD_MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024;
+
+function validateUploadFile(fileName: string, fileSize: number) {
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  if (!ext || !UPLOAD_ALLOWED_EXTENSIONS.includes(ext)) {
+    throw new ActionError({
+      code: "BAD_REQUEST",
+      message: "Unsupported file type. Please upload MP4, MOV, WebM, AVI, or MKV.",
+    });
+  }
+  if (fileSize > UPLOAD_MAX_FILE_SIZE) {
+    throw new ActionError({
+      code: "BAD_REQUEST",
+      message: "File exceeds the 5GB limit.",
+    });
+  }
+}
 
 /**
  * Helper to require authentication in an action handler.
@@ -564,6 +585,401 @@ export const server = {
         });
 
         return { videoId, uploadUrl };
+      },
+    }),
+
+    createProject: defineAction({
+      input: projectCreateSchema,
+      handler: async (input, context) => {
+        const user = requireUser(context);
+        const { title, description, spaceId, folderId } = input;
+        const db = createDb(env.DB);
+
+        const role = await verifySpaceAccess(db, user.id, spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        if (folderId) {
+          const folder = await db
+            .select({ id: folders.id })
+            .from(folders)
+            .where(and(eq(folders.id, folderId), eq(folders.spaceId, spaceId)))
+            .limit(1);
+
+          if (folder.length === 0) {
+            throw new ActionError({ code: "NOT_FOUND", message: "Folder not found" });
+          }
+        }
+
+        const videoId = crypto.randomUUID();
+        const now = new Date().toISOString();
+
+        await db.insert(videos).values({
+          id: videoId,
+          spaceId,
+          uploadedBy: user.id,
+          folderId: folderId || null,
+          title,
+          description: description || null,
+          status: "draft",
+          versionGroupId: videoId,
+          versionNumber: 1,
+          isCurrentVersion: true,
+          phase: "creating_script",
+          targetDate: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        await db.insert(scripts).values({
+          id: crypto.randomUUID(),
+          videoId,
+          content: "",
+          plainText: "",
+          status: "writing",
+          createdBy: user.id,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        await logProjectActivity(db, {
+          videoId,
+          actorUserId: user.id,
+          actorDisplayName: user.name,
+          type: "project.created",
+          data: { title },
+          createdAt: now,
+        });
+
+        return { videoId };
+      },
+    }),
+
+    uploadFirstCut: defineAction({
+      input: uploadSchema
+        .omit({ spaceId: true, folderId: true })
+        .extend({ id: z.string().min(1) }),
+      handler: async (input, context) => {
+        const user = requireUser(context);
+        const { id, fileName, fileSize, generateTranscript } = input;
+
+        validateUploadFile(fileName, fileSize);
+
+        const db = createDb(env.DB);
+        const projectResult = await db
+          .select()
+          .from(videos)
+          .where(eq(videos.id, id))
+          .limit(1);
+        const project = projectResult[0];
+
+        if (!project) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Project not found" });
+        }
+        if (project.phase === "published") {
+          throw new ActionError({
+            code: "FORBIDDEN",
+            message: "Cannot upload to a published project",
+          });
+        }
+        if (project.status !== "draft" || project.streamVideoId) {
+          throw new ActionError({
+            code: "CONFLICT",
+            message: "This project already has a video",
+          });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, project.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        let uploadUrl: string;
+        let streamVideoId: string;
+        try {
+          const direct = await createDirectUpload(
+            env.STREAM_ACCOUNT_ID,
+            env.STREAM_API_TOKEN,
+            fileName,
+            fileSize,
+          );
+          uploadUrl = direct.uploadUrl;
+          streamVideoId = direct.streamVideoId;
+        } catch (error) {
+          console.error("First-cut upload error:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Upload service is temporarily unavailable. Please try again.",
+          });
+        }
+
+        const now = new Date().toISOString();
+        const transcriptRequested = generateTranscript
+          ? await isTranscriptGenerationEnabled(env, user)
+          : false;
+
+        await db
+          .update(videos)
+          .set({
+            uploadedBy: user.id,
+            status: "processing",
+            phase: "reviewing_video",
+            streamVideoId,
+            fileName,
+            fileSize,
+            transcriptRequested,
+            updatedAt: now,
+          })
+          .where(eq(videos.id, id));
+
+        await logProjectActivity(db, {
+          videoId: id,
+          actorUserId: user.id,
+          actorDisplayName: user.name,
+          type: "first_cut.uploaded",
+          data: { fileName, fileSize },
+          createdAt: now,
+        });
+
+        await logProjectActivity(db, {
+          videoId: id,
+          actorUserId: user.id,
+          actorDisplayName: user.name,
+          type: "phase.changed",
+          data: { from: project.phase, to: "reviewing_video" },
+          createdAt: now,
+        });
+
+        await broadcastPhaseChange(env, id, {
+          videoId: id,
+          phase: "reviewing_video",
+          changedBy: user.name,
+        });
+
+        return { videoId: id, uploadUrl };
+      },
+    }),
+
+    uploadVersion: defineAction({
+      input: uploadSchema
+        .omit({ folderId: true })
+        .extend({ id: z.string().min(1) }),
+      handler: async (input, context) => {
+        const user = requireUser(context);
+        const { id, fileName, fileSize, title, description, generateTranscript } = input;
+
+        validateUploadFile(fileName, fileSize);
+
+        const db = createDb(env.DB);
+        const baseResult = await db
+          .select()
+          .from(videos)
+          .where(eq(videos.id, id))
+          .limit(1);
+        const baseVideo = baseResult[0];
+
+        if (!baseVideo) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+        if (baseVideo.phase === "published") {
+          throw new ActionError({
+            code: "FORBIDDEN",
+            message: "Cannot add versions to published videos",
+          });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, baseVideo.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const versionGroupId = baseVideo.versionGroupId || baseVideo.id;
+        const latestResult = await db
+          .select({ versionNumber: videos.versionNumber })
+          .from(videos)
+          .where(
+            and(
+              eq(videos.spaceId, baseVideo.spaceId),
+              eq(videos.versionGroupId, versionGroupId),
+            ),
+          )
+          .orderBy(desc(videos.versionNumber))
+          .limit(1);
+
+        const nextVersionNumber = (latestResult[0]?.versionNumber || 1) + 1;
+
+        let uploadUrl: string;
+        let streamVideoId: string;
+        try {
+          const direct = await createDirectUpload(
+            env.STREAM_ACCOUNT_ID,
+            env.STREAM_API_TOKEN,
+            fileName,
+            fileSize,
+          );
+          uploadUrl = direct.uploadUrl;
+          streamVideoId = direct.streamVideoId;
+        } catch (error) {
+          console.error("Version upload error:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Upload service is temporarily unavailable. Please try again.",
+          });
+        }
+
+        const videoId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        const transcriptRequested = generateTranscript
+          ? await isTranscriptGenerationEnabled(env, user)
+          : false;
+
+        await db
+          .update(videos)
+          .set({ isCurrentVersion: false, updatedAt: now })
+          .where(
+            and(
+              eq(videos.spaceId, baseVideo.spaceId),
+              eq(videos.versionGroupId, versionGroupId),
+            ),
+          );
+
+        await db.insert(videos).values({
+          id: videoId,
+          spaceId: baseVideo.spaceId,
+          uploadedBy: user.id,
+          folderId: baseVideo.folderId,
+          title: title?.trim() || baseVideo.title,
+          description:
+            description !== undefined
+              ? description.trim() || null
+              : baseVideo.description,
+          status: "processing",
+          versionGroupId,
+          versionNumber: nextVersionNumber,
+          isCurrentVersion: true,
+          streamVideoId,
+          fileName,
+          fileSize,
+          transcriptRequested,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        return { videoId, uploadUrl };
+      },
+    }),
+
+  },
+
+  transcript: {
+    get: defineAction({
+      input: z.object({
+        videoId: z.string().min(1),
+      }),
+      handler: async ({ videoId }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const videoResult = await db
+          .select()
+          .from(videos)
+          .where(eq(videos.id, videoId))
+          .limit(1);
+        const video = videoResult[0];
+
+        if (!video) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, video.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const transcriptResult = await db
+          .select()
+          .from(transcripts)
+          .where(eq(transcripts.videoId, videoId))
+          .limit(1);
+        const transcript = transcriptResult[0] || null;
+
+        return {
+          transcript,
+          transcriptRequested: video.transcriptRequested,
+          transcriptsEnabled: await isTranscriptGenerationEnabled(env, user),
+          videoStatus: video.status,
+        };
+      },
+    }),
+
+    queue: defineAction({
+      input: z.object({
+        videoId: z.string().min(1),
+      }),
+      handler: async ({ videoId }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const videoResult = await db
+          .select()
+          .from(videos)
+          .where(eq(videos.id, videoId))
+          .limit(1);
+        const video = videoResult[0];
+
+        if (!video) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, video.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const enabled = await isTranscriptGenerationEnabled(env, user);
+        if (!enabled) {
+          throw new ActionError({
+            code: "FORBIDDEN",
+            message: "Transcript generation is not enabled",
+          });
+        }
+
+        await db
+          .update(videos)
+          .set({ transcriptRequested: true, updatedAt: new Date().toISOString() })
+          .where(eq(videos.id, videoId));
+
+        const existingTranscript = await db
+          .select({ id: transcripts.id })
+          .from(transcripts)
+          .where(eq(transcripts.videoId, videoId))
+          .limit(1);
+
+        if (!existingTranscript[0] && video.status !== "ready") {
+          const now = new Date().toISOString();
+          await db.insert(transcripts).values({
+            id: crypto.randomUUID(),
+            videoId,
+            userId: user.id,
+            status: "requested",
+            requestedAt: now,
+            updatedAt: now,
+          });
+        }
+
+        await queueTranscriptForVideo(env, db, {
+          ...video,
+          transcriptRequested: true,
+        });
+
+        const transcriptResult = await db
+          .select()
+          .from(transcripts)
+          .where(eq(transcripts.videoId, videoId))
+          .limit(1);
+
+        return { transcript: transcriptResult[0] || null };
       },
     }),
   },

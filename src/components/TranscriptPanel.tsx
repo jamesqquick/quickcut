@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { actions } from "astro:actions";
 import type { TranscriptStatus } from "../lib/transcript-status";
 
 interface TranscriptRecord {
@@ -101,11 +102,23 @@ export function TranscriptPanel({
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch(apiUrl ?? `/api/videos/${videoId}/transcript`);
-      if (!response.ok) throw new Error("Failed to load transcript");
-      const next = (await response.json()) as TranscriptResponse;
-      setData(next);
-      setError("");
+      if (apiUrl) {
+        // Share-mode (anonymous): keep using the public share endpoint.
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error("Failed to load transcript");
+        const next = (await response.json()) as TranscriptResponse;
+        setData(next);
+        setError("");
+      } else {
+        const { data: next, error: actionError } = await actions.transcript.get({
+          videoId,
+        });
+        if (actionError || !next) {
+          throw new Error(actionError?.message || "Failed to load transcript");
+        }
+        setData(next as TranscriptResponse);
+        setError("");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load transcript");
     } finally {
@@ -142,10 +155,9 @@ export function TranscriptPanel({
     setGenerating(true);
     setError("");
     try {
-      const response = await fetch(`/api/videos/${videoId}/transcript`, { method: "POST" });
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error || "Failed to generate transcript");
+      const { error: actionError } = await actions.transcript.queue({ videoId });
+      if (actionError) {
+        throw new Error(actionError.message || "Failed to generate transcript");
       }
       await load();
     } catch (err) {

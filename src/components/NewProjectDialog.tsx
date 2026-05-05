@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { actions } from "astro:actions";
 import { Button } from "./Button";
 import { Modal } from "./Modal";
 
@@ -31,18 +32,15 @@ export function NewProjectDialog({ spaceId, folderId = null }: NewProjectDialogP
     setError("");
 
     try {
-      const res = await fetch("/api/videos/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim() || undefined,
-          spaceId,
-          folderId,
-        }),
+      const { data, error: actionError } = await actions.video.createProject({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        spaceId,
+        folderId,
       });
-      const data = (await res.json().catch(() => null)) as { error?: string; videoId?: string } | null;
-      if (!res.ok || !data?.videoId) throw new Error(data?.error || "Failed to create project");
+      if (actionError || !data?.videoId) {
+        throw new Error(actionError?.message || "Failed to create project");
+      }
       window.location.href = `/videos/${data.videoId}?space=${spaceId}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create project");
