@@ -42,6 +42,29 @@ function getCalendarDays(month: Date) {
   });
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function OwnerAvatar({ name }: { name: string | null }) {
+  if (!name) return null;
+  return (
+    <span
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[10px] font-medium text-white"
+      title={`Owner: ${name}`}
+      aria-label={`Owner: ${name}`}
+    >
+      {getInitials(name)}
+    </span>
+  );
+}
+
 function getRiskLabel(video: DashboardVideo) {
   if (!video.targetDate || video.phase === "published") return null;
   const today = new Date();
@@ -156,6 +179,7 @@ export function CalendarView({ initialVideos, spaceId }: CalendarViewProps) {
                                 </span>
                               )}
                             </div>
+                            <OwnerAvatar name={video.ownerName} />
                           </div>
                         </a>
                         <div className="mt-2 text-[10px] text-text-tertiary">
@@ -185,9 +209,12 @@ export function CalendarView({ initialVideos, spaceId }: CalendarViewProps) {
           <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {unscheduled.map((video) => (
               <article key={video.id} className="rounded-lg border border-border-default bg-bg-primary p-3">
-                <a href={`/videos/${video.id}?space=${spaceId}`} className="text-sm font-semibold text-text-primary hover:text-accent-primary">
-                  {video.title}
-                </a>
+                <div className="flex items-start justify-between gap-2">
+                  <a href={`/videos/${video.id}?space=${spaceId}`} className="min-w-0 flex-1 text-sm font-semibold text-text-primary hover:text-accent-primary">
+                    <span className="block truncate">{video.title}</span>
+                  </a>
+                  <OwnerAvatar name={video.ownerName} />
+                </div>
                 <p className="mt-1 text-xs text-text-tertiary">{PHASE_LABELS[video.phase]}</p>
                 <div className="mt-2 text-xs text-text-tertiary">
                   <span>Set launch date</span>

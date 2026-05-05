@@ -13,4 +13,6 @@ export interface DashboardVideo {
   commentCount: number;
   approvalCount: number;
   requiredApprovals: number;
+  /** Display name of the project owner (uploader). Null if the user was deleted. */
+  ownerName: string | null;
 }

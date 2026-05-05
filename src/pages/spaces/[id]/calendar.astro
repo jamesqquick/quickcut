@@ -3,7 +3,7 @@ import Layout from "../../../layouts/Layout.astro";
 import { CalendarView } from "../../../components/CalendarView";
 import type { DashboardVideo } from "../../../components/dashboard-types";
 import { createDb } from "../../../db";
-import { spaces, videos, scripts } from "../../../db/schema";
+import { spaces, videos, scripts, users } from "../../../db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { verifySpaceAccess } from "../../../lib/spaces";
@@ -37,9 +37,11 @@ const rows = await db
     createdAt: videos.createdAt,
     targetDate: videos.targetDate,
     scriptStatus: scripts.status,
+    ownerName: users.name,
   })
   .from(videos)
   .leftJoin(scripts, eq(scripts.videoId, videos.id))
+  .leftJoin(users, eq(users.id, videos.uploadedBy))
   .where(and(eq(videos.spaceId, id), eq(videos.isCurrentVersion, true)))
   .orderBy(desc(videos.createdAt));
 
@@ -57,6 +59,7 @@ const calendarVideos: DashboardVideo[] = rows.map((row) => ({
   commentCount: 0,
   approvalCount: 0,
   requiredApprovals: space[0].requiredApprovals,
+  ownerName: row.ownerName ?? null,
 }));
 ---
 
