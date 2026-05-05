@@ -100,7 +100,6 @@ src/
 │   ├── register.astro   Account creation
 │   ├── dashboard.astro  Video grid (auth)
 │   ├── notifications.astro  Pending space invites
-│   ├── upload.astro     Upload (auth)
 │   ├── spaces/[id]/settings.astro  Space settings, members, and invites
 │   ├── videos/[id].astro    Authenticated review view
 │   ├── invites/[token].astro    Direct invite accept/decline view

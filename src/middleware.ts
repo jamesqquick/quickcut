@@ -12,7 +12,7 @@ declare global {
   }
 }
 
-const protectedRoutes = ["/dashboard", "/notifications", "/settings", "/upload", "/videos/", "/spaces/"];
+const protectedRoutes = ["/dashboard", "/notifications", "/settings", "/videos/", "/spaces/"];
 const authApiRoutes = ["/api/videos", "/api/comments", "/api/spaces", "/api/invites", "/api/notifications", "/_actions/"];
 
 export const onRequest = defineMiddleware(async (context, next) => {
