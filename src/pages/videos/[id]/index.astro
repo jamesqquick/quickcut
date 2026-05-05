@@ -120,17 +120,6 @@ const tabHref = (tab: "script" | "video" | "details") => {
               )}
             </div>
           </div>
-          <div class="mt-4">
-            <InlineEditor
-              client:load
-              value={video.description || ""}
-              field="description"
-              videoId={video.id}
-              isOwner={isOwner && !isPublished}
-              placeholder="Add a description..."
-              className="max-w-2xl break-words text-sm text-text-secondary"
-            />
-          </div>
         </div>
 
         {isPublished && (
@@ -171,6 +160,7 @@ const tabHref = (tab: "script" | "video" | "details") => {
           client:load
           videoId={video.id}
           isOwner={isOwner && !isPublished}
+          description={video.description ?? null}
           targetAudience={video.targetAudience ?? null}
           hook={video.hook ?? null}
           takeaway1={video.takeaway1 ?? null}
