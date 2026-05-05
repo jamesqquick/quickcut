@@ -1,8 +1,9 @@
-import { InlineEditor, type InlineEditorField } from "./InlineEditor";
+import { MetadataField } from "./MetadataField";
 
 interface VideoDetailsPanelProps {
   videoId: string;
   isOwner: boolean;
+  description: string | null;
   targetAudience: string | null;
   hook: string | null;
   takeaway1: string | null;
@@ -10,50 +11,6 @@ interface VideoDetailsPanelProps {
   takeaway3: string | null;
   primaryCta: string | null;
   outro: string | null;
-}
-
-interface FieldRowProps {
-  label: string;
-  field: InlineEditorField;
-  videoId: string;
-  isOwner: boolean;
-  value: string | null;
-  placeholder: string;
-  multiline?: boolean;
-  maxLength: number;
-}
-
-function FieldRow({
-  label,
-  field,
-  videoId,
-  isOwner,
-  value,
-  placeholder,
-  multiline,
-  maxLength,
-}: FieldRowProps) {
-  return (
-    <div className="space-y-1.5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
-        {label}
-      </p>
-      <InlineEditor
-        value={value ?? ""}
-        field={field}
-        videoId={videoId}
-        isOwner={isOwner}
-        placeholder={placeholder}
-        multiline={multiline}
-        maxLength={maxLength}
-        className={
-          multiline
-            ? "max-w-2xl break-words text-sm text-text-secondary"
-            : "max-w-2xl break-words text-sm text-text-primary"
-        }
-      />
-    </div>
-  );
 }
 
 function Section({
@@ -76,6 +33,7 @@ function Section({
 export function VideoDetailsPanel({
   videoId,
   isOwner,
+  description,
   targetAudience,
   hook,
   takeaway1,
@@ -91,22 +49,35 @@ export function VideoDetailsPanel({
         review.
       </p>
 
-      <Section title="Audience & Positioning">
-        <FieldRow
-          label="Target Audience"
-          field="targetAudience"
+      <Section title="Overview">
+        <MetadataField
           videoId={videoId}
+          field="description"
+          initialValue={description}
           isOwner={isOwner}
-          value={targetAudience}
+          label="Description"
+          placeholder="Add a description…"
+          multiline
+          maxLength={2000}
+        />
+      </Section>
+
+      <Section title="Audience & Positioning">
+        <MetadataField
+          videoId={videoId}
+          field="targetAudience"
+          initialValue={targetAudience}
+          isOwner={isOwner}
+          label="Target Audience"
           placeholder="e.g. Junior React developers building their first SaaS"
           maxLength={200}
         />
-        <FieldRow
-          label="Hook"
-          field="hook"
+        <MetadataField
           videoId={videoId}
+          field="hook"
+          initialValue={hook}
           isOwner={isOwner}
-          value={hook}
+          label="Hook"
           placeholder="The opening line that earns the next 10 seconds"
           multiline
           maxLength={500}
@@ -114,51 +85,51 @@ export function VideoDetailsPanel({
       </Section>
 
       <Section title="Value Delivery">
-        <FieldRow
-          label="Takeaway 1"
-          field="takeaway1"
+        <MetadataField
           videoId={videoId}
+          field="takeaway1"
+          initialValue={takeaway1}
           isOwner={isOwner}
-          value={takeaway1}
+          label="Takeaway 1"
           placeholder="Add takeaway 1…"
           maxLength={200}
         />
-        <FieldRow
-          label="Takeaway 2"
-          field="takeaway2"
+        <MetadataField
           videoId={videoId}
+          field="takeaway2"
+          initialValue={takeaway2}
           isOwner={isOwner}
-          value={takeaway2}
+          label="Takeaway 2"
           placeholder="Add takeaway 2…"
           maxLength={200}
         />
-        <FieldRow
-          label="Takeaway 3"
-          field="takeaway3"
+        <MetadataField
           videoId={videoId}
+          field="takeaway3"
+          initialValue={takeaway3}
           isOwner={isOwner}
-          value={takeaway3}
+          label="Takeaway 3"
           placeholder="Add takeaway 3…"
           maxLength={200}
         />
-        <FieldRow
-          label="Primary CTA"
-          field="primaryCta"
+        <MetadataField
           videoId={videoId}
+          field="primaryCta"
+          initialValue={primaryCta}
           isOwner={isOwner}
-          value={primaryCta}
+          label="Primary CTA"
           placeholder="e.g. Subscribe for the full course"
           maxLength={200}
         />
       </Section>
 
       <Section title="Closing">
-        <FieldRow
-          label="Outro"
-          field="outro"
+        <MetadataField
           videoId={videoId}
+          field="outro"
+          initialValue={outro}
           isOwner={isOwner}
-          value={outro}
+          label="Outro"
           placeholder="How the video wraps and what viewers do next"
           multiline
           maxLength={500}
