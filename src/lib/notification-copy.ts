@@ -37,9 +37,12 @@ export function getNotificationCopy(
         heading: "New comment on your video",
       };
     case "approval.requested":
+      // Generic copy by design: until we add explicit, per-user approval
+      // requests, this notification fans out to every space member, so the
+      // wording can't claim "your approval" was requested.
       return {
-        title: `${actorName} requested your approval on "${videoTitle}"`,
-        heading: "Approval requested",
+        title: `"${videoTitle}" is looking for approval`,
+        heading: "Approval needed",
       };
   }
 }

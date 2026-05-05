@@ -53,6 +53,18 @@ export function ProjectStatusControls({
     return () => conn.disconnect();
   }, [videoId, initialApprovalStatus]);
 
+  // Same-tab sync from ApprovalSection.
+  useEffect(() => {
+    if (!initialApprovalStatus) return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ videoId: string; status: ApprovalStatus }>).detail;
+      if (!detail || detail.videoId !== videoId) return;
+      setApprovalStatus(detail.status);
+    };
+    window.addEventListener("quickcut:approval-update", handler);
+    return () => window.removeEventListener("quickcut:approval-update", handler);
+  }, [videoId, initialApprovalStatus]);
+
   const requiresApproval =
     !!approvalStatus && approvalStatus.requiredApprovals > 0;
   const isBlockedFromPublish =
@@ -135,6 +147,19 @@ export function ProjectStatusControls({
     label: PROJECT_STATUS_LABELS[option],
   }));
 
+  // Members without permission to change status see a static label instead
+  // of a disabled-but-still-hoverable dropdown.
+  if (!canEdit || isPublished) {
+    return (
+      <div
+        className="inline-flex items-center rounded-lg border border-border-default bg-bg-secondary/60 px-3 py-1.5 text-sm font-medium text-text-secondary"
+        aria-label={`Project status: ${PROJECT_STATUS_LABELS[status]}`}
+      >
+        {PROJECT_STATUS_LABELS[status]}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1.5">
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />
@@ -147,7 +172,7 @@ export function ProjectStatusControls({
           options={options}
           value={status}
           onChange={updateStatus}
-          disabled={!canEdit || saving || isPublished}
+          disabled={saving}
           menuAlign="left"
         />
       </div>

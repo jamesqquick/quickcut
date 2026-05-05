@@ -105,14 +105,16 @@ const tabHref = (tab: "script" | "video") => {
                 initialApprovalStatus={showApprovals ? approvalStatus : null}
                 isOwner={isOwner}
               />
-              <ApprovalStatusPill
-                client:load
-                videoId={video.id}
-                initialStatus={showApprovals ? approvalStatus : null}
-                isPublished={isPublished}
-                currentUserId={user.id}
-                viewerName={user.name}
-              />
+              {(hasVideo || isPublished) && (
+                <ApprovalStatusPill
+                  client:load
+                  videoId={video.id}
+                  initialStatus={showApprovals ? approvalStatus : null}
+                  isPublished={isPublished}
+                  currentUserId={user.id}
+                  viewerName={user.name}
+                />
+              )}
             </div>
           </div>
           <div class="mt-4">

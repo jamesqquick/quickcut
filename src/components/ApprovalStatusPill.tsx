@@ -76,6 +76,20 @@ export function ApprovalStatusPill({
     return () => conn.disconnect();
   }, [videoId, shareToken, viewerName, currentUserId, isPublished]);
 
+  // Same-tab sync: ApprovalSection dispatches this event after a local
+  // approve/unapprove so the pill updates immediately even if the WS
+  // broadcast is delayed or the connection is still establishing.
+  useEffect(() => {
+    if (isPublished) return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ videoId: string; status: ApprovalStatus }>).detail;
+      if (!detail || detail.videoId !== videoId) return;
+      setStatus(detail.status);
+    };
+    window.addEventListener("quickcut:approval-update", handler);
+    return () => window.removeEventListener("quickcut:approval-update", handler);
+  }, [videoId, isPublished]);
+
   if (isPublished) {
     return (
       <span
