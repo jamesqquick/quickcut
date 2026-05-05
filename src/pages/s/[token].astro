@@ -85,8 +85,12 @@ if (!isRevoked) {
 }
 
 const hasVideo = !!video?.streamVideoId;
-const activeTab = Astro.url.searchParams.get("tab") === "video" ? "video" : "script";
-const tabHref = (tab: "script" | "video") => {
+const tabParam = Astro.url.searchParams.get("tab");
+// Default to Details so guests land on the project brief, matching the
+// signed-in project view behavior.
+const activeTab: "details" | "script" | "video" =
+  tabParam === "video" ? "video" : tabParam === "script" ? "script" : "details";
+const tabHref = (tab: "details" | "script" | "video") => {
   const params = new URLSearchParams(Astro.url.searchParams);
   params.set("tab", tab);
   return `/s/${token}?${params.toString()}`;
@@ -138,6 +142,13 @@ const isPublished = phase === "published";
         <div class="border-b border-border-default">
           <nav class="flex gap-2" aria-label="Project sections">
             <a
+              href={tabHref("details")}
+              class={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "details" ? "border-b-2 border-accent-primary text-text-primary" : "text-text-tertiary hover:text-text-secondary"}`}
+              aria-current={activeTab === "details" ? "page" : undefined}
+            >
+              Details
+            </a>
+            <a
               href={tabHref("script")}
               class={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${activeTab === "script" ? "border-b-2 border-accent-primary text-text-primary" : "text-text-tertiary hover:text-text-secondary"}`}
               aria-current={activeTab === "script" ? "page" : undefined}
@@ -154,8 +165,13 @@ const isPublished = phase === "published";
           </nav>
         </div>
 
-        <!-- Tab content -->
-        {activeTab === "script" || hasVideo ? (
+        <!-- Tab content. Details and Script don't require an uploaded cut, so
+             only the Video tab is gated on `hasVideo`. -->
+        {activeTab === "video" && !hasVideo ? (
+          <div class="rounded-xl border border-border-default bg-bg-secondary p-5 text-sm text-text-secondary">
+            No video has been uploaded yet for this project.
+          </div>
+        ) : (
           <ShareView
             client:load
             activeTab={activeTab}
@@ -168,10 +184,6 @@ const isPublished = phase === "published";
             pipelineEnabled={videoSpace?.pipelineEnabled || false}
             initialTranscriptData={initialTranscriptData}
           />
-        ) : (
-          <div class="rounded-xl border border-border-default bg-bg-secondary p-5 text-sm text-text-secondary">
-            No video has been uploaded yet for this project.
-          </div>
         )}
 
         <!-- Approvals summary at bottom -->

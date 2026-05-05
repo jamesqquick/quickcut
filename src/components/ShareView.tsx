@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NamePromptModal } from "./NamePromptModal";
 import { ScriptWorkspace } from "./ScriptWorkspace";
+import { VideoDetailsPanel } from "./VideoDetailsPanel";
 import { VideoDetailView } from "./VideoDetailView";
 import type { ApprovalStatus } from "./ApprovalSection";
 import type { TranscriptResponse } from "./TranscriptPanel";
@@ -19,10 +20,18 @@ interface Video {
   uploadedBy: string | null;
   createdAt: string;
   phase: string;
+  description: string | null;
+  targetAudience: string | null;
+  hook: string | null;
+  takeaway1: string | null;
+  takeaway2: string | null;
+  takeaway3: string | null;
+  primaryCta: string | null;
+  outro: string | null;
 }
 
 interface ShareViewProps {
-  activeTab: "script" | "video";
+  activeTab: "details" | "script" | "video";
   video: Video;
   initialScriptContent: string;
   initialComments: Comment[];
@@ -70,6 +79,23 @@ export function ShareView({
         dismissable={false}
         title="Welcome"
         description="Enter your name to view this project and leave comments."
+      />
+    );
+  }
+
+  if (activeTab === "details") {
+    return (
+      <VideoDetailsPanel
+        videoId={video.id}
+        isOwner={false}
+        description={video.description}
+        targetAudience={video.targetAudience}
+        hook={video.hook}
+        takeaway1={video.takeaway1}
+        takeaway2={video.takeaway2}
+        takeaway3={video.takeaway3}
+        primaryCta={video.primaryCta}
+        outro={video.outro}
       />
     );
   }
