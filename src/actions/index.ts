@@ -113,6 +113,13 @@ export const server = {
         description: z.string().max(2000).optional(),
         targetDate: z.string().date().nullable().optional(),
         folderId: z.string().uuid().nullable().optional(),
+        targetAudience: z.string().max(200).nullable().optional(),
+        hook: z.string().max(500).nullable().optional(),
+        takeaway1: z.string().max(200).nullable().optional(),
+        takeaway2: z.string().max(200).nullable().optional(),
+        takeaway3: z.string().max(200).nullable().optional(),
+        primaryCta: z.string().max(200).nullable().optional(),
+        outro: z.string().max(500).nullable().optional(),
       }),
       handler: async (input, context) => {
         const user = requireUser(context);
@@ -139,18 +146,57 @@ export const server = {
           input.targetDate !== undefined &&
           input.title === undefined &&
           input.description === undefined &&
-          input.folderId === undefined;
+          input.folderId === undefined &&
+          input.targetAudience === undefined &&
+          input.hook === undefined &&
+          input.takeaway1 === undefined &&
+          input.takeaway2 === undefined &&
+          input.takeaway3 === undefined &&
+          input.primaryCta === undefined &&
+          input.outro === undefined;
 
         if (video.phase === "published" && !targetDateOnly) {
           throw new ActionError({ code: "FORBIDDEN", message: "Cannot edit published videos" });
         }
 
-        const updates: { title?: string; description?: string; targetDate?: string | null } = {};
+        const updates: {
+          title?: string;
+          description?: string;
+          targetDate?: string | null;
+          targetAudience?: string | null;
+          hook?: string | null;
+          takeaway1?: string | null;
+          takeaway2?: string | null;
+          takeaway3?: string | null;
+          primaryCta?: string | null;
+          outro?: string | null;
+        } = {};
         let folderUpdate: string | null | undefined;
+
+        const normalizeMetadata = (value: string | null | undefined) => {
+          if (value === undefined) return undefined;
+          if (value === null) return null;
+          const trimmed = value.trim();
+          return trimmed.length === 0 ? null : trimmed;
+        };
 
         if (input.title !== undefined) updates.title = input.title.trim();
         if (input.description !== undefined) updates.description = input.description.trim();
         if (input.targetDate !== undefined) updates.targetDate = input.targetDate;
+        const audience = normalizeMetadata(input.targetAudience);
+        if (audience !== undefined) updates.targetAudience = audience;
+        const hookValue = normalizeMetadata(input.hook);
+        if (hookValue !== undefined) updates.hook = hookValue;
+        const t1 = normalizeMetadata(input.takeaway1);
+        if (t1 !== undefined) updates.takeaway1 = t1;
+        const t2 = normalizeMetadata(input.takeaway2);
+        if (t2 !== undefined) updates.takeaway2 = t2;
+        const t3 = normalizeMetadata(input.takeaway3);
+        if (t3 !== undefined) updates.takeaway3 = t3;
+        const cta = normalizeMetadata(input.primaryCta);
+        if (cta !== undefined) updates.primaryCta = cta;
+        const outroValue = normalizeMetadata(input.outro);
+        if (outroValue !== undefined) updates.outro = outroValue;
         if (input.folderId !== undefined) {
           const folderId = input.folderId ?? null;
           if (folderId) {

@@ -65,6 +65,13 @@ export const videoUpdateSchema = z.object({
   description: z.string().max(2000).optional(),
   folderId: z.string().uuid().nullable().optional(),
   targetDate: z.string().date().nullable().optional(),
+  targetAudience: z.string().max(200).nullable().optional(),
+  hook: z.string().max(500).nullable().optional(),
+  takeaway1: z.string().max(200).nullable().optional(),
+  takeaway2: z.string().max(200).nullable().optional(),
+  takeaway3: z.string().max(200).nullable().optional(),
+  primaryCta: z.string().max(200).nullable().optional(),
+  outro: z.string().max(500).nullable().optional(),
 });
 
 // ---------------------------------------------------------------------------
