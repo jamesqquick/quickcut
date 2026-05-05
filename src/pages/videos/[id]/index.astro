@@ -62,8 +62,11 @@ const isOwner = role === "owner";
 const canEditStatus = !isPublished && (role === "owner" || video.uploadedBy === user.id);
 const showApprovals = approvalStatus.requiredApprovals > 0;
 const tabParam = Astro.url.searchParams.get("tab");
+// Default to the Details tab so users land on the project brief whenever
+// they open a project without an explicit tab in the URL. Notifications and
+// other internal links that include `?tab=...` still take precedence.
 const activeTab: "script" | "video" | "details" =
-  tabParam === "video" ? "video" : tabParam === "details" ? "details" : "script";
+  tabParam === "video" ? "video" : tabParam === "script" ? "script" : "details";
 const tabHref = (tab: "script" | "video" | "details") => {
   const params = new URLSearchParams(Astro.url.searchParams);
   params.set("tab", tab);

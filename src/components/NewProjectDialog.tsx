@@ -41,9 +41,7 @@ export function NewProjectDialog({ spaceId, folderId = null }: NewProjectDialogP
       if (actionError || !data?.videoId) {
         throw new Error(actionError?.message || "Failed to create project");
       }
-      // Land new projects on the Details tab so creators can fill in the
-      // brief (audience, hook, takeaways) before writing the script.
-      window.location.href = `/videos/${data.videoId}?space=${spaceId}&tab=details`;
+      window.location.href = `/videos/${data.videoId}?space=${spaceId}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create project");
       setSaving(false);
