@@ -21,8 +21,8 @@ If a worktree was created without step 3, symptoms include:
 
 ## Pull requests
 
-- Branch naming used in this repo: `feature/<topic>`, `fix/<topic>`,
-  `chore/<topic>`, `feature/issue-<n>-<topic>` for issue-driven work.
+- Branch naming used in this repo: `feature-<topic>`, `fix-<topic>`,
+  `chore-<topic>`, `feature-issue-<n>-<topic>` for issue-driven work.
 - Conventional commit messages (e.g. `feat(actions): ...`, `fix(...)`,
   `chore(...)`, `docs(...)`).
 - Reference issues with `Closes #<n>` in the PR body when applicable.

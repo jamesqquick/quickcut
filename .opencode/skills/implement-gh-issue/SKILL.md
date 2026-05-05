@@ -50,7 +50,7 @@ wastes a worktree and a PR.
 
 ### 2. Pick the branch name
 
-Branch convention: `<prefix>/issue-<num>-<slug>`
+Branch convention: `<prefix>-issue-<num>-<slug>`
 
 Pick the prefix from the issue's labels:
 
@@ -64,7 +64,7 @@ Pick the prefix from the issue's labels:
 `<slug>` is a short kebab-case version of the issue title — 3-6 words,
 lowercase, no punctuation. Example: issue #42 "Add CSV export to clip
 library" with label `enhancement` →
-`feature/issue-42-add-csv-export`.
+`feature-issue-42-add-csv-export`.
 
 ### 3. Create the worktree and run setup
 
@@ -244,7 +244,7 @@ You: I'm using the implement-gh-issue skill to work issue #42 in a fresh worktre
 
 [gh issue view 42 → "Add CSV export to clip library", label: enhancement]
 [Surface acceptance criteria back to the user]
-[Create .worktrees/feature/issue-42-add-csv-export from origin/main]
+[Create .worktrees/feature-issue-42-add-csv-export from origin/main]
 [Run pnpm install]
 [Run worktree-setup: copy .dev.vars + .wrangler/state, run migrations]
 [Implement: add /api/clips/export.csv route + UI button]
