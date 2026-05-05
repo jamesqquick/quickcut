@@ -21,7 +21,7 @@ function buildUrlForSpace(spaceId: string) {
   url.searchParams.delete("folderId");
   if (url.pathname.startsWith("/spaces/")) {
     url.pathname = `/spaces/${spaceId}/settings`;
-  } else if (url.pathname !== "/upload") {
+  } else {
     url.pathname = "/dashboard";
   }
   return `${url.pathname}${url.search}${url.hash}`;
