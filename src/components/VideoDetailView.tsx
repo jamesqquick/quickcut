@@ -148,9 +148,6 @@ export function VideoDetailView({
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current);
             }
-            if (data.status === "ready") {
-              window.location.reload();
-            }
           }
         }
       } catch {

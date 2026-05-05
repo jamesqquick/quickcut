@@ -1,12 +1,10 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import VideoCard from "../components/VideoCard.astro";
-import FolderCard from "../components/FolderCard.astro";
 import Breadcrumbs from "../components/Breadcrumbs.astro";
-import { CreateFolderDialog } from "../components/CreateFolderDialog";
-import { NewProjectDialog } from "../components/NewProjectDialog";
+import { DashboardGrid } from "../components/DashboardGrid";
 import { PendingToast } from "../components/PendingToast";
-import EmptyState from "../components/EmptyState.astro";
+import type { FolderCardItemData } from "../components/FolderCardItem";
+import type { VideoCardItemData } from "../components/VideoCardItem";
 import { createDb } from "../db";
 import { folders, videos, comments, spaceMembers, approvals } from "../db/schema";
 import { and, asc, desc, count, eq, inArray, sql } from "drizzle-orm";
@@ -196,22 +194,43 @@ const emptyHeading = currentFolderRecord ? "This folder is empty" : "No videos y
 const emptyDescription = currentFolderRecord
   ? "Create a project or nested folder here."
   : "Create a project to start writing a script or upload a video.";
+
+const folderItems: FolderCardItemData[] = childFolders.map((folder) => ({
+  id: folder.id,
+  name: folder.name,
+  parentId: folder.parentId,
+  spaceId: selectedSpaceId,
+  videoCount: folderVideoCounts[folder.id] || 0,
+  thumbnails: folderThumbnails[folder.id] || [],
+}));
+
+const videoItems: VideoCardItemData[] = userVideos.map((video) => ({
+  id: video.id,
+  title: video.title,
+  folderId: video.folderId,
+  spaceId: selectedSpaceId,
+  thumbnailUrl: video.thumbnailUrl,
+  duration: video.duration,
+  status: video.status as "draft" | "processing" | "ready" | "failed",
+  createdAt: video.createdAt,
+  commentCount: commentCounts[video.id] || 0,
+  urgencyCounts: urgencyCounts[video.id] || { idea: 0, suggestion: 0, important: 0, critical: 0 },
+  versionNumber: video.versionNumber ?? 1,
+  versionCount: versionCounts[video.versionGroupId || video.id] || 1,
+  requiredApprovals: selectedSpace.requiredApprovals,
+  approvalCount: approvalCountsByVideo[video.id] || 0,
+  phase: video.phase,
+}));
 ---
 
 <Layout title={currentFolderRecord ? currentFolderRecord.name : selectedSpace.name} user={user} selectedSpaceId={selectedSpaceId}>
   <PendingToast client:load />
   <div class="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
-    <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <Breadcrumbs path={folderPath} />
-        <h1 class="text-2xl font-bold text-text-primary">
-          {currentFolderRecord ? currentFolderRecord.name : selectedSpace.name}
-        </h1>
-      </div>
-      <div class="flex items-center gap-2 sm:gap-3">
-        <NewProjectDialog client:load folderId={currentFolderId} spaceId={selectedSpaceId} />
-        <CreateFolderDialog client:load parentId={currentFolderId} spaceId={selectedSpaceId} />
-      </div>
+    <div class="mb-2">
+      <Breadcrumbs path={folderPath} />
+      <h1 class="text-2xl font-bold text-text-primary">
+        {currentFolderRecord ? currentFolderRecord.name : selectedSpace.name}
+      </h1>
     </div>
 
     {memberCount <= 1 && selectedSpace.role === "owner" && (
@@ -223,45 +242,16 @@ const emptyDescription = currentFolderRecord
       </div>
     )}
 
-    {userVideos.length === 0 && childFolders.length === 0 ? (
-      <EmptyState
-        heading={emptyHeading}
-        description={emptyDescription}
-      />
-    ) : (
-      <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {childFolders.map((folder) => (
-          <FolderCard
-            id={folder.id}
-            name={folder.name}
-            parentId={folder.parentId}
-            spaceId={selectedSpaceId}
-            videoCount={folderVideoCounts[folder.id] || 0}
-            thumbnails={folderThumbnails[folder.id] || []}
-            folders={folderOptions}
-          />
-        ))}
-        {userVideos.map((video) => (
-          <VideoCard
-            id={video.id}
-            title={video.title}
-            folderId={video.folderId}
-            spaceId={selectedSpaceId}
-            thumbnailUrl={video.thumbnailUrl}
-            duration={video.duration}
-            status={video.status as "draft" | "processing" | "ready" | "failed"}
-            createdAt={video.createdAt}
-            commentCount={commentCounts[video.id] || 0}
-            urgencyCounts={urgencyCounts[video.id] || { idea: 0, suggestion: 0, important: 0, critical: 0 }}
-            versionNumber={video.versionNumber}
-            versionCount={versionCounts[video.versionGroupId || video.id] || 1}
-            requiredApprovals={selectedSpace.requiredApprovals}
-            approvalCount={approvalCountsByVideo[video.id] || 0}
-            phase={video.phase}
-            folders={folderOptions}
-          />
-        ))}
-      </div>
-    )}
+    <DashboardGrid
+      client:load
+      spaceId={selectedSpaceId}
+      currentFolderId={currentFolderId}
+      initialFolders={folderItems}
+      initialVideos={videoItems}
+      initialAllFolders={folderOptions}
+      emptyHeading={emptyHeading}
+      emptyDescription={emptyDescription}
+    />
+
   </div>
 </Layout>
