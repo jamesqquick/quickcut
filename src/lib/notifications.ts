@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "../db";
 import { comments, notifications, spaceMembers, spaces, users, videos } from "../db/schema";
+import { broadcastNotification } from "./broadcast";
 import { buildCommentNotificationEmail } from "./email";
 import { getNotificationCopy, type NotificationType } from "./notification-copy";
 
@@ -77,6 +78,7 @@ export async function createCommentNotifications(
   db: Database,
   input: CommentNotificationInput,
   emailConfig?: EmailConfig,
+  realtimeEnv?: Env,
 ): Promise<void> {
   const videoRows = await db
     .select({
@@ -122,22 +124,40 @@ export async function createCommentNotifications(
   const copy = getNotificationCopy(type, input.actorDisplayName, video.title);
   const body = snippet(input.text);
 
-  await db.insert(notifications).values(
-    recipientIds.map((userId) => ({
-      id: crypto.randomUUID(),
-      userId,
-      actorUserId: input.actorUserId,
-      actorDisplayName: input.actorDisplayName,
-      type,
-      videoId: video.id,
-      commentId: input.commentId,
-      parentCommentId: input.parentCommentId,
-      spaceId: video.spaceId,
-      title: copy.title,
-      body,
-      href,
-    })),
-  );
+  const rows = recipientIds.map((userId) => ({
+    id: crypto.randomUUID(),
+    userId,
+    actorUserId: input.actorUserId,
+    actorDisplayName: input.actorDisplayName,
+    type,
+    videoId: video.id,
+    commentId: input.commentId,
+    parentCommentId: input.parentCommentId,
+    spaceId: video.spaceId,
+    title: copy.title,
+    body,
+    href,
+  }));
+
+  await db.insert(notifications).values(rows);
+
+  // Real-time fan-out to each recipient's open tabs. Best-effort; failures
+  // are logged inside broadcastNotification and do not block email delivery.
+  if (realtimeEnv) {
+    const createdAt = new Date().toISOString();
+    await Promise.all(
+      rows.map((row) =>
+        broadcastNotification(realtimeEnv, row.userId, {
+          kind: "notification",
+          id: row.id,
+          type: row.type,
+          title: row.title,
+          href: row.href,
+          createdAt,
+        }),
+      ),
+    );
+  }
 
   if (!emailConfig) return;
 
@@ -202,6 +222,7 @@ export interface ApprovalRequestNotificationInput {
 export async function createApprovalRequestNotifications(
   db: Database,
   input: ApprovalRequestNotificationInput,
+  realtimeEnv?: Env,
 ): Promise<void> {
   const videoRows = await db
     .select({
@@ -239,22 +260,38 @@ export async function createApprovalRequestNotifications(
   );
   const href = `/videos/${video.id}?tab=video`;
 
-  await db.insert(notifications).values(
-    recipientIds.map((userId) => ({
-      id: crypto.randomUUID(),
-      userId,
-      actorUserId: input.actorUserId,
-      actorDisplayName: input.actorDisplayName,
-      type: "approval.requested" as const,
-      videoId: video.id,
-      commentId: null,
-      parentCommentId: null,
-      spaceId: video.spaceId,
-      title: copy.title,
-      body: null,
-      href,
-    })),
-  );
+  const rows = recipientIds.map((userId) => ({
+    id: crypto.randomUUID(),
+    userId,
+    actorUserId: input.actorUserId,
+    actorDisplayName: input.actorDisplayName,
+    type: "approval.requested" as const,
+    videoId: video.id,
+    commentId: null,
+    parentCommentId: null,
+    spaceId: video.spaceId,
+    title: copy.title,
+    body: null,
+    href,
+  }));
+
+  await db.insert(notifications).values(rows);
+
+  if (realtimeEnv) {
+    const createdAt = new Date().toISOString();
+    await Promise.all(
+      rows.map((row) =>
+        broadcastNotification(realtimeEnv, row.userId, {
+          kind: "notification",
+          id: row.id,
+          type: row.type,
+          title: row.title,
+          href: row.href,
+          createdAt,
+        }),
+      ),
+    );
+  }
 }
 
 export async function getNotificationsForUser(
