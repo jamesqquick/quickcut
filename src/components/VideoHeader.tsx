@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { actions } from "astro:actions";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { UploadVersionModal } from "./UploadVersionModal";
 import { VersionSwitcher } from "./VersionSwitcher";
 
 interface ShareLink {
@@ -21,6 +22,12 @@ interface VersionSummary {
   commentCount: number;
 }
 
+interface UploadVersionConfig {
+  title: string;
+  description: string;
+  transcriptsEnabled: boolean;
+}
+
 interface VideoHeaderProps {
   videoId: string;
   shareLink: ShareLink | null;
@@ -29,11 +36,11 @@ interface VideoHeaderProps {
   backHref: string;
   backLabel?: string;
   spaceName?: string;
-  uploadVersionHref?: string | null;
   versions: VersionSummary[];
+  uploadVersion?: UploadVersionConfig | null;
 }
 
-export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to videos", spaceName, uploadVersionHref = null, versions }: VideoHeaderProps) {
+export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to videos", spaceName, versions, uploadVersion = null }: VideoHeaderProps) {
   const [shareLink, setShareLink] = useState(initialLink);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -195,6 +202,15 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
       <div className="ml-auto flex items-center gap-2">
         <VersionSwitcher videoId={videoId} versions={versions} />
 
+        {uploadVersion && (
+          <UploadVersionModal
+            videoId={videoId}
+            title={uploadVersion.title}
+            description={uploadVersion.description}
+            transcriptsEnabled={uploadVersion.transcriptsEnabled}
+          />
+        )}
+
         <div className="relative" ref={moreMenuRef}>
           <button
             onClick={() => setMoreMenuOpen((o) => !o)}
@@ -229,20 +245,6 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
                 </svg>
                 Share
               </button>
-              {uploadVersionHref && (
-                <a
-                  role="menuitem"
-                  href={uploadVersionHref}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
-                >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  Upload new version
-                </a>
-              )}
               <button
                 role="menuitem"
                 onClick={requestDeleteVideo}

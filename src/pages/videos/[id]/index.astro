@@ -5,7 +5,6 @@ import { ApprovalStatusPill } from "../../../components/ApprovalStatusPill";
 import { InlineEditor } from "../../../components/InlineEditor";
 import { ScriptWorkspace } from "../../../components/ScriptWorkspace";
 import { UploadView } from "../../../components/UploadView";
-import { UploadVersionModal } from "../../../components/UploadVersionModal";
 import { VideoDetailView } from "../../../components/VideoDetailView";
 import { VideoDetailsPanel } from "../../../components/VideoDetailsPanel";
 import { VideoHeader } from "../../../components/VideoHeader";
@@ -88,6 +87,11 @@ const tabHref = (tab: "script" | "video" | "details") => {
       backHref={backHref}
       spaceName={videoSpace.name}
       versions={versions}
+      uploadVersion={hasVideo && !isPublished && isOwner ? {
+        title: video.title,
+        description: video.description || "",
+        transcriptsEnabled,
+      } : null}
     />
 
     <div class="space-y-6">
@@ -186,46 +190,33 @@ const tabHref = (tab: "script" | "video" | "details") => {
           readOnly={isPublished}
         />
       ) : hasVideo ? (
-        <div class="space-y-6">
-          <VideoDetailView
-            client:load
-            videoId={video.id}
-            streamVideoId={video.streamVideoId}
-            status={video.status}
-            duration={video.duration}
-            initialComments={commentsWithNames}
-            currentUserId={user.id}
-            currentUserName={user.name}
-            title={video.title}
-            uploadDate={video.createdAt}
-            fileName={video.fileName}
-            targetDate={video.targetDate}
-            transcriptsEnabled={transcriptsEnabled}
-            uploadedBy={video.uploadedBy}
-            initialApprovalStatus={showApprovals ? approvalStatus : null}
-            initialPhase={phase}
-            pipelineEnabled={false}
-            userRole={role}
-            spaceId={video.spaceId}
-            initialActivity={projectActivity}
-            initialTranscriptData={initialTranscriptData}
-            hook={video.hook ?? null}
-            takeaway1={video.takeaway1 ?? null}
-            takeaway2={video.takeaway2 ?? null}
-            takeaway3={video.takeaway3 ?? null}
-          />
-          {!isPublished && isOwner && (
-            <div class="flex justify-end">
-              <UploadVersionModal
-                client:load
-                videoId={video.id}
-                title={video.title}
-                description={video.description || ""}
-                transcriptsEnabled={transcriptsEnabled}
-              />
-            </div>
-          )}
-        </div>
+        <VideoDetailView
+          client:load
+          videoId={video.id}
+          streamVideoId={video.streamVideoId}
+          status={video.status}
+          duration={video.duration}
+          initialComments={commentsWithNames}
+          currentUserId={user.id}
+          currentUserName={user.name}
+          title={video.title}
+          uploadDate={video.createdAt}
+          fileName={video.fileName}
+          targetDate={video.targetDate}
+          transcriptsEnabled={transcriptsEnabled}
+          uploadedBy={video.uploadedBy}
+          initialApprovalStatus={showApprovals ? approvalStatus : null}
+          initialPhase={phase}
+          pipelineEnabled={false}
+          userRole={role}
+          spaceId={video.spaceId}
+          initialActivity={projectActivity}
+          initialTranscriptData={initialTranscriptData}
+          hook={video.hook ?? null}
+          takeaway1={video.takeaway1 ?? null}
+          takeaway2={video.takeaway2 ?? null}
+          takeaway3={video.takeaway3 ?? null}
+        />
       ) : isPublished ? (
         <div class="rounded-xl border border-border-default bg-bg-secondary p-5 text-sm text-text-secondary">
           This project was published without a video upload.
