@@ -14,6 +14,7 @@ import {
   approvals,
   comments,
   scripts,
+  shareLinks,
   transcripts,
 } from "../db/schema";
 import {
@@ -29,6 +30,7 @@ import {
   uploadSchema,
 } from "../lib/validation";
 import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
+import { generateShareToken } from "../lib/share";
 import { getApprovalStatus } from "../lib/approvals";
 import { createDirectUpload, deleteVideo as deleteStreamVideo } from "../lib/stream";
 import { isTranscriptGenerationEnabled } from "../lib/flags";
@@ -2029,6 +2031,84 @@ export const server = {
           .set({ folderId: null, updatedAt: now })
           .where(inArray(videos.folderId, ids));
         await db.delete(folders).where(inArray(folders.id, ids));
+
+        return { success: true };
+      },
+    }),
+  },
+
+  share: {
+    create: defineAction({
+      input: z.object({
+        videoId: z.string().min(1),
+      }),
+      handler: async ({ videoId }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const videoResult = await db
+          .select()
+          .from(videos)
+          .where(eq(videos.id, videoId))
+          .limit(1);
+
+        if (videoResult.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, videoResult[0].spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        // Replace any existing share link so the previous URL is invalidated.
+        await db.delete(shareLinks).where(eq(shareLinks.videoId, videoId));
+
+        const shareLinkId = crypto.randomUUID();
+        const token = generateShareToken();
+
+        await db.insert(shareLinks).values({
+          id: shareLinkId,
+          videoId,
+          token,
+          status: "active",
+          viewCount: 0,
+        });
+
+        const result = await db
+          .select()
+          .from(shareLinks)
+          .where(eq(shareLinks.id, shareLinkId))
+          .limit(1);
+
+        return { shareLink: result[0] };
+      },
+    }),
+
+    revoke: defineAction({
+      input: z.object({
+        videoId: z.string().min(1),
+      }),
+      handler: async ({ videoId }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const videoResult = await db
+          .select()
+          .from(videos)
+          .where(eq(videos.id, videoId))
+          .limit(1);
+
+        if (videoResult.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, videoResult[0].spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        await db.delete(shareLinks).where(eq(shareLinks.videoId, videoId));
 
         return { success: true };
       },

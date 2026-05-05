@@ -122,10 +122,9 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
     setLoading(true);
     setMenuOpen(false);
     try {
-      const res = await fetch(`/api/share/manage/${videoId}`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json() as { shareLink?: ShareLink };
-        setShareLink(data.shareLink ?? null);
+      const { data, error } = await actions.share.create({ videoId });
+      if (!error && data?.shareLink) {
+        setShareLink(data.shareLink);
       }
     } catch {
       // ignore
@@ -142,8 +141,8 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
   const confirmRevokeLink = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/share/manage/${videoId}`, { method: "DELETE" });
-      if (res.ok) {
+      const { error } = await actions.share.revoke({ videoId });
+      if (!error) {
         setShareLink(null);
       }
     } catch {
