@@ -19,6 +19,22 @@ If a worktree was created without step 3, symptoms include:
 - Empty list views (D1 has no data, only schema)
 - 500s touching anything that requires a secret
 
+## Code style
+
+- Minimize comments. Do not add comments that restate what the code is
+  doing or narrate changes. Self-explanatory code is preferred.
+- Only add a comment when it is genuinely useful — for example:
+  - It explains something tricky, non-obvious, or counter-intuitive
+    that a future reader could not infer from the code itself.
+  - It will be helpful for production debugging (e.g. flagging a
+    workaround for a known upstream bug, a subtle race condition, or
+    a non-obvious failure mode).
+- Prefer renaming variables/functions or restructuring code over
+  adding a comment to clarify intent.
+- When editing existing files, do not add explanatory comments about
+  the change itself — the commit message and PR description are the
+  right place for that.
+
 ## Pull requests
 
 - Branch naming used in this repo: `feature-<topic>`, `fix-<topic>`,
