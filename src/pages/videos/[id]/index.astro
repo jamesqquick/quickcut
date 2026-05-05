@@ -16,6 +16,7 @@ import { getCommentsWithNames } from "../../../lib/comments";
 import { isTranscriptGenerationEnabled } from "../../../lib/flags";
 import { getProjectActivity } from "../../../lib/activity";
 import { verifySpaceAccess } from "../../../lib/spaces";
+import { loadTranscriptPanelData } from "../../../lib/transcripts";
 import { getVideoVersions } from "../../../lib/versions";
 import { normalizeVideoPhase } from "../../../types";
 
@@ -51,6 +52,7 @@ const commentsWithNames = await getCommentsWithNames(db, id, {
   name: user.name,
 });
 const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
+const initialTranscriptData = await loadTranscriptPanelData(env, db, video.id, user);
 const versions = await getVideoVersions(db, video);
 const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
 const phase = normalizeVideoPhase(video.phase);
@@ -172,6 +174,7 @@ const tabHref = (tab: "script" | "video") => {
             userRole={role}
             spaceId={video.spaceId}
             initialActivity={projectActivity}
+            initialTranscriptData={initialTranscriptData}
           />
           {!isPublished && isOwner && (
             <div class="flex justify-end">

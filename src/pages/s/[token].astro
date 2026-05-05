@@ -8,6 +8,7 @@ import { env } from "cloudflare:workers";
 import { getCommentsWithNames } from "../../lib/comments";
 import { getApprovalStatus, type ApprovalStatus } from "../../lib/approvals";
 import { getProjectActivity } from "../../lib/activity";
+import { loadTranscriptPanelData, type TranscriptPanelData } from "../../lib/transcripts";
 import { normalizeVideoPhase } from "../../types";
 
 const { token } = Astro.params;
@@ -38,6 +39,7 @@ let approvalStatus: ApprovalStatus | null = null;
 let script: { content: string; plainText: string; status: string } | null = null;
 let projectActivityItems: any[] = [];
 let videoSpace: { id: string; name: string; pipelineEnabled: boolean } | null = null;
+let initialTranscriptData: TranscriptPanelData | null = null;
 
 if (!isRevoked) {
   const videoResult = await db
@@ -77,6 +79,9 @@ if (!isRevoked) {
     .where(eq(spaces.id, video.spaceId))
     .limit(1);
   videoSpace = spaceResult[0] ?? null;
+
+  // Guests cannot generate transcripts, so transcriptsEnabled stays false.
+  initialTranscriptData = await loadTranscriptPanelData(env, db, video.id, null);
 }
 
 const hasVideo = !!video?.streamVideoId;
@@ -161,6 +166,7 @@ const isPublished = phase === "published";
             initialApprovalStatus={approvalStatus}
             initialActivity={projectActivityItems}
             pipelineEnabled={videoSpace?.pipelineEnabled || false}
+            initialTranscriptData={initialTranscriptData}
           />
         ) : (
           <div class="rounded-xl border border-border-default bg-bg-secondary p-5 text-sm text-text-secondary">

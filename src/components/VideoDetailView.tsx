@@ -4,7 +4,7 @@ import { CommentThread } from "./CommentThread";
 import { VideoPlayer } from "./VideoPlayer";
 import { VideoPageLayout } from "./VideoPageLayout";
 import { AnnotationOverlay } from "./AnnotationOverlay";
-import { TranscriptPanel } from "./TranscriptPanel";
+import { TranscriptPanel, type TranscriptResponse } from "./TranscriptPanel";
 import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { ProjectPhaseControls } from "./ProjectPhaseControls";
 import { TargetDateEditor } from "./TargetDateEditor";
@@ -44,6 +44,8 @@ interface VideoDetailViewProps {
   enabledSteps?: PipelineStep[];
   shareToken?: string;
   initialActivity?: ProjectActivityItem[];
+  /** Server-rendered transcript data so the panel renders without a client fetch. */
+  initialTranscriptData?: TranscriptResponse | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -83,6 +85,7 @@ export function VideoDetailView({
   enabledSteps,
   shareToken,
   initialActivity = [],
+  initialTranscriptData = null,
 }: VideoDetailViewProps) {
   const isShareMode = !!shareToken;
   const initialReviewComments = initialComments.filter((comment) => comment.phase !== "script");
@@ -268,6 +271,7 @@ export function VideoDetailView({
         transcriptsEnabled={transcriptsEnabled}
         apiUrl={isShareMode ? `/api/share/${shareToken}/transcript` : undefined}
         canManageTranscript={!isShareMode}
+        initialTranscriptData={initialTranscriptData}
       />
       {initialActivity.length > 0 && <ProjectActivityTimeline activity={initialActivity} />}
     </div>

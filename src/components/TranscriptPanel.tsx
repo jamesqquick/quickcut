@@ -9,7 +9,7 @@ interface TranscriptRecord {
   errorMessage: string | null;
 }
 
-interface TranscriptResponse {
+export interface TranscriptResponse {
   transcript: TranscriptRecord | null;
   transcriptRequested: boolean;
   transcriptsEnabled: boolean;
@@ -22,6 +22,12 @@ interface TranscriptPanelProps {
   transcriptsEnabled: boolean;
   apiUrl?: string;
   canManageTranscript?: boolean;
+  /**
+   * Server-rendered transcript data. When provided, the panel renders
+   * immediately without an initial client fetch. Polling and post-action
+   * refreshes still use the existing action / share endpoint.
+   */
+  initialTranscriptData?: TranscriptResponse | null;
 }
 
 const statusCopy: Record<TranscriptStatus, { title: string; body: string }> = {
@@ -92,9 +98,10 @@ export function TranscriptPanel({
   transcriptsEnabled,
   apiUrl,
   canManageTranscript = true,
+  initialTranscriptData = null,
 }: TranscriptPanelProps) {
-  const [data, setData] = useState<TranscriptResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<TranscriptResponse | null>(initialTranscriptData);
+  const [loading, setLoading] = useState(initialTranscriptData === null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -127,8 +134,10 @@ export function TranscriptPanel({
   }, [apiUrl, videoId]);
 
   useEffect(() => {
+    // Skip initial client fetch when the server already provided data.
+    if (initialTranscriptData) return;
     void load();
-  }, [load]);
+  }, [initialTranscriptData, load]);
 
   const status: TranscriptStatus = data?.transcript?.status ?? (data?.transcriptRequested ? "requested" : "not_requested");
 

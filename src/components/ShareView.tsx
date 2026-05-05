@@ -3,6 +3,7 @@ import { NamePromptModal } from "./NamePromptModal";
 import { ScriptWorkspace } from "./ScriptWorkspace";
 import { VideoDetailView } from "./VideoDetailView";
 import type { ApprovalStatus } from "./ApprovalSection";
+import type { TranscriptResponse } from "./TranscriptPanel";
 import type { Comment } from "../types";
 import type { ProjectActivityItem } from "../lib/activity";
 
@@ -29,6 +30,7 @@ interface ShareViewProps {
   initialApprovalStatus: ApprovalStatus | null;
   initialActivity: ProjectActivityItem[];
   pipelineEnabled: boolean;
+  initialTranscriptData: TranscriptResponse | null;
 }
 
 const ANON_NAME_KEY = "quickcut_anonymous_name";
@@ -42,6 +44,7 @@ export function ShareView({
   initialApprovalStatus,
   initialActivity,
   pipelineEnabled,
+  initialTranscriptData,
 }: ShareViewProps) {
   const [anonymousName, setAnonymousName] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -108,6 +111,7 @@ export function ShareView({
       userRole="guest"
       shareToken={shareToken}
       initialActivity={initialActivity}
+      initialTranscriptData={initialTranscriptData}
     />
   );
 }
