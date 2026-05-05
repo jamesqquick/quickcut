@@ -3,13 +3,19 @@ import { actions } from "astro:actions";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { MoveToFolderDialog } from "./MoveToFolderDialog";
 
+interface Folder {
+  id: string;
+  name: string;
+  parentId: string | null;
+}
+
 interface VideoCardMenuProps {
   videoId: string;
   folderId?: string | null;
-  spaceId?: string | null;
+  folders: Folder[];
 }
 
-export function VideoCardMenu({ videoId, folderId = null, spaceId = null }: VideoCardMenuProps) {
+export function VideoCardMenu({ videoId, folderId = null, folders }: VideoCardMenuProps) {
   const [open, setOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -129,7 +135,7 @@ export function VideoCardMenu({ videoId, folderId = null, spaceId = null }: Vide
         entityId={videoId}
         entityType="video"
         currentFolderId={folderId}
-        spaceId={spaceId}
+        folders={folders}
         onClose={() => setMoveOpen(false)}
       />
 

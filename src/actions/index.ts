@@ -1,7 +1,7 @@
 import { defineAction, ActionError } from "astro:actions";
 import { z } from "astro/zod";
 import { env } from "cloudflare:workers";
-import { eq, and, count, desc, inArray, sql } from "drizzle-orm";
+import { eq, and, count, desc, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { createDb } from "../db";
 import {
@@ -870,77 +870,6 @@ export const server = {
       },
     }),
 
-    listVersions: defineAction({
-      input: z.object({
-        id: z.string().min(1),
-      }),
-      handler: async ({ id }, context) => {
-        const user = requireUser(context);
-        const db = createDb(env.DB);
-
-        const videoResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-        const video = videoResult[0];
-
-        if (!video) {
-          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
-        }
-
-        const role = await verifySpaceAccess(db, user.id, video.spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
-
-        const versionGroupId = video.versionGroupId || video.id;
-        const versionRows = await db
-          .select()
-          .from(videos)
-          .where(
-            and(
-              eq(videos.spaceId, video.spaceId),
-              eq(videos.versionGroupId, versionGroupId),
-            ),
-          )
-          .orderBy(desc(videos.versionNumber));
-
-        const versionIds = versionRows.map((version) => version.id);
-        let commentCounts: Record<string, number> = {};
-
-        if (versionIds.length > 0) {
-          const counts = await db
-            .select({ videoId: comments.videoId, count: count() })
-            .from(comments)
-            .where(
-              sql`${comments.videoId} IN (${sql.join(
-                versionIds.map((versionId) => sql`${versionId}`),
-                sql`, `,
-              )})`,
-            )
-            .groupBy(comments.videoId);
-
-          commentCounts = Object.fromEntries(
-            counts.map((row) => [row.videoId, row.count]),
-          );
-        }
-
-        return {
-          versions: versionRows.map((version) => ({
-            id: version.id,
-            title: version.title,
-            status: version.status,
-            thumbnailUrl: version.thumbnailUrl,
-            duration: version.duration,
-            versionNumber: version.versionNumber,
-            isCurrentVersion: version.isCurrentVersion,
-            createdAt: version.createdAt,
-            commentCount: commentCounts[version.id] || 0,
-          })),
-        };
-      },
-    }),
   },
 
   transcript: {

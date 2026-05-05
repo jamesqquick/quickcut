@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { actions } from "astro:actions";
 
 interface VersionSummary {
   id: string;
@@ -14,6 +13,7 @@ interface VersionSummary {
 
 interface VersionSwitcherProps {
   videoId: string;
+  versions: VersionSummary[];
 }
 
 function formatDate(dateStr: string): string {
@@ -24,26 +24,9 @@ function formatDate(dateStr: string): string {
   });
 }
 
-export function VersionSwitcher({ videoId }: VersionSwitcherProps) {
-  const [versions, setVersions] = useState<VersionSummary[]>([]);
+export function VersionSwitcher({ videoId, versions }: VersionSwitcherProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    actions.video
-      .listVersions({ id: videoId })
-      .then(({ data, error }) => {
-        if (cancelled || error || !data?.versions) return;
-        setVersions(data.versions);
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, [videoId]);
 
   useEffect(() => {
     if (!open) return;
