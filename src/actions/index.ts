@@ -900,27 +900,19 @@ export const server = {
           ? await isTranscriptGenerationEnabled(env, user)
           : false;
 
-        try {
-          await db
-            .update(videos)
-            .set({
-              uploadedBy: user.id,
-              status: "processing",
-              phase: "reviewing_video",
-              streamVideoId,
-              fileName,
-              fileSize,
-              transcriptRequested,
-              updatedAt: now,
-            })
-            .where(eq(videos.id, id));
-        } catch (error) {
-          console.error("First-cut update error:", error);
-          throw new ActionError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "We couldn't save your upload. Please try again.",
-          });
-        }
+        await db
+          .update(videos)
+          .set({
+            uploadedBy: user.id,
+            status: "processing",
+            phase: "reviewing_video",
+            streamVideoId,
+            fileName,
+            fileSize,
+            transcriptRequested,
+            updatedAt: now,
+          })
+          .where(eq(videos.id, id));
 
         await logProjectActivity(db, {
           videoId: id,
@@ -1023,47 +1015,39 @@ export const server = {
           ? await isTranscriptGenerationEnabled(env, user)
           : false;
 
-        const trimmedNotes = versionNotes?.trim();
-        try {
-          await db
-            .update(videos)
-            .set({ isCurrentVersion: false, updatedAt: now })
-            .where(
-              and(
-                eq(videos.spaceId, baseVideo.spaceId),
-                eq(videos.versionGroupId, versionGroupId),
-              ),
-            );
+        await db
+          .update(videos)
+          .set({ isCurrentVersion: false, updatedAt: now })
+          .where(
+            and(
+              eq(videos.spaceId, baseVideo.spaceId),
+              eq(videos.versionGroupId, versionGroupId),
+            ),
+          );
 
-          await db.insert(videos).values({
-            id: videoId,
-            spaceId: baseVideo.spaceId,
-            uploadedBy: user.id,
-            folderId: baseVideo.folderId,
-            title: title?.trim() || baseVideo.title,
-            description:
-              description !== undefined
-                ? description.trim() || null
-                : baseVideo.description,
-            status: "processing",
-            versionGroupId,
-            versionNumber: nextVersionNumber,
-            isCurrentVersion: true,
-            streamVideoId,
-            fileName,
-            fileSize,
-            transcriptRequested,
-            versionNotes: trimmedNotes ? trimmedNotes : null,
-            createdAt: now,
-            updatedAt: now,
-          });
-        } catch (error) {
-          console.error("Version insert error:", error);
-          throw new ActionError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "We couldn't save the new version. Please try again.",
-          });
-        }
+        const trimmedNotes = versionNotes?.trim();
+        await db.insert(videos).values({
+          id: videoId,
+          spaceId: baseVideo.spaceId,
+          uploadedBy: user.id,
+          folderId: baseVideo.folderId,
+          title: title?.trim() || baseVideo.title,
+          description:
+            description !== undefined
+              ? description.trim() || null
+              : baseVideo.description,
+          status: "processing",
+          versionGroupId,
+          versionNumber: nextVersionNumber,
+          isCurrentVersion: true,
+          streamVideoId,
+          fileName,
+          fileSize,
+          transcriptRequested,
+          versionNotes: trimmedNotes ? trimmedNotes : null,
+          createdAt: now,
+          updatedAt: now,
+        });
 
         // Reset approvals when a new version is uploaded. We hard-delete
         // approval rows for ALL prior versions in this version group so the
