@@ -91,8 +91,6 @@ const tabHref = (tab: "script" | "video" | "details") => {
       spaceName={videoSpace.name}
       versions={versions}
       uploadVersion={hasVideo && !isPublished && isOwner ? {
-        title: video.title,
-        description: video.description || "",
         transcriptsEnabled,
       } : null}
     />
@@ -230,8 +228,6 @@ const tabHref = (tab: "script" | "video" | "details") => {
         <UploadView
           client:load
           videoId={video.id}
-          title={video.title}
-          description={video.description || ""}
           isFirstCut={true}
           transcriptsEnabled={transcriptsEnabled}
         />

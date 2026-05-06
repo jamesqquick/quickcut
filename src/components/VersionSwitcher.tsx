@@ -2,27 +2,13 @@ import { useEffect, useRef, useState } from "react";
 
 interface VersionSummary {
   id: string;
-  title: string;
-  status: string;
-  thumbnailUrl: string | null;
   versionNumber: number;
   isCurrentVersion: boolean;
-  createdAt: string;
-  commentCount: number;
-  versionNotes: string | null;
 }
 
 interface VersionSwitcherProps {
   videoId: string;
   versions: VersionSummary[];
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 export function VersionSwitcher({ videoId, versions }: VersionSwitcherProps) {
@@ -72,35 +58,14 @@ export function VersionSwitcher({ videoId, versions }: VersionSwitcherProps) {
               key={version.id}
               role="menuitem"
               href={`/videos/${version.id}?tab=video`}
-              className={`flex gap-3 rounded-lg p-2 transition-colors hover:bg-bg-tertiary ${version.id === videoId ? "bg-bg-tertiary" : ""}`}
+              className={`flex items-center gap-2 rounded-lg p-2 transition-colors hover:bg-bg-tertiary ${version.id === videoId ? "bg-bg-tertiary" : ""}`}
             >
-              <div className="flex h-12 w-20 shrink-0 items-center justify-center overflow-hidden rounded bg-bg-primary">
-                {version.thumbnailUrl ? (
-                  <img src={version.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="text-xs text-text-tertiary">V{version.versionNumber}</span>
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-text-primary">V{version.versionNumber}</span>
-                  {version.isCurrentVersion && (
-                    <span className="rounded-full bg-accent-secondary/15 px-2 py-0.5 text-[10px] font-medium text-accent-secondary">
-                      Current
-                    </span>
-                  )}
-                </div>
-                <p className="truncate text-xs text-text-secondary">{version.title}</p>
-                <p className="mt-0.5 text-xs text-text-tertiary">
-                  {formatDate(version.createdAt)} - {version.commentCount} comment{version.commentCount === 1 ? "" : "s"}
-                </p>
-                {version.versionNotes && (
-                  <p className="mt-1 line-clamp-2 text-xs text-text-secondary">
-                    <span className="font-medium text-text-tertiary">Changes:</span>{" "}
-                    {version.versionNotes}
-                  </p>
-                )}
-              </div>
+              <span className="text-sm font-semibold text-text-primary">V{version.versionNumber}</span>
+              {version.isCurrentVersion && (
+                <span className="rounded-full bg-accent-secondary/15 px-2 py-0.5 text-[10px] font-medium text-accent-secondary">
+                  Current
+                </span>
+              )}
             </a>
           ))}
         </div>
