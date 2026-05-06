@@ -9,3 +9,4 @@ dist/
 *.log
 worker-configuration.d.ts
 .worktrees/
+tmp/
