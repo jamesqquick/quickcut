@@ -1,0 +1,60 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import { BrainstormBoard } from "../../../components/BrainstormBoard";
+import { createDb } from "../../../db";
+import { folders, spaces } from "../../../db/schema";
+import { asc, eq } from "drizzle-orm";
+import { env } from "cloudflare:workers";
+import { verifySpaceAccess } from "../../../lib/spaces";
+import { getBrainstormsForSpace } from "../../../lib/brainstorms";
+import type { FolderTreeOption } from "../../../types";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/dashboard");
+
+const db = createDb(env.DB);
+
+const role = await verifySpaceAccess(db, user.id, id);
+if (!role) return Astro.redirect("/dashboard");
+
+const space = await db.select().from(spaces).where(eq(spaces.id, id)).limit(1);
+if (space.length === 0) return Astro.redirect("/dashboard");
+
+const brainstorms = await getBrainstormsForSpace(db, id, {
+  userId: user.id,
+  name: user.name,
+});
+
+const allFolders = await db
+  .select()
+  .from(folders)
+  .where(eq(folders.spaceId, id))
+  .orderBy(asc(folders.name));
+
+const folderOptions: FolderTreeOption[] = allFolders.map((folder) => ({
+  id: folder.id,
+  name: folder.name,
+  parentId: folder.parentId,
+}));
+---
+
+<Layout title={`${space[0].name} Brainstorm`} user={user} selectedSpaceId={id} spaceView="brainstorm">
+  <div class="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-text-primary">Brainstorm</h1>
+      <p class="text-sm text-text-secondary">{space[0].name}</p>
+    </div>
+
+    <BrainstormBoard
+      client:load
+      spaceId={id}
+      currentUserId={user.id}
+      isOwner={role === "owner"}
+      initialBrainstorms={brainstorms}
+      folders={folderOptions}
+    />
+  </div>
+</Layout>

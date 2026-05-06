@@ -3,20 +3,25 @@ import "../styles/tailwind.css";
 import { UserMenu } from "../components/UserMenu";
 import { SpaceSwitcher } from "../components/SpaceSwitcher";
 import Logo from "../components/Logo.astro";
+import SpaceSidebar from "../components/SpaceSidebar.astro";
 import { createDb } from "../db";
 import { getPendingInvitesForUser } from "../lib/invites";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { getUserSpaces } from "../lib/spaces";
 import { env } from "cloudflare:workers";
 
+type SpaceView = "projects" | "calendar" | "brainstorm" | "settings" | "none";
+
 interface Props {
   title: string;
   description?: string;
   user?: { id: string; email: string; name: string } | null;
   selectedSpaceId?: string | null;
+  spaceView?: SpaceView;
 }
 
-const { title, description, user, selectedSpaceId } = Astro.props;
+const { title, description, user, selectedSpaceId, spaceView } = Astro.props;
+const showSidebar = Boolean(user && selectedSpaceId && spaceView);
 const metaDescription = description ?? "Quick Cuts - Collaborative video review";
 const db = createDb(env.DB);
 const userSpaces = user ? await getUserSpaces(db, user.id) : [];
@@ -72,8 +77,17 @@ const headerSpaceId = selectedSpaceId ?? Astro.url.searchParams.get("space") ?? 
         </header>
       )
     }
-    <main>
-      <slot />
-    </main>
+    {showSidebar ? (
+      <div class="flex">
+        <SpaceSidebar spaceId={selectedSpaceId!} active={spaceView!} />
+        <main class="min-w-0 flex-1">
+          <slot />
+        </main>
+      </div>
+    ) : (
+      <main>
+        <slot />
+      </main>
+    )}
   </body>
 </html>

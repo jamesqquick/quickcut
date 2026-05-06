@@ -542,7 +542,7 @@ export function ScriptWorkspace({
   };
 
   return (
-    <div className={isReviewMode ? "grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]" : "space-y-5"}>
+    <div className={isReviewMode ? "grid gap-5 2xl:grid-cols-[minmax(0,1fr)_360px]" : "space-y-5"}>
       <div className="space-y-5">
         <div className="overflow-hidden rounded-xl border border-border-default bg-bg-secondary">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-default px-4 py-3">

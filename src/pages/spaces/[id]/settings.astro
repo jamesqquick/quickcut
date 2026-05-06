@@ -57,7 +57,7 @@ const firstOwned = await db
 const isDefaultSpace = firstOwned.length > 0 && firstOwned[0].id === id;
 ---
 
-<Layout title={`${space[0].name} Settings`} user={user} selectedSpaceId={id}>
+<Layout title={`${space[0].name} Settings`} user={user} selectedSpaceId={id} spaceView="settings">
   <div class="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
     <div class="mb-6">
       <a

@@ -114,7 +114,7 @@ export function MoveToFolderDialog({
 
   const dropdownOptions: DropdownOption[] = useMemo(
     () => [
-      { value: "root", label: "All Videos" },
+      { value: "root", label: "Projects" },
       ...treeOptions.map((folder) => ({
         value: folder.id,
         label: `${"  ".repeat(folder.depth)}${folder.depth > 0 ? "- " : ""}${folder.name}`,

@@ -1,6 +1,7 @@
 import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "../db";
-import { projects, videos } from "../db/schema";
+import { folders, projects, scripts, videos } from "../db/schema";
+import { logProjectActivity } from "./activity";
 
 export type ProjectRow = typeof projects.$inferSelect;
 export type VideoRow = typeof videos.$inferSelect;
@@ -217,3 +218,93 @@ export async function getProjectForVideoId(
 }
 
 export type { ProjectRow as Project };
+
+interface CreateProjectInSpaceInput {
+  spaceId: string;
+  folderId?: string | null;
+  title: string;
+  description?: string | null;
+  user: { id: string; name: string };
+}
+
+export interface CreateProjectInSpaceResult {
+  videoId: string;
+  projectId: string;
+}
+
+/**
+ * Creates a project + initial video version + empty script row in one
+ * logical operation. Validates that `folderId`, when set, belongs to the
+ * target space. Throws on validation failures so callers can convert to
+ * the appropriate user-facing error.
+ */
+export async function createProjectInSpace(
+  db: Database,
+  input: CreateProjectInSpaceInput,
+): Promise<CreateProjectInSpaceResult> {
+  const { spaceId, title, user } = input;
+  const folderId = input.folderId ?? null;
+  const description = input.description?.trim() || null;
+
+  if (folderId) {
+    const folder = await db
+      .select({ id: folders.id })
+      .from(folders)
+      .where(and(eq(folders.id, folderId), eq(folders.spaceId, spaceId)))
+      .limit(1);
+    if (folder.length === 0) {
+      throw new Error("FOLDER_NOT_FOUND");
+    }
+  }
+
+  const videoId = crypto.randomUUID();
+  const projectId = videoId;
+  const now = new Date().toISOString();
+
+  await db.insert(projects).values({
+    id: projectId,
+    spaceId,
+    uploadedBy: user.id,
+    folderId,
+    title,
+    description,
+    phase: "creating_script",
+    targetDate: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await db.insert(videos).values({
+    id: videoId,
+    spaceId,
+    uploadedBy: user.id,
+    projectId,
+    status: "draft",
+    versionNumber: 1,
+    isCurrentVersion: true,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await db.insert(scripts).values({
+    id: crypto.randomUUID(),
+    videoId,
+    content: "",
+    plainText: "",
+    status: "writing",
+    createdBy: user.id,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await logProjectActivity(db, {
+    videoId,
+    actorUserId: user.id,
+    actorDisplayName: user.name,
+    type: "project.created",
+    data: { title },
+    createdAt: now,
+  });
+
+  return { videoId, projectId };
+}

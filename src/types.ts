@@ -101,3 +101,37 @@ export function normalizeVideoPhase(phase: string | null | undefined): VideoPhas
   if (PROJECT_STATUSES.includes(phase as ProjectStatus)) return phase as ProjectStatus;
   return "reviewing_video";
 }
+
+export const BRAINSTORM_REACTION_EMOJIS = ["👍", "❤️", "🚀", "💡", "🎬"] as const;
+export type BrainstormReactionEmoji = (typeof BRAINSTORM_REACTION_EMOJIS)[number];
+
+export const BRAINSTORM_STATUSES = ["open", "promoted", "archived"] as const;
+export type BrainstormStatus = (typeof BRAINSTORM_STATUSES)[number];
+
+export interface BrainstormReactionSummary {
+  emoji: BrainstormReactionEmoji;
+  count: number;
+  reactedByMe: boolean;
+}
+
+export interface BrainstormItem {
+  id: string;
+  spaceId: string;
+  authorUserId: string | null;
+  authorDisplayName: string;
+  title: string;
+  notes: string;
+  status: BrainstormStatus;
+  promotedProjectId: string | null;
+  promotedProjectTitle: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reactionCount: number;
+  reactions: BrainstormReactionSummary[];
+}
+
+export interface FolderTreeOption {
+  id: string;
+  name: string;
+  parentId: string | null;
+}

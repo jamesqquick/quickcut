@@ -1,0 +1,155 @@
+---
+type SpaceView = "projects" | "calendar" | "brainstorm" | "settings" | "none";
+
+interface Props {
+  spaceId: string;
+  active: SpaceView;
+}
+
+const { spaceId, active } = Astro.props;
+
+const items: Array<{
+  key: SpaceView;
+  label: string;
+  href: string;
+  icon: "projects" | "calendar" | "brainstorm" | "settings";
+}> = [
+  {
+    key: "projects",
+    label: "Projects",
+    href: `/dashboard?space=${spaceId}`,
+    icon: "projects",
+  },
+  {
+    key: "calendar",
+    label: "Calendar",
+    href: `/spaces/${spaceId}/calendar?space=${spaceId}`,
+    icon: "calendar",
+  },
+  {
+    key: "brainstorm",
+    label: "Brainstorm",
+    href: `/spaces/${spaceId}/brainstorm?space=${spaceId}`,
+    icon: "brainstorm",
+  },
+];
+
+const settingsItem = {
+  key: "settings" as const,
+  label: "Settings",
+  href: `/spaces/${spaceId}/settings?space=${spaceId}`,
+  icon: "settings" as const,
+};
+
+const linkBase =
+  "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors";
+const linkInactive = "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary";
+const linkActive = "bg-bg-tertiary text-text-primary";
+---
+
+<button
+  type="button"
+  data-space-sidebar-toggle
+  aria-controls="space-sidebar"
+  aria-expanded="false"
+  aria-label="Open space navigation"
+  class="fixed bottom-4 right-4 z-50 inline-flex h-12 w-12 items-center justify-center rounded-full border border-border-default bg-bg-secondary text-text-primary shadow-lg md:hidden"
+>
+  <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <line x1="3" y1="12" x2="21" y2="12" />
+    <line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+</button>
+
+<div
+  data-space-sidebar-backdrop
+  data-state="closed"
+  class="fixed inset-x-0 bottom-0 top-14 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ease-out data-[state=closed]:pointer-events-none data-[state=closed]:opacity-0 data-[state=open]:opacity-100 md:hidden"
+></div>
+
+<aside
+  id="space-sidebar"
+  data-space-sidebar
+  data-state="closed"
+  class="fixed bottom-0 left-0 top-14 z-40 flex w-60 -translate-x-full transform flex-col border-r border-border-default bg-bg-primary shadow-xl transition-transform duration-300 ease-out data-[state=open]:translate-x-0 md:sticky md:h-[calc(100vh-3.5rem)] md:translate-x-0 md:shadow-none"
+  aria-label="Space navigation"
+>
+  <nav class="flex flex-1 flex-col gap-1 px-3 py-6">
+    {items.map((item) => {
+      const isActive = item.key === active;
+      return (
+        <a
+          href={item.href}
+          class={`${linkBase} ${isActive ? linkActive : linkInactive}`}
+          aria-current={isActive ? "page" : undefined}
+        >
+          <span class="flex h-5 w-5 items-center justify-center text-text-tertiary group-hover:text-text-primary">
+            {item.icon === "projects" && (
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+              </svg>
+            )}
+            {item.icon === "calendar" && (
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            )}
+            {item.icon === "brainstorm" && (
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 18h6" />
+                <path d="M10 22h4" />
+                <path d="M12 2a7 7 0 0 0-4 12.7c.6.4 1 1.1 1 1.8V18h6v-1.5c0-.7.4-1.4 1-1.8A7 7 0 0 0 12 2Z" />
+              </svg>
+            )}
+          </span>
+          <span>{item.label}</span>
+        </a>
+      );
+    })}
+  </nav>
+
+  <div class="border-t border-border-default px-3 py-4">
+    <a
+      href={settingsItem.href}
+      class={`${linkBase} ${active === "settings" ? linkActive : linkInactive}`}
+      aria-current={active === "settings" ? "page" : undefined}
+    >
+      <span class="flex h-5 w-5 items-center justify-center text-text-tertiary group-hover:text-text-primary">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+        </svg>
+      </span>
+      <span>{settingsItem.label}</span>
+    </a>
+  </div>
+</aside>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>("[data-space-sidebar-toggle]");
+  const sidebar = document.querySelector<HTMLElement>("[data-space-sidebar]");
+  const backdrop = document.querySelector<HTMLElement>("[data-space-sidebar-backdrop]");
+
+  if (toggle && sidebar && backdrop) {
+    const setState = (open: boolean) => {
+      const next = open ? "open" : "closed";
+      sidebar.setAttribute("data-state", next);
+      backdrop.setAttribute("data-state", next);
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    };
+    toggle.addEventListener("click", () => {
+      const isOpen = toggle.getAttribute("aria-expanded") === "true";
+      setState(!isOpen);
+    });
+    backdrop.addEventListener("click", () => setState(false));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && toggle.getAttribute("aria-expanded") === "true") {
+        setState(false);
+      }
+    });
+  }
+</script>
