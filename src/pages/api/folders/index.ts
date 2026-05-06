@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
-import { and, count, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { createDb } from "../../../db";
-import { folders, videos, spaceMembers } from "../../../db/schema";
+import { folders, spaceMembers } from "../../../db/schema";
+import {
+  getCurrentVideoCountsByFolder,
+  getCurrentVideoThumbnailsByFolder,
+} from "../../../lib/projects";
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (!locals.user) {
@@ -16,7 +20,6 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const parentId = url.searchParams.get("parentId");
   const requestedSpaceId = url.searchParams.get("space");
 
-  // Get all space IDs the user belongs to
   const memberRows = await db
     .select({ spaceId: spaceMembers.spaceId })
     .from(spaceMembers)
@@ -51,28 +54,24 @@ export const GET: APIRoute = async ({ locals, url }) => {
   let counts: Record<string, number> = {};
   let thumbnails: Record<string, string[]> = {};
 
-  if (folderIds.length > 0) {
-    const videoCounts = await db
-      .select({ folderId: videos.folderId, count: count() })
-      .from(videos)
-      .where(inArray(videos.folderId, folderIds))
-      .groupBy(videos.folderId);
-
-    counts = Object.fromEntries(
-      videoCounts.map((row) => [row.folderId ?? "", row.count]),
-    );
-
-    const folderVideos = await db
-      .select({ folderId: videos.folderId, thumbnailUrl: videos.thumbnailUrl })
-      .from(videos)
-      .where(inArray(videos.folderId, folderIds));
-
-    thumbnails = folderVideos.reduce<Record<string, string[]>>((acc, video) => {
-      if (!video.folderId || !video.thumbnailUrl) return acc;
-      acc[video.folderId] = acc[video.folderId] || [];
-      if (acc[video.folderId].length < 4) acc[video.folderId].push(video.thumbnailUrl);
-      return acc;
-    }, {});
+  if (folderIds.length > 0 && requestedSpaceId) {
+    counts = await getCurrentVideoCountsByFolder(db, requestedSpaceId, folderIds);
+    thumbnails = await getCurrentVideoThumbnailsByFolder(db, requestedSpaceId, folderIds);
+  } else if (folderIds.length > 0) {
+    for (const spaceId of targetSpaceIds) {
+      const spaceCounts = await getCurrentVideoCountsByFolder(db, spaceId, folderIds);
+      for (const [folderId, count] of Object.entries(spaceCounts)) {
+        counts[folderId] = (counts[folderId] ?? 0) + count;
+      }
+      const spaceThumbnails = await getCurrentVideoThumbnailsByFolder(db, spaceId, folderIds);
+      for (const [folderId, urls] of Object.entries(spaceThumbnails)) {
+        const bucket = thumbnails[folderId] ?? [];
+        for (const url of urls) {
+          if (bucket.length < 4 && !bucket.includes(url)) bucket.push(url);
+        }
+        thumbnails[folderId] = bucket;
+      }
+    }
   }
 
   return new Response(

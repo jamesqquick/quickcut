@@ -2,9 +2,10 @@ import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { createDb } from "../../../../db";
-import { scripts, videos } from "../../../../db/schema";
+import { scripts } from "../../../../db/schema";
 import { scriptStatusUpdateSchema } from "../../../../lib/validation";
 import { verifySpaceAccess } from "../../../../lib/spaces";
+import { getMergedVideoById } from "../../../../lib/projects";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -23,8 +24,7 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message || "Invalid script status" }, 400);
 
   const db = createDb(env.DB);
-  const projectRows = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
-  const project = projectRows[0];
+  const project = await getMergedVideoById(db, id);
 
   if (!project) return json({ error: "Project not found" }, 404);
   if (project.phase === "published") return json({ error: "Cannot update published scripts" }, 403);
