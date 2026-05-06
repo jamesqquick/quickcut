@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from "react";
 import { actions } from "astro:actions";
+import { friendlyActionErrorMessage } from "../lib/errors";
 import { Modal } from "./Modal";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
@@ -110,7 +111,12 @@ export function UploadVersionModal({
       });
 
       if (actionError || !data?.videoId || !data.uploadUrl) {
-        throw new Error(actionError?.message || "Failed to create upload");
+        throw new Error(
+          friendlyActionErrorMessage(
+            actionError?.message,
+            "We couldn't start the upload. Please try again.",
+          ),
+        );
       }
 
       const newVideoId = data.videoId;
@@ -141,7 +147,12 @@ export function UploadVersionModal({
 
       xhr.send(file);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "Upload failed. Please try again.",
+        ),
+      );
       setState("error");
     }
   };
@@ -282,7 +293,7 @@ export function UploadVersionModal({
             </div>
           )}
 
-          {error && <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">{error}</div>}
+          {error && <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger break-words">{error}</div>}
 
           <div className="flex gap-3">
             <button
