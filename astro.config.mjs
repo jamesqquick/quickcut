@@ -5,7 +5,9 @@ import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  adapter: cloudflare(),
+  adapter: cloudflare({
+    remoteBindings: false,
+  }),
   integrations: [react()],
   vite: {
     plugins: [tailwindcss()],
