@@ -1,5 +1,5 @@
 import { actions } from "astro:actions";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PendingInviteForUser } from "../lib/invites";
 import type {
   PendingApprovalRequestForUser,
@@ -45,6 +45,29 @@ export function NotificationCenter({
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [acceptedSpaces, setAcceptedSpaces] = useState<AcceptedSpace[]>([]);
   const { toasts, showToast, dismissToast } = useToast();
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      const ids: string[] | undefined = Array.isArray(detail?.ids)
+        ? detail.ids
+        : undefined;
+      if (!ids || ids.length === 0) return;
+      const idSet = new Set(ids);
+      const readAt = new Date().toISOString();
+      setCommentNotifications((current) =>
+        current.map((notification) =>
+          idSet.has(notification.id) && !notification.readAt
+            ? { ...notification, readAt }
+            : notification,
+        ),
+      );
+    };
+    window.addEventListener("quickcut:notifications-read", handler);
+    return () => {
+      window.removeEventListener("quickcut:notifications-read", handler);
+    };
+  }, []);
 
   const markRead = async (notificationId: string) => {
     const wasUnread = commentNotifications.some(

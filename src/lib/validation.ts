@@ -156,3 +156,12 @@ export const inviteCreateSchema = z.object({
 export const approveVideoSchema = z.object({
   comment: z.string().max(500).optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+export const notificationsMarkReadByContextSchema = z.object({
+  videoId: z.string().min(1),
+  tab: z.enum(["video", "script"]),
+});

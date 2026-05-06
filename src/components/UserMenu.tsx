@@ -87,12 +87,27 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
   };
 
   useEffect(() => {
-    const handler = () => setCount((current) => Math.max(0, current - 1));
-    window.addEventListener("quickcut:invite-accepted", handler);
-    window.addEventListener("quickcut:notification-read", handler);
+    const decrementOne = () => setCount((current) => Math.max(0, current - 1));
+    const decrementMany = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      const amount =
+        typeof detail === "number"
+          ? detail
+          : detail && typeof detail === "object" && typeof detail.count === "number"
+            ? detail.count
+            : Array.isArray(detail?.ids)
+              ? detail.ids.length
+              : 0;
+      if (amount <= 0) return;
+      setCount((current) => Math.max(0, current - amount));
+    };
+    window.addEventListener("quickcut:invite-accepted", decrementOne);
+    window.addEventListener("quickcut:notification-read", decrementOne);
+    window.addEventListener("quickcut:notifications-read", decrementMany);
     return () => {
-      window.removeEventListener("quickcut:invite-accepted", handler);
-      window.removeEventListener("quickcut:notification-read", handler);
+      window.removeEventListener("quickcut:invite-accepted", decrementOne);
+      window.removeEventListener("quickcut:notification-read", decrementOne);
+      window.removeEventListener("quickcut:notifications-read", decrementMany);
     };
   }, []);
 
@@ -117,6 +132,13 @@ export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) 
         window.dispatchEvent(
           new CustomEvent("quickcut:notification-received", {
             detail: notification,
+          }),
+        );
+      },
+      onNotificationsRead: (ids) => {
+        window.dispatchEvent(
+          new CustomEvent("quickcut:notifications-read", {
+            detail: { ids, count: ids.length },
           }),
         );
       },

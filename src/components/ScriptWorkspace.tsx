@@ -266,6 +266,30 @@ export function ScriptWorkspace({
     isReviewModeRef.current = isReviewMode;
   }, [isReviewMode]);
 
+  useEffect(() => {
+    if (isShareMode || !currentUserId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await actions.notification.markReadByContext({
+          videoId,
+          tab: "script",
+        });
+        if (cancelled || error || !data || data.count === 0) return;
+        window.dispatchEvent(
+          new CustomEvent("quickcut:notifications-read", {
+            detail: { ids: data.ids, count: data.count },
+          }),
+        );
+      } catch {
+        // Best-effort; the badge will reconcile on next page load.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId, isShareMode, currentUserId]);
+
   const sortedComments = useMemo(
     () =>
       comments
