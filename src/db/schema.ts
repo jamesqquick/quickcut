@@ -87,6 +87,40 @@ export const folders = sqliteTable("folders", {
     .default(sql`(datetime('now'))`),
 });
 
+export const projects = sqliteTable("projects", {
+  id: text("id").primaryKey(),
+  spaceId: text("space_id")
+    .notNull()
+    .references(() => spaces.id, { onDelete: "cascade" }),
+  uploadedBy: text("uploaded_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  folderId: text("folder_id").references(() => folders.id, {
+    onDelete: "set null",
+  }),
+  title: text("title").notNull(),
+  description: text("description"),
+  phase: text("phase", {
+    enum: ["creating_script", "reviewing_script", "reviewing_video", "video_approved", "published"],
+  })
+    .notNull()
+    .default("reviewing_video"),
+  targetDate: text("target_date"),
+  targetAudience: text("target_audience"),
+  hook: text("hook"),
+  takeaway1: text("takeaway1"),
+  takeaway2: text("takeaway2"),
+  takeaway3: text("takeaway3"),
+  primaryCta: text("primary_cta"),
+  outro: text("outro"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 export const videos = sqliteTable("videos", {
   id: text("id").primaryKey(),
   spaceId: text("space_id")
@@ -97,6 +131,9 @@ export const videos = sqliteTable("videos", {
   }),
   folderId: text("folder_id").references(() => folders.id, {
     onDelete: "set null",
+  }),
+  projectId: text("project_id").references(() => projects.id, {
+    onDelete: "cascade",
   }),
   title: text("title").notNull(),
   description: text("description"),
