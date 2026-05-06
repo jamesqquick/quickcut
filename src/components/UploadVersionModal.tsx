@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from "react";
 import { actions } from "astro:actions";
+import { friendlyActionErrorMessage } from "../lib/errors";
 import { Modal } from "./Modal";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
@@ -46,6 +47,7 @@ export function UploadVersionModal({
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState(initialTitle);
   const [description, setDescription] = useState(initialDescription);
+  const [versionNotes, setVersionNotes] = useState("");
   const [generateTranscript, setGenerateTranscript] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
@@ -56,6 +58,7 @@ export function UploadVersionModal({
     setFile(null);
     setTitle(initialTitle);
     setDescription(initialDescription);
+    setVersionNotes("");
     setGenerateTranscript(false);
     setProgress(0);
     setError("");
@@ -104,10 +107,16 @@ export function UploadVersionModal({
         title: title.trim() || undefined,
         description: description.trim(),
         generateTranscript: transcriptsEnabled ? generateTranscript : false,
+        versionNotes: versionNotes.trim() || undefined,
       });
 
       if (actionError || !data?.videoId || !data.uploadUrl) {
-        throw new Error(actionError?.message || "Failed to create upload");
+        throw new Error(
+          friendlyActionErrorMessage(
+            actionError?.message,
+            "We couldn't start the upload. Please try again.",
+          ),
+        );
       }
 
       const newVideoId = data.videoId;
@@ -138,7 +147,12 @@ export function UploadVersionModal({
 
       xhr.send(file);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "Upload failed. Please try again.",
+        ),
+      );
       setState("error");
     }
   };
@@ -235,6 +249,22 @@ export function UploadVersionModal({
             />
           </div>
 
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">What changed?</label>
+            <textarea
+              value={versionNotes}
+              onChange={(event) => setVersionNotes(event.target.value)}
+              disabled={state === "uploading"}
+              rows={3}
+              maxLength={2000}
+              placeholder="Example: tightened intro, replaced b-roll at 0:42, fixed audio levels."
+              className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+            />
+            <p className="mt-1 text-xs text-text-tertiary">
+              Optional. Summarize what reviewers should look for in this cut.
+            </p>
+          </div>
+
           {transcriptsEnabled && (
             <label className="flex cursor-pointer gap-3 rounded-xl border border-border-default bg-bg-tertiary p-3 transition-colors hover:border-border-hover">
               <input
@@ -263,7 +293,7 @@ export function UploadVersionModal({
             </div>
           )}
 
-          {error && <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">{error}</div>}
+          {error && <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger break-words">{error}</div>}
 
           <div className="flex gap-3">
             <button

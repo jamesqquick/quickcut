@@ -33,6 +33,10 @@ export const uploadSchema = z.object({
   description: z.string().max(2000).optional(),
   folderId: z.string().uuid().nullable().optional(),
   generateTranscript: z.boolean().optional(),
+  // Issue #23: optional per-version note explaining what changed since the
+  // previous cut. Only meaningful for version 2+ uploads. Blank/whitespace-only
+  // strings are normalized to null in the action handler.
+  versionNotes: z.string().max(2000).optional(),
 });
 
 export const urgencySchema = z.enum([

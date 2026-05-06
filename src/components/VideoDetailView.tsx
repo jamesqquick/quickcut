@@ -50,6 +50,8 @@ interface VideoDetailViewProps {
   takeaway1?: string | null;
   takeaway2?: string | null;
   takeaway3?: string | null;
+  /** Per-version "what changed" note. Only set on version 2+ uploads. */
+  versionNotes?: string | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -93,6 +95,7 @@ export function VideoDetailView({
   takeaway1 = null,
   takeaway2 = null,
   takeaway3 = null,
+  versionNotes = null,
 }: VideoDetailViewProps) {
   const isShareMode = !!shareToken;
   const initialReviewComments = initialComments.filter((comment) => comment.phase !== "script");
@@ -274,6 +277,19 @@ export function VideoDetailView({
           </span>
         )}
       </div>
+
+      {/* Per-version "what changed" callout. Only rendered when the uploader
+          provided a note on version 2+ — empty notes never produce visible UI. */}
+      {versionNotes && (
+        <div className="rounded-lg border border-border-default bg-bg-secondary p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+            Changes in this version
+          </p>
+          <p className="mt-2 whitespace-pre-wrap break-words text-sm text-text-secondary">
+            {versionNotes}
+          </p>
+        </div>
+      )}
 
       {/* Read-only "brief" so reviewers see authorial intent alongside the cut. */}
       <VideoBriefPanel

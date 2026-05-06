@@ -9,6 +9,7 @@ interface VersionSummary {
   isCurrentVersion: boolean;
   createdAt: string;
   commentCount: number;
+  versionNotes: string | null;
 }
 
 interface VersionSwitcherProps {
@@ -93,6 +94,12 @@ export function VersionSwitcher({ videoId, versions }: VersionSwitcherProps) {
                 <p className="mt-0.5 text-xs text-text-tertiary">
                   {formatDate(version.createdAt)} - {version.commentCount} comment{version.commentCount === 1 ? "" : "s"}
                 </p>
+                {version.versionNotes && (
+                  <p className="mt-1 line-clamp-2 text-xs text-text-secondary">
+                    <span className="font-medium text-text-tertiary">Changes:</span>{" "}
+                    {version.versionNotes}
+                  </p>
+                )}
               </div>
             </a>
           ))}

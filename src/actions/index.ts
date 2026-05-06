@@ -948,7 +948,7 @@ export const server = {
         .extend({ id: z.string().min(1) }),
       handler: async (input, context) => {
         const user = requireUser(context);
-        const { id, fileName, fileSize, title, description, generateTranscript } = input;
+        const { id, fileName, fileSize, title, description, generateTranscript, versionNotes } = input;
 
         validateUploadFile(fileName, fileSize);
 
@@ -1025,6 +1025,7 @@ export const server = {
             ),
           );
 
+        const trimmedNotes = versionNotes?.trim();
         await db.insert(videos).values({
           id: videoId,
           spaceId: baseVideo.spaceId,
@@ -1043,6 +1044,7 @@ export const server = {
           fileName,
           fileSize,
           transcriptRequested,
+          versionNotes: trimmedNotes ? trimmedNotes : null,
           createdAt: now,
           updatedAt: now,
         });

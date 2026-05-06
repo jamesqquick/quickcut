@@ -20,6 +20,7 @@ interface VersionSummary {
   isCurrentVersion: boolean;
   createdAt: string;
   commentCount: number;
+  versionNotes: string | null;
 }
 
 interface UploadVersionConfig {
