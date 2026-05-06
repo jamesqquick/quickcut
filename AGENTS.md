@@ -42,3 +42,11 @@ If a worktree was created without step 3, symptoms include:
 - Conventional commit messages (e.g. `feat(actions): ...`, `fix(...)`,
   `chore(...)`, `docs(...)`).
 - Reference issues with `Closes #<n>` in the PR body when applicable.
+
+## Error handling
+
+User-facing error messages must never include raw server errors (SQL,
+stack traces, driver messages, table/column names). See section 13
+"Error handling and user-facing messages" in the `astro-best-practices`
+skill for the rules and the `friendlyActionErrorMessage` helper in
+`src/lib/errors.ts`.
