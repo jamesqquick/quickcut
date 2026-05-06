@@ -31,6 +31,11 @@ interface Video {
   versionNotes: string | null;
 }
 
+interface ShareViewCurrentUser {
+  id: string;
+  name: string;
+}
+
 interface ShareViewProps {
   activeTab: "details" | "script" | "video";
   video: Video;
@@ -41,6 +46,7 @@ interface ShareViewProps {
   initialActivity: ProjectActivityItem[];
   pipelineEnabled: boolean;
   initialTranscriptData: TranscriptResponse | null;
+  currentUser: ShareViewCurrentUser | null;
 }
 
 const ANON_NAME_KEY = "quickcut_anonymous_name";
@@ -55,23 +61,28 @@ export function ShareView({
   initialActivity,
   pipelineEnabled,
   initialTranscriptData,
+  currentUser,
 }: ShareViewProps) {
   const [anonymousName, setAnonymousName] = useState<string | null>(() => {
+    if (currentUser) return null;
     if (typeof window === "undefined") return null;
     return localStorage.getItem(ANON_NAME_KEY);
   });
 
+  const viewerName = currentUser?.name ?? anonymousName;
+  const viewerId = currentUser?.id ?? "";
+
   useEffect(() => {
-    if (!anonymousName) return;
+    if (!viewerName) return;
     fetch(`/api/share/${shareToken}/view`, { method: "POST" }).catch(() => {});
-  }, [shareToken, anonymousName]);
+  }, [shareToken, viewerName]);
 
   const handleNameSubmit = (name: string) => {
     localStorage.setItem(ANON_NAME_KEY, name);
     setAnonymousName(name);
   };
 
-  if (!anonymousName) {
+  if (!currentUser && !anonymousName) {
     return (
       <NamePromptModal
         isOpen
@@ -110,10 +121,10 @@ export function ShareView({
         spaceId={video.spaceId}
         initialContent={initialScriptContent}
         initialComments={initialComments}
-        currentUserName={anonymousName}
+        currentUserName={viewerName}
         readOnly={video.phase === "published"}
         shareToken={shareToken}
-        anonymousName={anonymousName}
+        anonymousName={viewerName}
       />
     );
   }
@@ -126,8 +137,8 @@ export function ShareView({
       status={video.status}
       duration={video.duration}
       initialComments={initialComments}
-      currentUserId=""
-      currentUserName={anonymousName}
+      currentUserId={viewerId}
+      currentUserName={viewerName}
       title={video.title}
       uploadDate={video.createdAt}
       fileName={video.fileName}

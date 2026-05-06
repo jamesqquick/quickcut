@@ -77,7 +77,7 @@ export const GET: APIRoute = async ({ params, url }) => {
   });
 };
 
-export const POST: APIRoute = async ({ params, request }) => {
+export const POST: APIRoute = async ({ params, request, locals }) => {
   const { token } = params;
   if (!token) {
     return new Response(JSON.stringify({ error: "Token required" }), {
@@ -101,6 +101,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
+  const sessionUser = locals.user;
   const videoId = shareLinkResult[0].videoId;
   const body = await request.json();
   const { text, timestamp, name, parentId, annotation, urgency, phase, textRange } = body;
@@ -132,7 +133,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     });
   }
 
-  if (!name || !name.trim()) {
+  if (!sessionUser && (!name || !name.trim())) {
     return new Response(
       JSON.stringify({ error: "Name is required" }),
       { status: 400, headers: { "Content-Type": "application/json" } },
@@ -178,33 +179,54 @@ export const POST: APIRoute = async ({ params, request }) => {
     commentPhase = parentRows[0].phase;
   }
 
-  const newComment = {
-    id: commentId,
-    videoId,
-    authorType: "anonymous" as const,
-    authorUserId: null,
-    authorDisplayName: name.trim(),
-    timestamp: timestamp != null ? Number(timestamp) : null,
-    text: text.trim(),
-    parentId: parentId || null,
-    isResolved: false,
-    resolvedBy: null,
-    resolvedAt: null,
-    resolvedReason: null,
-    annotation: annotation ? JSON.stringify(annotation) : null,
-    urgency: commentUrgency,
-    phase: commentPhase,
-    textRange: textRange ? JSON.stringify(textRange) : null,
-  };
+  const newComment = sessionUser
+    ? {
+        id: commentId,
+        videoId,
+        authorType: "user" as const,
+        authorUserId: sessionUser.id,
+        authorDisplayName: null,
+        timestamp: timestamp != null ? Number(timestamp) : null,
+        text: text.trim(),
+        parentId: parentId || null,
+        isResolved: false,
+        resolvedBy: null,
+        resolvedAt: null,
+        resolvedReason: null,
+        annotation: annotation ? JSON.stringify(annotation) : null,
+        urgency: commentUrgency,
+        phase: commentPhase,
+        textRange: textRange ? JSON.stringify(textRange) : null,
+      }
+    : {
+        id: commentId,
+        videoId,
+        authorType: "anonymous" as const,
+        authorUserId: null,
+        authorDisplayName: name.trim(),
+        timestamp: timestamp != null ? Number(timestamp) : null,
+        text: text.trim(),
+        parentId: parentId || null,
+        isResolved: false,
+        resolvedBy: null,
+        resolvedAt: null,
+        resolvedReason: null,
+        annotation: annotation ? JSON.stringify(annotation) : null,
+        urgency: commentUrgency,
+        phase: commentPhase,
+        textRange: textRange ? JSON.stringify(textRange) : null,
+      };
 
   await db.insert(comments).values(newComment);
+
+  const displayName = sessionUser?.name ?? newComment.authorDisplayName ?? "Anonymous";
 
   try {
     await createCommentNotifications(db, {
       commentId,
       videoId,
-      actorUserId: null,
-      actorDisplayName: newComment.authorDisplayName,
+      actorUserId: sessionUser?.id ?? null,
+      actorDisplayName: displayName,
       text: newComment.text,
       parentCommentId: newComment.parentId,
       phase: newComment.phase,
@@ -222,7 +244,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     annotation: annotation || null,
     textRange: textRange || null,
     createdAt: new Date().toISOString(),
-    name: name.trim(),
+    name: displayName,
     reactions: [],
   };
 
