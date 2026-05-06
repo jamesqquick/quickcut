@@ -14,6 +14,7 @@ import {
   approvals,
   approvalRequests,
   comments,
+  projects,
   scripts,
   shareLinks,
   transcripts,
@@ -225,6 +226,7 @@ export const server = {
 
         const now = new Date().toISOString();
         const versionGroupId = video.versionGroupId || video.id;
+        const projectId = video.projectId || versionGroupId;
 
         if (Object.keys(updates).length > 0) {
           await db
@@ -236,6 +238,11 @@ export const server = {
                 eq(videos.versionGroupId, versionGroupId),
               ),
             );
+
+          await db
+            .update(projects)
+            .set({ ...updates, updatedAt: now })
+            .where(eq(projects.id, projectId));
 
           if (input.targetDate !== undefined && input.targetDate !== video.targetDate) {
             await logProjectActivity(db, {
@@ -254,6 +261,11 @@ export const server = {
             .update(videos)
             .set({ folderId: folderUpdate, updatedAt: now })
             .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)));
+
+          await db
+            .update(projects)
+            .set({ folderId: folderUpdate, updatedAt: now })
+            .where(eq(projects.id, projectId));
         }
 
         const updated = await db
@@ -294,6 +306,7 @@ export const server = {
         }
 
         const versionGroupId = video.versionGroupId || video.id;
+        const projectId = video.projectId || versionGroupId;
         const projectVersions = await db
           .select({ id: videos.id, streamVideoId: videos.streamVideoId })
           .from(videos)
@@ -315,6 +328,8 @@ export const server = {
         for (const version of projectVersions) {
           await db.delete(videos).where(eq(videos.id, version.id));
         }
+
+        await db.delete(projects).where(eq(projects.id, projectId));
 
         return { success: true, redirectVideoId: null };
       },
@@ -388,10 +403,16 @@ export const server = {
         }
 
         const now = new Date().toISOString();
+        const projectId = video.projectId || video.versionGroupId || video.id;
         await db
           .update(videos)
           .set({ phase, updatedAt: now })
           .where(eq(videos.id, id));
+
+        await db
+          .update(projects)
+          .set({ phase, updatedAt: now })
+          .where(eq(projects.id, projectId));
 
         await logProjectActivity(db, {
           videoId: id,
@@ -758,11 +779,17 @@ export const server = {
         }
 
         const versionGroupId = video.versionGroupId || video.id;
+        const projectId = video.projectId || versionGroupId;
         const now = new Date().toISOString();
         await db
           .update(videos)
           .set({ folderId, updatedAt: now })
           .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)));
+
+        await db
+          .update(projects)
+          .set({ folderId, updatedAt: now })
+          .where(eq(projects.id, projectId));
 
         const updated = await db
           .select()
@@ -799,13 +826,28 @@ export const server = {
         }
 
         const videoId = crypto.randomUUID();
+        const projectId = videoId;
         const now = new Date().toISOString();
+
+        await db.insert(projects).values({
+          id: projectId,
+          spaceId,
+          uploadedBy: user.id,
+          folderId: folderId || null,
+          title,
+          description: description || null,
+          phase: "creating_script",
+          targetDate: null,
+          createdAt: now,
+          updatedAt: now,
+        });
 
         await db.insert(videos).values({
           id: videoId,
           spaceId,
           uploadedBy: user.id,
           folderId: folderId || null,
+          projectId,
           title,
           description: description || null,
           status: "draft",
@@ -919,6 +961,12 @@ export const server = {
           })
           .where(eq(videos.id, id));
 
+        const projectId = project.projectId || project.versionGroupId || project.id;
+        await db
+          .update(projects)
+          .set({ uploadedBy: user.id, phase: "reviewing_video", updatedAt: now })
+          .where(eq(projects.id, projectId));
+
         await logProjectActivity(db, {
           videoId: id,
           actorUserId: user.id,
@@ -1031,11 +1079,13 @@ export const server = {
           );
 
         const trimmedNotes = versionNotes?.trim();
+        const projectId = baseVideo.projectId || versionGroupId;
         await db.insert(videos).values({
           id: videoId,
           spaceId: baseVideo.spaceId,
           uploadedBy: user.id,
           folderId: baseVideo.folderId,
+          projectId,
           title: baseVideo.title,
           description: baseVideo.description,
           status: "processing",
@@ -2409,6 +2459,10 @@ export const server = {
           .update(videos)
           .set({ folderId: null, updatedAt: now })
           .where(inArray(videos.folderId, ids));
+        await db
+          .update(projects)
+          .set({ folderId: null, updatedAt: now })
+          .where(inArray(projects.folderId, ids));
         await db.delete(folders).where(inArray(folders.id, ids));
 
         return { success: true };
