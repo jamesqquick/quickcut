@@ -3,7 +3,7 @@ import Layout from "../../../layouts/Layout.astro";
 import { CalendarView } from "../../../components/CalendarView";
 import type { DashboardVideo } from "../../../components/dashboard-types";
 import { createDb } from "../../../db";
-import { spaces, videos, scripts, users } from "../../../db/schema";
+import { projects, spaces, videos, scripts, users } from "../../../db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { verifySpaceAccess } from "../../../lib/spaces";
@@ -29,17 +29,18 @@ if (space.length === 0) return Astro.redirect("/dashboard");
 const rows = await db
   .select({
     id: videos.id,
-    title: videos.title,
+    title: projects.title,
     status: videos.status,
-    phase: videos.phase,
+    phase: projects.phase,
     thumbnailUrl: videos.thumbnailUrl,
     duration: videos.duration,
     createdAt: videos.createdAt,
-    targetDate: videos.targetDate,
+    targetDate: projects.targetDate,
     scriptStatus: scripts.status,
     ownerName: users.name,
   })
   .from(videos)
+  .innerJoin(projects, eq(projects.id, videos.projectId))
   .leftJoin(scripts, eq(scripts.videoId, videos.id))
   .leftJoin(users, eq(users.id, videos.uploadedBy))
   .where(and(eq(videos.spaceId, id), eq(videos.isCurrentVersion, true)))
