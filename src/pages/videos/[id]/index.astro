@@ -11,13 +11,14 @@ import { VideoHeader } from "../../../components/VideoHeader";
 import { env } from "cloudflare:workers";
 import { eq } from "drizzle-orm";
 import { createDb } from "../../../db";
-import { scripts, shareLinks, spaces, videos } from "../../../db/schema";
+import { scripts, shareLinks, spaces } from "../../../db/schema";
 import { getApprovalStatus } from "../../../lib/approvals";
 import { getCommentsWithNames } from "../../../lib/comments";
 import { isTranscriptGenerationEnabled } from "../../../lib/flags";
 import { getProjectActivity } from "../../../lib/activity";
 import { verifySpaceAccess } from "../../../lib/spaces";
 import { loadTranscriptPanelData } from "../../../lib/transcripts";
+import { getMergedVideoById } from "../../../lib/projects";
 import { getVideoVersions } from "../../../lib/versions";
 import { normalizeVideoPhase } from "../../../types";
 
@@ -28,8 +29,7 @@ const { id } = Astro.params;
 if (!id) return Astro.redirect("/dashboard");
 
 const db = createDb(env.DB);
-const videoResult = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
-const video = videoResult[0];
+const video = await getMergedVideoById(db, id);
 if (!video) return Astro.redirect("/dashboard");
 
 const role = await verifySpaceAccess(db, user.id, video.spaceId);

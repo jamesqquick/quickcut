@@ -1,8 +1,12 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../db";
-import { videos, comments, spaceMembers } from "../../../db/schema";
-import { and, eq, desc, sql, count, isNull, inArray } from "drizzle-orm";
+import { comments, spaceMembers } from "../../../db/schema";
+import { count, eq, sql } from "drizzle-orm";
+import {
+  getVersionCountsByProjectId,
+  listCurrentMergedVideos,
+} from "../../../lib/projects";
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (!locals.user) {
@@ -17,7 +21,6 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const offset = parseInt(url.searchParams.get("offset") || "0");
   const folderId = url.searchParams.get("folderId");
 
-  // Get all space IDs the user belongs to
   const memberRows = await db
     .select({ spaceId: spaceMembers.spaceId })
     .from(spaceMembers)
@@ -31,27 +34,13 @@ export const GET: APIRoute = async ({ locals, url }) => {
     );
   }
 
-  const spaceFilter = inArray(videos.spaceId, spaceIds);
-  const where = folderId
-    ? folderId === "root"
-      ? and(spaceFilter, isNull(videos.folderId), eq(videos.isCurrentVersion, true))
-      : and(spaceFilter, eq(videos.folderId, folderId), eq(videos.isCurrentVersion, true))
-    : and(spaceFilter, eq(videos.isCurrentVersion, true));
+  const { rows: userVideos, total } = await listCurrentMergedVideos(db, {
+    spaceIds,
+    folderId,
+    limit,
+    offset,
+  });
 
-  const userVideos = await db
-    .select()
-    .from(videos)
-    .where(where)
-    .orderBy(desc(videos.createdAt))
-    .limit(limit)
-    .offset(offset);
-
-  const totalResult = await db
-    .select({ count: count() })
-    .from(videos)
-    .where(where);
-
-  // Get comment counts for each video
   const videoIds = userVideos.map((v) => v.id);
   let commentCounts: Record<string, number> = {};
 
@@ -68,29 +57,21 @@ export const GET: APIRoute = async ({ locals, url }) => {
     commentCounts = Object.fromEntries(counts.map((c) => [c.videoId, c.count]));
   }
 
-  const versionGroupIds = userVideos.map((v) => v.versionGroupId || v.id);
-  let versionCounts: Record<string, number> = {};
-
-  if (versionGroupIds.length > 0) {
-    const counts = await db
-      .select({ versionGroupId: videos.versionGroupId, count: count() })
-      .from(videos)
-      .where(sql`${videos.versionGroupId} IN (${sql.join(versionGroupIds.map((id) => sql`${id}`), sql`, `)})`)
-      .groupBy(videos.versionGroupId);
-
-    versionCounts = Object.fromEntries(counts.map((c) => [c.versionGroupId || "", c.count]));
-  }
+  const versionCounts = await getVersionCountsByProjectId(
+    db,
+    userVideos.map((v) => v.projectId).filter((id): id is string => Boolean(id)),
+  );
 
   const videosWithCounts = userVideos.map((v) => ({
     ...v,
     commentCount: commentCounts[v.id] || 0,
-    versionCount: versionCounts[v.versionGroupId || v.id] || 1,
+    versionCount: versionCounts[v.projectId ?? ""] || 1,
   }));
 
   return new Response(
     JSON.stringify({
       videos: videosWithCounts,
-      total: totalResult[0]?.count || 0,
+      total,
     }),
     { headers: { "Content-Type": "application/json" } },
   );

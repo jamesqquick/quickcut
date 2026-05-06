@@ -6,10 +6,15 @@ import { PendingToast } from "../components/PendingToast";
 import type { FolderCardItemData } from "../components/FolderCardItem";
 import type { VideoCardItemData } from "../components/VideoCardItem";
 import { createDb } from "../db";
-import { folders, videos, comments, spaceMembers, approvals } from "../db/schema";
+import { folders, videos, comments, spaceMembers, approvals, projects } from "../db/schema";
 import { and, asc, desc, count, eq, inArray, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getUserSpaces } from "../lib/spaces";
+import {
+  getCurrentVideoCountsByFolder,
+  getCurrentVideoThumbnailsByFolder,
+  getVersionCountsByProjectId,
+} from "../lib/projects";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -69,37 +74,27 @@ const folderOptions = allFolders.map((folder) => ({
 }));
 const childFolderIds = childFolders.map((folder) => folder.id);
 
-let folderVideoCounts: Record<string, number> = {};
-let folderThumbnails: Record<string, string[]> = {};
+const folderVideoCounts = await getCurrentVideoCountsByFolder(db, selectedSpaceId, childFolderIds);
+const folderThumbnails = await getCurrentVideoThumbnailsByFolder(db, selectedSpaceId, childFolderIds);
 
-if (childFolderIds.length > 0) {
-  const counts = await db
-    .select({ folderId: videos.folderId, count: count() })
-    .from(videos)
-    .where(and(eq(videos.spaceId, selectedSpaceId), eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
-    .groupBy(videos.folderId);
-
-  folderVideoCounts = Object.fromEntries(counts.map((row) => [row.folderId || "", row.count]));
-
-  const folderVideos = await db
-    .select({ folderId: videos.folderId, thumbnailUrl: videos.thumbnailUrl })
-    .from(videos)
-    .where(and(eq(videos.spaceId, selectedSpaceId), eq(videos.isCurrentVersion, true), inArray(videos.folderId, childFolderIds)))
-    .orderBy(desc(videos.createdAt));
-
-  folderThumbnails = folderVideos.reduce<Record<string, string[]>>((acc, video) => {
-    if (!video.folderId || !video.thumbnailUrl) return acc;
-    acc[video.folderId] = acc[video.folderId] || [];
-    if (acc[video.folderId].length < 4) acc[video.folderId].push(video.thumbnailUrl);
-    return acc;
-  }, {});
-}
-
-const allSpaceVideos = await db
-  .select()
+const allSpaceVideoRows = await db
+  .select({
+    video: videos,
+    projectTitle: projects.title,
+    projectFolderId: projects.folderId,
+    projectPhase: projects.phase,
+  })
   .from(videos)
+  .leftJoin(projects, eq(projects.id, videos.projectId))
   .where(and(eq(videos.spaceId, selectedSpaceId), eq(videos.isCurrentVersion, true)))
   .orderBy(desc(videos.createdAt));
+
+const allSpaceVideos = allSpaceVideoRows.map((row) => ({
+  ...row.video,
+  title: row.projectTitle ?? row.video.title,
+  folderId: row.projectFolderId ?? row.video.folderId,
+  phase: row.projectPhase ?? row.video.phase,
+}));
 
 const userVideos = allSpaceVideos.filter((video) => {
   if (currentFolderId) return video.folderId === currentFolderId;
@@ -158,17 +153,10 @@ if (allSpaceVideos.length > 0) {
   );
 }
 
-let versionCounts: Record<string, number> = {};
-if (allSpaceVideos.length > 0) {
-  const versionGroupIds = allSpaceVideos.map((video) => video.versionGroupId || video.id);
-  const counts = await db
-    .select({ versionGroupId: videos.versionGroupId, count: count() })
-    .from(videos)
-    .where(sql`${videos.versionGroupId} IN (${sql.join(versionGroupIds.map((id) => sql`${id}`), sql`, `)})`)
-    .groupBy(videos.versionGroupId);
-
-  versionCounts = Object.fromEntries(counts.map((row) => [row.versionGroupId || "", row.count]));
-}
+const versionCounts = await getVersionCountsByProjectId(
+  db,
+  allSpaceVideos.map((video) => video.projectId).filter((id): id is string => Boolean(id)),
+);
 
 // Approval badges only render when the selected space enables approvals.
 const approvalCountsByVideo: Record<string, number> = {};
@@ -216,7 +204,7 @@ const videoItems: VideoCardItemData[] = userVideos.map((video) => ({
   commentCount: commentCounts[video.id] || 0,
   urgencyCounts: urgencyCounts[video.id] || { idea: 0, suggestion: 0, important: 0, critical: 0 },
   versionNumber: video.versionNumber ?? 1,
-  versionCount: versionCounts[video.versionGroupId || video.id] || 1,
+  versionCount: versionCounts[video.projectId ?? ""] || 1,
   requiredApprovals: selectedSpace.requiredApprovals,
   approvalCount: approvalCountsByVideo[video.id] || 0,
   phase: video.phase,

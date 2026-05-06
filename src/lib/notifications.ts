@@ -4,6 +4,7 @@ import {
   approvalRequests,
   comments,
   notifications,
+  projects,
   spaceMembers,
   spaces,
   users,
@@ -91,12 +92,13 @@ export async function createCommentNotifications(
   const videoRows = await db
     .select({
       id: videos.id,
-      title: videos.title,
+      title: projects.title,
       uploadedBy: videos.uploadedBy,
       spaceId: videos.spaceId,
       spaceOwnerId: spaces.ownerId,
     })
     .from(videos)
+    .innerJoin(projects, eq(projects.id, videos.projectId))
     .innerJoin(spaces, eq(videos.spaceId, spaces.id))
     .where(eq(videos.id, input.videoId))
     .limit(1);
@@ -239,10 +241,11 @@ export async function createTargetedApprovalRequestNotifications(
   const videoRows = await db
     .select({
       id: videos.id,
-      title: videos.title,
+      title: projects.title,
       spaceId: videos.spaceId,
     })
     .from(videos)
+    .innerJoin(projects, eq(projects.id, videos.projectId))
     .where(eq(videos.id, input.videoId))
     .limit(1);
 
@@ -359,7 +362,7 @@ export async function getPendingApprovalRequestsForUser(
     .select({
       id: approvalRequests.id,
       videoId: approvalRequests.videoId,
-      videoTitle: videos.title,
+      videoTitle: projects.title,
       spaceId: approvalRequests.spaceId,
       spaceName: spaces.name,
       requesterDisplayName: approvalRequests.requesterDisplayName,
@@ -367,6 +370,7 @@ export async function getPendingApprovalRequestsForUser(
     })
     .from(approvalRequests)
     .innerJoin(videos, eq(approvalRequests.videoId, videos.id))
+    .innerJoin(projects, eq(projects.id, videos.projectId))
     .innerJoin(spaces, eq(approvalRequests.spaceId, spaces.id))
     .where(
       and(

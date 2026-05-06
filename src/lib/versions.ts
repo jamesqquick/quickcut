@@ -1,6 +1,6 @@
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 import type { Database } from "../db";
-import { comments, videos } from "../db/schema";
+import { comments, projects, videos } from "../db/schema";
 
 export interface VersionSummary {
   id: string;
@@ -18,6 +18,7 @@ export interface VersionSummary {
 interface VersionContext {
   id: string;
   spaceId: string;
+  projectId: string | null;
   versionGroupId: string | null;
 }
 
@@ -25,20 +26,19 @@ export async function getVideoVersions(
   db: Database,
   video: VersionContext,
 ): Promise<VersionSummary[]> {
-  const versionGroupId = video.versionGroupId || video.id;
+  const projectId = video.projectId ?? video.versionGroupId ?? video.id;
 
-  const versionRows = await db
-    .select()
+  const rows = await db
+    .select({
+      video: videos,
+      projectTitle: projects.title,
+    })
     .from(videos)
-    .where(
-      and(
-        eq(videos.spaceId, video.spaceId),
-        eq(videos.versionGroupId, versionGroupId),
-      ),
-    )
+    .leftJoin(projects, eq(projects.id, videos.projectId))
+    .where(eq(videos.projectId, projectId))
     .orderBy(desc(videos.versionNumber));
 
-  const versionIds = versionRows.map((version) => version.id);
+  const versionIds = rows.map((row) => row.video.id);
   let commentCounts: Record<string, number> = {};
 
   if (versionIds.length > 0) {
@@ -58,9 +58,9 @@ export async function getVideoVersions(
     );
   }
 
-  return versionRows.map((version) => ({
+  return rows.map(({ video: version, projectTitle }) => ({
     id: version.id,
-    title: version.title,
+    title: projectTitle ?? version.title,
     status: version.status,
     thumbnailUrl: version.thumbnailUrl,
     duration: version.duration,
