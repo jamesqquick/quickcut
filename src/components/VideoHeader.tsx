@@ -13,19 +13,11 @@ interface ShareLink {
 
 interface VersionSummary {
   id: string;
-  title: string;
-  status: string;
-  thumbnailUrl: string | null;
   versionNumber: number;
   isCurrentVersion: boolean;
-  createdAt: string;
-  commentCount: number;
-  versionNotes: string | null;
 }
 
 interface UploadVersionConfig {
-  title: string;
-  description: string;
   transcriptsEnabled: boolean;
 }
 
@@ -219,8 +211,6 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
             </button>
             <UploadVersionModal
               videoId={videoId}
-              title={uploadVersion.title}
-              description={uploadVersion.description}
               transcriptsEnabled={uploadVersion.transcriptsEnabled}
               open={uploadVersionOpen}
               onOpenChange={setUploadVersionOpen}

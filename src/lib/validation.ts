@@ -29,8 +29,6 @@ export const uploadSchema = z.object({
   fileName: z.string().min(1, "File name is required"),
   fileSize: z.number().positive().max(5 * 1024 * 1024 * 1024, "File exceeds 5GB limit"),
   spaceId: z.string().uuid().optional(),
-  title: z.string().optional(),
-  description: z.string().max(2000).optional(),
   folderId: z.string().uuid().nullable().optional(),
   generateTranscript: z.boolean().optional(),
   // Issue #23: optional per-version note explaining what changed since the

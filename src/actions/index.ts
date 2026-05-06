@@ -224,12 +224,18 @@ export const server = {
         }
 
         const now = new Date().toISOString();
+        const versionGroupId = video.versionGroupId || video.id;
 
         if (Object.keys(updates).length > 0) {
           await db
             .update(videos)
             .set({ ...updates, updatedAt: now })
-            .where(eq(videos.id, id));
+            .where(
+              and(
+                eq(videos.spaceId, video.spaceId),
+                eq(videos.versionGroupId, versionGroupId),
+              ),
+            );
 
           if (input.targetDate !== undefined && input.targetDate !== video.targetDate) {
             await logProjectActivity(db, {
@@ -244,7 +250,6 @@ export const server = {
         }
 
         if (folderUpdate !== undefined) {
-          const versionGroupId = video.versionGroupId || video.id;
           await db
             .update(videos)
             .set({ folderId: folderUpdate, updatedAt: now })
@@ -948,7 +953,7 @@ export const server = {
         .extend({ id: z.string().min(1) }),
       handler: async (input, context) => {
         const user = requireUser(context);
-        const { id, fileName, fileSize, title, description, generateTranscript, versionNotes } = input;
+        const { id, fileName, fileSize, generateTranscript, versionNotes } = input;
 
         validateUploadFile(fileName, fileSize);
 
@@ -1031,11 +1036,8 @@ export const server = {
           spaceId: baseVideo.spaceId,
           uploadedBy: user.id,
           folderId: baseVideo.folderId,
-          title: title?.trim() || baseVideo.title,
-          description:
-            description !== undefined
-              ? description.trim() || null
-              : baseVideo.description,
+          title: baseVideo.title,
+          description: baseVideo.description,
           status: "processing",
           versionGroupId,
           versionNumber: nextVersionNumber,

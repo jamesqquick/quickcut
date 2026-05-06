@@ -9,8 +9,6 @@ type UploadState = "idle" | "selected" | "uploading" | "processing" | "error";
 
 interface UploadViewProps {
   videoId: string;
-  title: string;
-  description: string;
   isFirstCut: boolean;
   transcriptsEnabled: boolean;
 }
@@ -23,16 +21,12 @@ function formatFileSize(bytes: number): string {
 
 export function UploadView({
   videoId,
-  title: initialTitle,
-  description: initialDescription,
   isFirstCut,
   transcriptsEnabled,
 }: UploadViewProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<UploadState>("idle");
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState(initialTitle);
-  const [description, setDescription] = useState(initialDescription);
   const [versionNotes, setVersionNotes] = useState("");
   const [generateTranscript, setGenerateTranscript] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -79,8 +73,6 @@ export function UploadView({
             id: videoId,
             fileName: file.name,
             fileSize: file.size,
-            title: title.trim() || undefined,
-            description: description.trim(),
             generateTranscript: transcriptsEnabled ? generateTranscript : false,
             versionNotes: versionNotes.trim() || undefined,
           });
@@ -185,45 +177,21 @@ export function UploadView({
         )}
 
         {!isFirstCut && (
-          <>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-text-secondary">Title</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                disabled={state === "uploading"}
-                className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-text-secondary">Description</label>
-              <textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                disabled={state === "uploading"}
-                rows={3}
-                className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-text-secondary">What changed?</label>
-              <textarea
-                value={versionNotes}
-                onChange={(event) => setVersionNotes(event.target.value)}
-                disabled={state === "uploading"}
-                rows={3}
-                maxLength={2000}
-                placeholder="Example: tightened intro, replaced b-roll at 0:42, fixed audio levels."
-                className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-              />
-              <p className="mt-1 text-xs text-text-tertiary">
-                Optional. Summarize what reviewers should look for in this cut.
-              </p>
-            </div>
-          </>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-text-secondary">What changed?</label>
+            <textarea
+              value={versionNotes}
+              onChange={(event) => setVersionNotes(event.target.value)}
+              disabled={state === "uploading"}
+              rows={3}
+              maxLength={2000}
+              placeholder="Example: tightened intro, replaced b-roll at 0:42, fixed audio levels."
+              className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
+            />
+            <p className="mt-1 text-xs text-text-tertiary">
+              Optional. Summarize what reviewers should look for in this cut.
+            </p>
+          </div>
         )}
 
         {transcriptsEnabled && (
@@ -266,7 +234,7 @@ export function UploadView({
           <button
             type="button"
             onClick={upload}
-            disabled={!file || (!isFirstCut && !title.trim()) || state === "uploading"}
+            disabled={!file || state === "uploading"}
             className="rounded-lg bg-accent-primary px-5 py-2.5 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover disabled:opacity-50"
           >
             {state === "uploading" ? "Uploading..." : isFirstCut ? "Upload Video" : "Upload Version"}

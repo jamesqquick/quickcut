@@ -10,8 +10,6 @@ type UploadState = "idle" | "selected" | "uploading" | "processing" | "error";
 
 interface UploadVersionModalProps {
   videoId: string;
-  title: string;
-  description: string;
   transcriptsEnabled?: boolean;
   // When `open` is provided, the parent controls open state and is
   // responsible for rendering its own trigger. The component's built-in
@@ -28,8 +26,6 @@ function formatFileSize(bytes: number): string {
 
 export function UploadVersionModal({
   videoId,
-  title: initialTitle,
-  description: initialDescription,
   transcriptsEnabled = false,
   open: controlledOpen,
   onOpenChange,
@@ -45,8 +41,6 @@ export function UploadVersionModal({
   };
   const [state, setState] = useState<UploadState>("idle");
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState(initialTitle);
-  const [description, setDescription] = useState(initialDescription);
   const [versionNotes, setVersionNotes] = useState("");
   const [generateTranscript, setGenerateTranscript] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -56,8 +50,6 @@ export function UploadVersionModal({
   const reset = () => {
     setState("idle");
     setFile(null);
-    setTitle(initialTitle);
-    setDescription(initialDescription);
     setVersionNotes("");
     setGenerateTranscript(false);
     setProgress(0);
@@ -104,8 +96,6 @@ export function UploadVersionModal({
         id: videoId,
         fileName: file.name,
         fileSize: file.size,
-        title: title.trim() || undefined,
-        description: description.trim(),
         generateTranscript: transcriptsEnabled ? generateTranscript : false,
         versionNotes: versionNotes.trim() || undefined,
       });
@@ -228,28 +218,6 @@ export function UploadVersionModal({
           )}
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-text-secondary">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              disabled={state === "uploading"}
-              className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-text-secondary">Description</label>
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              disabled={state === "uploading"}
-              rows={3}
-              className="w-full resize-none rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary focus:border-accent-primary focus:outline-none disabled:opacity-50"
-            />
-          </div>
-
-          <div>
             <label className="mb-1 block text-sm font-medium text-text-secondary">What changed?</label>
             <textarea
               value={versionNotes}
@@ -307,7 +275,7 @@ export function UploadVersionModal({
             <button
               type="button"
               onClick={upload}
-              disabled={!file || !title.trim() || state === "uploading"}
+              disabled={!file || state === "uploading"}
               className="flex-1 rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover disabled:opacity-50"
             >
               {state === "uploading" ? "Uploading..." : "Upload version"}
