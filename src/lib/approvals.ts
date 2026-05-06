@@ -18,12 +18,17 @@ export interface ApprovalStatus {
 }
 
 /**
- * Compute a video's approval state on demand. There is no stored review
- * status on the video — the state is always derived from the count of rows
- * in the `approvals` table compared against the space's `requiredApprovals`
- * threshold. This is the single source of truth for whether a video is
- * "approved" and is used by API responses, the video detail UI, dashboard
- * badges, and the share-link view.
+ * Compute a video's approval state on demand from the count of rows in the
+ * `approvals` table compared against the space's `requiredApprovals`
+ * threshold. This is the single source of truth for `isApproved` and is
+ * used by API responses, the video detail UI, dashboard badges, and the
+ * share-link view.
+ *
+ * Side-effect to be aware of: the `video.approve` / `video.unapprove`
+ * actions auto-advance `projects.phase` between `reviewing_video` and
+ * `video_approved` based on this status. The phase is therefore a
+ * persisted reflection of approval state for those two phases, but
+ * `getApprovalStatus` itself remains a pure read.
  *
  * Note: when `requiredApprovals` is 0 the workflow is disabled. We still
  * return the (possibly stale) approval rows in case the threshold was

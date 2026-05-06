@@ -514,6 +514,37 @@ export const server = {
           createdAt: now,
         });
 
+        if (status.isApproved) {
+          const projectId = video.projectId || video.versionGroupId || video.id;
+          const projectRow = await db
+            .select({ phase: projects.phase })
+            .from(projects)
+            .where(eq(projects.id, projectId))
+            .limit(1);
+          const currentPhase = projectRow[0]?.phase;
+          if (currentPhase === "reviewing_video") {
+            await db
+              .update(projects)
+              .set({ phase: "video_approved", updatedAt: now })
+              .where(eq(projects.id, projectId));
+
+            await logProjectActivity(db, {
+              videoId: id,
+              actorUserId: user.id,
+              actorDisplayName: user.name,
+              type: "phase.changed",
+              data: { from: currentPhase, to: "video_approved", auto: true },
+              createdAt: now,
+            });
+
+            await broadcastPhaseChange(env, id, {
+              videoId: id,
+              phase: "video_approved",
+              changedBy: user.name,
+            });
+          }
+        }
+
         return { approvalStatus: status };
       },
     }),
@@ -559,6 +590,7 @@ export const server = {
         const status = await getApprovalStatus(db, id, video.spaceId);
         await broadcastApprovalUpdate(env, id, status);
 
+        const now = new Date().toISOString();
         await logProjectActivity(db, {
           videoId: id,
           actorUserId: user.id,
@@ -568,7 +600,39 @@ export const server = {
             approverUserId: user.id,
             approverDisplayName: user.name,
           },
+          createdAt: now,
         });
+
+        if (!status.isApproved) {
+          const projectId = video.projectId || video.versionGroupId || video.id;
+          const projectRow = await db
+            .select({ phase: projects.phase })
+            .from(projects)
+            .where(eq(projects.id, projectId))
+            .limit(1);
+          const currentPhase = projectRow[0]?.phase;
+          if (currentPhase === "video_approved") {
+            await db
+              .update(projects)
+              .set({ phase: "reviewing_video", updatedAt: now })
+              .where(eq(projects.id, projectId));
+
+            await logProjectActivity(db, {
+              videoId: id,
+              actorUserId: user.id,
+              actorDisplayName: user.name,
+              type: "phase.changed",
+              data: { from: currentPhase, to: "reviewing_video", auto: true },
+              createdAt: now,
+            });
+
+            await broadcastPhaseChange(env, id, {
+              videoId: id,
+              phase: "reviewing_video",
+              changedBy: user.name,
+            });
+          }
+        }
 
         return { approvalStatus: status };
       },
