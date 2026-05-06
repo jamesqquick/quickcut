@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   adapter: cloudflare({
-    remoteBindings: false,
+    remoteBindings: true,
   }),
   integrations: [react()],
   vite: {

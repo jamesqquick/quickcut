@@ -2,6 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "quickcut",
   "main": "./src/worker.ts",
+  "account_id": "4426cbeacb457b1ca1b865d6c36ced0d",
   "compatibility_date": "2026-04-21",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
