@@ -237,13 +237,7 @@ export const server = {
             .where(eq(projects.id, projectId));
         }
 
-        const updated = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        return { video: updated[0] };
+        return { success: true };
       },
     }),
 
@@ -401,13 +395,7 @@ export const server = {
         // notifications to every space member has been removed. Approvals
         // are now requested explicitly via `video.requestApprovals`.
 
-        const updated = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        return { video: updated[0] };
+        return { success: true };
       },
     }),
 
@@ -806,13 +794,7 @@ export const server = {
           .set({ folderId, updatedAt: now })
           .where(eq(projects.id, projectId));
 
-        const updated = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        return { video: updated[0] };
+        return { success: true };
       },
     }),
 
