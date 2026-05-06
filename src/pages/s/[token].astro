@@ -14,6 +14,10 @@ import { normalizeVideoPhase } from "../../types";
 const { token } = Astro.params;
 if (!token) return Astro.redirect("/");
 
+const currentUser = Astro.locals.user
+  ? { id: Astro.locals.user.id, name: Astro.locals.user.name }
+  : null;
+
 const db = createDb(env.DB);
 
 // Find share link
@@ -183,6 +187,7 @@ const isPublished = phase === "published";
             initialActivity={projectActivityItems}
             pipelineEnabled={videoSpace?.pipelineEnabled || false}
             initialTranscriptData={initialTranscriptData}
+            currentUser={currentUser}
           />
         )}
 
