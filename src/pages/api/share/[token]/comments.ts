@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
-import { shareLinks, comments, users, videos } from "../../../../db/schema";
+import { shareLinks, comments, projects, users, videos } from "../../../../db/schema";
 import { eq, asc, gt, and } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { addReactionSummaries } from "../../../../lib/comments";
@@ -107,8 +107,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const { text, timestamp, name, parentId, annotation, urgency, phase, textRange } = body;
 
   const videoResult = await db
-    .select({ phase: videos.phase })
+    .select({ phase: projects.phase })
     .from(videos)
+    .innerJoin(projects, eq(projects.id, videos.projectId))
     .where(eq(videos.id, videoId))
     .limit(1);
 
