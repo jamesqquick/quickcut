@@ -242,15 +242,6 @@ try {
 }
 ```
 
-Reads (`db.select`) typically don't need wrapping — they fail rarely and
-the failure mode is "page won't render", which the SSR layer handles.
-Wrap reads only when a user-triggered fetch hangs on a single query
-where you want a tailored message.
-
-The existing `try/catch` around `createDirectUpload(...)` in
-`actions.video.uploadFirstCut` and `actions.video.uploadVersion` is the
-canonical example to mirror.
-
 ### Rule 2 — Validate before you persist
 
 Catch the bad-input class of error before it ever reaches D1. This
