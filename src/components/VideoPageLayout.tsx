@@ -19,14 +19,14 @@ export function VideoPageLayout({ topContent, leftColumn, rightColumn, bottomCon
   }
 
   return (
-    <div className="grid grid-cols-1 gap-x-8 gap-y-8 lg:grid-cols-[1fr_380px]">
-      {topContent && <div className="lg:col-span-2">{topContent}</div>}
+    <div className="grid grid-cols-1 gap-x-8 gap-y-8 2xl:grid-cols-[1fr_380px]">
+      {topContent && <div className="2xl:col-span-2">{topContent}</div>}
       <div className="space-y-6">{leftColumn}</div>
       <div className="flex flex-col rounded-xl border border-border-default bg-bg-secondary">
         {rightColumn}
       </div>
       {bottomContent && (
-        <div className="lg:col-start-1">{bottomContent}</div>
+        <div className="2xl:col-start-1">{bottomContent}</div>
       )}
     </div>
   );

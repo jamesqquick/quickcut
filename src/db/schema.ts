@@ -480,3 +480,64 @@ export const commentReactions = sqliteTable(
       .where(sql`${table.reactorUserId} IS NOT NULL`),
   ],
 );
+
+export const brainstorms = sqliteTable(
+  "brainstorms",
+  {
+    id: text("id").primaryKey(),
+    spaceId: text("space_id")
+      .notNull()
+      .references(() => spaces.id, { onDelete: "cascade" }),
+    authorUserId: text("author_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    authorDisplayName: text("author_display_name").notNull(),
+    title: text("title").notNull(),
+    notes: text("notes").notNull().default(""),
+    status: text("status", { enum: ["open", "promoted", "archived"] })
+      .notNull()
+      .default("open"),
+    promotedProjectId: text("promoted_project_id").references(() => projects.id, {
+      onDelete: "set null",
+    }),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index("brainstorms_space_status_created_idx").on(
+      table.spaceId,
+      table.status,
+      table.createdAt,
+    ),
+  ],
+);
+
+export const brainstormReactions = sqliteTable(
+  "brainstorm_reactions",
+  {
+    id: text("id").primaryKey(),
+    brainstormId: text("brainstorm_id")
+      .notNull()
+      .references(() => brainstorms.id, { onDelete: "cascade" }),
+    reactorUserId: text("reactor_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    reactorDisplayName: text("reactor_display_name"),
+    emoji: text("emoji").notNull(),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    uniqueIndex("brainstorm_reactions_unique").on(
+      table.brainstormId,
+      table.reactorUserId,
+      table.emoji,
+    ),
+    index("brainstorm_reactions_brainstorm_idx").on(table.brainstormId),
+  ],
+);

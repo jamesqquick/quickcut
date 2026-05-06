@@ -230,7 +230,7 @@ export function FolderCardMenu({
       <ConfirmDialog
         isOpen={confirmOpen}
         title="Delete this folder?"
-        description="Videos inside this folder will move back to All Videos. Nested folders will also be removed."
+        description="Projects inside this folder will move back to the space root. Nested folders will also be removed."
         confirmLabel="Delete folder"
         variant="danger"
         loading={saving}

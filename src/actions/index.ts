@@ -13,6 +13,7 @@ import {
   spaceInvites,
   approvals,
   approvalRequests,
+  brainstorms,
   comments,
   projects,
   scripts,
@@ -23,6 +24,11 @@ import {
   projectUpdateSchema,
   phaseSchema,
   approveVideoSchema,
+  brainstormCreateSchema,
+  brainstormUpdateSchema,
+  brainstormStatusUpdateSchema,
+  brainstormReactionToggleSchema,
+  brainstormMarkPromotedSchema,
   commentSchema,
   spaceUpdateSchema,
   inviteCreateSchema,
@@ -40,7 +46,7 @@ import { createDirectUpload, deleteVideo as deleteStreamVideo } from "../lib/str
 import { isTranscriptGenerationEnabled } from "../lib/flags";
 import { queueTranscriptForVideo } from "../lib/transcripts";
 import { logProjectActivity } from "../lib/activity";
-import { getMergedVideoById } from "../lib/projects";
+import { getMergedVideoById, createProjectInSpace } from "../lib/projects";
 import {
   broadcastPhaseChange,
   broadcastApprovalUpdate,
@@ -53,6 +59,10 @@ import {
   isCommentReactionEmoji,
   toggleCommentReaction,
 } from "../lib/comments";
+import {
+  getBrainstormById,
+  toggleBrainstormReaction,
+} from "../lib/brainstorms";
 import {
   createCommentNotifications,
   createTargetedApprovalRequestNotifications,
@@ -810,68 +820,25 @@ export const server = {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
 
-        if (folderId) {
-          const folder = await db
-            .select({ id: folders.id })
-            .from(folders)
-            .where(and(eq(folders.id, folderId), eq(folders.spaceId, spaceId)))
-            .limit(1);
-
-          if (folder.length === 0) {
+        try {
+          const { videoId } = await createProjectInSpace(db, {
+            spaceId,
+            folderId: folderId ?? null,
+            title,
+            description,
+            user,
+          });
+          return { videoId };
+        } catch (error) {
+          if (error instanceof Error && error.message === "FOLDER_NOT_FOUND") {
             throw new ActionError({ code: "NOT_FOUND", message: "Folder not found" });
           }
+          console.error("[video.createProject] failed:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "We couldn't create the project. Please try again.",
+          });
         }
-
-        const videoId = crypto.randomUUID();
-        const projectId = videoId;
-        const now = new Date().toISOString();
-
-        await db.insert(projects).values({
-          id: projectId,
-          spaceId,
-          uploadedBy: user.id,
-          folderId: folderId || null,
-          title,
-          description: description || null,
-          phase: "creating_script",
-          targetDate: null,
-          createdAt: now,
-          updatedAt: now,
-        });
-
-        await db.insert(videos).values({
-          id: videoId,
-          spaceId,
-          uploadedBy: user.id,
-          projectId,
-          status: "draft",
-          versionNumber: 1,
-          isCurrentVersion: true,
-          createdAt: now,
-          updatedAt: now,
-        });
-
-        await db.insert(scripts).values({
-          id: crypto.randomUUID(),
-          videoId,
-          content: "",
-          plainText: "",
-          status: "writing",
-          createdBy: user.id,
-          createdAt: now,
-          updatedAt: now,
-        });
-
-        await logProjectActivity(db, {
-          videoId,
-          actorUserId: user.id,
-          actorDisplayName: user.name,
-          type: "project.created",
-          data: { title },
-          createdAt: now,
-        });
-
-        return { videoId };
       },
     }),
 
@@ -2443,6 +2410,305 @@ export const server = {
           .set({ folderId: null, updatedAt: now })
           .where(inArray(projects.folderId, ids));
         await db.delete(folders).where(inArray(folders.id, ids));
+
+        return { success: true };
+      },
+    }),
+  },
+
+  brainstorm: {
+    create: defineAction({
+      input: brainstormCreateSchema,
+      handler: async (input, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const role = await verifySpaceAccess(db, user.id, input.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const id = crypto.randomUUID();
+        const now = new Date().toISOString();
+        try {
+          await db.insert(brainstorms).values({
+            id,
+            spaceId: input.spaceId,
+            authorUserId: user.id,
+            authorDisplayName: user.name,
+            title: input.title.trim(),
+            notes: input.notes?.trim() ?? "",
+            status: "open",
+            promotedProjectId: null,
+            createdAt: now,
+            updatedAt: now,
+          });
+        } catch (error) {
+          console.error("[brainstorm.create] insert failed:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "We couldn't save the idea. Please try again.",
+          });
+        }
+
+        return { id };
+      },
+    }),
+
+    update: defineAction({
+      input: brainstormUpdateSchema,
+      handler: async (input, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const current = await getBrainstormById(db, input.id);
+        if (!current) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Idea not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, current.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const isAuthor = current.authorUserId === user.id;
+        const isOwner = role === "owner";
+        if (!isAuthor && !isOwner) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const patch: Partial<typeof brainstorms.$inferInsert> = {
+          updatedAt: new Date().toISOString(),
+        };
+        if (input.title !== undefined) patch.title = input.title.trim();
+        if (input.notes !== undefined) patch.notes = input.notes;
+
+        try {
+          await db
+            .update(brainstorms)
+            .set(patch)
+            .where(eq(brainstorms.id, input.id));
+        } catch (error) {
+          console.error("[brainstorm.update] update failed:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "We couldn't update the idea. Please try again.",
+          });
+        }
+
+        return { success: true };
+      },
+    }),
+
+    archive: defineAction({
+      input: brainstormStatusUpdateSchema,
+      handler: async ({ id }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const current = await getBrainstormById(db, id);
+        if (!current) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Idea not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, current.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const isAuthor = current.authorUserId === user.id;
+        const isOwner = role === "owner";
+        if (!isAuthor && !isOwner) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        if (current.status === "promoted") {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "Promoted ideas can't be archived.",
+          });
+        }
+
+        try {
+          await db
+            .update(brainstorms)
+            .set({ status: "archived", updatedAt: new Date().toISOString() })
+            .where(eq(brainstorms.id, id));
+        } catch (error) {
+          console.error("[brainstorm.archive] update failed:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "We couldn't archive the idea. Please try again.",
+          });
+        }
+
+        return { success: true };
+      },
+    }),
+
+    unarchive: defineAction({
+      input: brainstormStatusUpdateSchema,
+      handler: async ({ id }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const current = await getBrainstormById(db, id);
+        if (!current) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Idea not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, current.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const isAuthor = current.authorUserId === user.id;
+        const isOwner = role === "owner";
+        if (!isAuthor && !isOwner) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        if (current.status !== "archived") {
+          return { success: true };
+        }
+
+        try {
+          await db
+            .update(brainstorms)
+            .set({ status: "open", updatedAt: new Date().toISOString() })
+            .where(eq(brainstorms.id, id));
+        } catch (error) {
+          console.error("[brainstorm.unarchive] update failed:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "We couldn't restore the idea. Please try again.",
+          });
+        }
+
+        return { success: true };
+      },
+    }),
+
+    delete: defineAction({
+      input: brainstormStatusUpdateSchema,
+      handler: async ({ id }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const current = await getBrainstormById(db, id);
+        if (!current) {
+          return { success: true };
+        }
+
+        const role = await verifySpaceAccess(db, user.id, current.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const isAuthor = current.authorUserId === user.id;
+        const isOwner = role === "owner";
+        if (!isAuthor && !isOwner) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        try {
+          await db.delete(brainstorms).where(eq(brainstorms.id, id));
+        } catch (error) {
+          console.error("[brainstorm.delete] delete failed:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "We couldn't delete the idea. Please try again.",
+          });
+        }
+
+        return { success: true };
+      },
+    }),
+
+    toggleReaction: defineAction({
+      input: brainstormReactionToggleSchema,
+      handler: async ({ brainstormId, emoji }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const current = await getBrainstormById(db, brainstormId);
+        if (!current) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Idea not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, current.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        try {
+          const reactions = await toggleBrainstormReaction(db, brainstormId, emoji, {
+            userId: user.id,
+            name: user.name,
+          });
+          return { reactions };
+        } catch (error) {
+          console.error("[brainstorm.toggleReaction] failed:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "We couldn't save your reaction. Please try again.",
+          });
+        }
+      },
+    }),
+
+    markPromoted: defineAction({
+      input: brainstormMarkPromotedSchema,
+      handler: async ({ id, videoId }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const current = await getBrainstormById(db, id);
+        if (!current) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Idea not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, current.spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        if (current.status === "promoted") {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "This idea is already linked to a project.",
+          });
+        }
+
+        const linkedVideo = await db
+          .select({ projectId: videos.projectId, spaceId: videos.spaceId })
+          .from(videos)
+          .where(eq(videos.id, videoId))
+          .limit(1);
+
+        if (linkedVideo.length === 0 || linkedVideo[0].spaceId !== current.spaceId) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "That project doesn't belong to this space.",
+          });
+        }
+
+        try {
+          await db
+            .update(brainstorms)
+            .set({
+              status: "promoted",
+              promotedProjectId: linkedVideo[0].projectId,
+              updatedAt: new Date().toISOString(),
+            })
+            .where(eq(brainstorms.id, id));
+        } catch (error) {
+          console.error("[brainstorm.markPromoted] update failed:", error);
+          throw new ActionError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "We couldn't link the idea to the project. Please try again.",
+          });
+        }
 
         return { success: true };
       },

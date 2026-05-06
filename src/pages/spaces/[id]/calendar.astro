@@ -64,22 +64,11 @@ const calendarVideos: DashboardVideo[] = rows.map((row) => ({
 }));
 ---
 
-<Layout title={`${space[0].name} Launch Calendar`} user={user} selectedSpaceId={id}>
+<Layout title={`${space[0].name} Launch Calendar`} user={user} selectedSpaceId={id} spaceView="calendar">
   <div class="mx-auto max-w-[1280px] px-4 py-8 sm:px-8">
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <a
-          href={`/dashboard?space=${id}`}
-          class="inline-flex items-center gap-1 text-sm text-text-secondary transition-colors hover:text-text-primary"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Back to Dashboard
-        </a>
-        <h1 class="mt-2 text-2xl font-bold text-text-primary">Launch Calendar</h1>
-        <p class="text-sm text-text-secondary">{space[0].name}</p>
-      </div>
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-text-primary">Launch Calendar</h1>
+      <p class="text-sm text-text-secondary">{space[0].name}</p>
     </div>
 
     <CalendarView client:load spaceId={id} initialVideos={calendarVideos} />

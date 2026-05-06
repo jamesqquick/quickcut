@@ -174,3 +174,36 @@ export const notificationsMarkReadByContextSchema = z.object({
   videoId: z.string().min(1),
   tab: z.enum(["video", "script"]),
 });
+
+// ---------------------------------------------------------------------------
+// Brainstorms
+// ---------------------------------------------------------------------------
+
+export const BRAINSTORM_REACTION_EMOJIS = ["👍", "❤️", "🚀", "💡", "🎬"] as const;
+export const brainstormReactionEmojiSchema = z.enum(BRAINSTORM_REACTION_EMOJIS);
+
+export const brainstormCreateSchema = z.object({
+  spaceId: z.string().uuid(),
+  title: z.string().trim().min(1, "Title is required").max(200),
+  notes: z.string().max(5000).optional().default(""),
+});
+
+export const brainstormUpdateSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().trim().min(1).max(200).optional(),
+  notes: z.string().max(5000).optional(),
+});
+
+export const brainstormStatusUpdateSchema = z.object({
+  id: z.string().min(1),
+});
+
+export const brainstormReactionToggleSchema = z.object({
+  brainstormId: z.string().min(1),
+  emoji: brainstormReactionEmojiSchema,
+});
+
+export const brainstormMarkPromotedSchema = z.object({
+  id: z.string().min(1),
+  videoId: z.string().min(1),
+});
