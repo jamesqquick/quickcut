@@ -52,7 +52,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     .from(comments)
     .where(eq(comments.videoId, id));
 
-  const projectId = video.projectId ?? video.versionGroupId ?? video.id;
+  const projectId = video.projectId;
   const versionCountResult = await db
     .select({ count: count() })
     .from(videos)

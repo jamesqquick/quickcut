@@ -17,25 +17,21 @@ export interface VersionSummary {
 
 interface VersionContext {
   id: string;
-  spaceId: string;
-  projectId: string | null;
-  versionGroupId: string | null;
+  projectId: string;
 }
 
 export async function getVideoVersions(
   db: Database,
   video: VersionContext,
 ): Promise<VersionSummary[]> {
-  const projectId = video.projectId ?? video.versionGroupId ?? video.id;
-
   const rows = await db
     .select({
       video: videos,
       projectTitle: projects.title,
     })
     .from(videos)
-    .leftJoin(projects, eq(projects.id, videos.projectId))
-    .where(eq(videos.projectId, projectId))
+    .innerJoin(projects, eq(projects.id, videos.projectId))
+    .where(eq(videos.projectId, video.projectId))
     .orderBy(desc(videos.versionNumber));
 
   const versionIds = rows.map((row) => row.video.id);
@@ -60,7 +56,7 @@ export async function getVideoVersions(
 
   return rows.map(({ video: version, projectTitle }) => ({
     id: version.id,
-    title: projectTitle ?? version.title,
+    title: projectTitle,
     status: version.status,
     thumbnailUrl: version.thumbnailUrl,
     duration: version.duration,

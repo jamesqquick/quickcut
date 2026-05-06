@@ -6,11 +6,10 @@ export type ProjectRow = typeof projects.$inferSelect;
 export type VideoRow = typeof videos.$inferSelect;
 
 /**
- * The shape every existing call site expects: a flat object that looks
- * like a `videos` row, but with project-level fields sourced from the
- * `projects` table. During the multi-phase refactor (#121) the
- * duplicated columns on `videos` are still read by callers; merging
- * them here means callers don't change shape.
+ * The shape every read site expects: the version row joined with its
+ * owning project. Project-level fields are sourced from `projects`
+ * (the source of truth after #121). The flat property names match
+ * the legacy "video" shape so React components don't change.
  */
 export type MergedVideo = VideoRow & {
   title: string;
@@ -42,39 +41,12 @@ const PROJECT_OVERRIDE_COLUMNS = {
   folderId: projects.folderId,
 } as const;
 
-function mergeRow(
-  video: VideoRow,
-  project: Pick<ProjectRow,
-    | "title"
-    | "description"
-    | "phase"
-    | "targetDate"
-    | "targetAudience"
-    | "hook"
-    | "takeaway1"
-    | "takeaway2"
-    | "takeaway3"
-    | "primaryCta"
-    | "outro"
-    | "folderId"
-  > | null,
-): MergedVideo {
-  if (!project) return video as MergedVideo;
-  return {
-    ...video,
-    title: project.title,
-    description: project.description,
-    phase: project.phase,
-    targetDate: project.targetDate,
-    targetAudience: project.targetAudience,
-    hook: project.hook,
-    takeaway1: project.takeaway1,
-    takeaway2: project.takeaway2,
-    takeaway3: project.takeaway3,
-    primaryCta: project.primaryCta,
-    outro: project.outro,
-    folderId: project.folderId,
-  };
+type ProjectOverrideRow = {
+  [K in keyof typeof PROJECT_OVERRIDE_COLUMNS]: ProjectRow[K];
+};
+
+function mergeRow(video: VideoRow, project: ProjectOverrideRow): MergedVideo {
+  return { ...video, ...project };
 }
 
 export async function getMergedVideoById(
@@ -84,7 +56,7 @@ export async function getMergedVideoById(
   const rows = await db
     .select({ video: videos, project: PROJECT_OVERRIDE_COLUMNS })
     .from(videos)
-    .leftJoin(projects, eq(projects.id, videos.projectId))
+    .innerJoin(projects, eq(projects.id, videos.projectId))
     .where(eq(videos.id, id))
     .limit(1);
   const row = rows[0];
@@ -102,8 +74,6 @@ interface CurrentVideoListOptions {
 /**
  * List the current version of every project visible to a user. Filters
  * by folder when `folderId` is provided ("root" → folderId IS NULL).
- * Folder filtering uses `projects.folder_id`, the source of truth for
- * project-level placement after #121.
  */
 export async function listCurrentMergedVideos(
   db: Database,
@@ -128,7 +98,7 @@ export async function listCurrentMergedVideos(
   let query = db
     .select({ video: videos, project: PROJECT_OVERRIDE_COLUMNS })
     .from(videos)
-    .leftJoin(projects, eq(projects.id, videos.projectId))
+    .innerJoin(projects, eq(projects.id, videos.projectId))
     .where(where)
     .orderBy(desc(videos.createdAt));
 
@@ -140,7 +110,7 @@ export async function listCurrentMergedVideos(
   const totalRow = await db
     .select({ count: count() })
     .from(videos)
-    .leftJoin(projects, eq(projects.id, videos.projectId))
+    .innerJoin(projects, eq(projects.id, videos.projectId))
     .where(where);
 
   return {
@@ -150,8 +120,7 @@ export async function listCurrentMergedVideos(
 }
 
 /**
- * Count of versions per project. Returns a map keyed by `projectId`
- * (the `videos.project_id` value, identical to `projects.id`).
+ * Count of versions per project.
  */
 export async function getVersionCountsByProjectId(
   db: Database,
@@ -167,14 +136,13 @@ export async function getVersionCountsByProjectId(
     .groupBy(videos.projectId);
 
   return Object.fromEntries(
-    rows.map((row) => [row.projectId ?? "", row.count] as const),
+    rows.map((row) => [row.projectId, row.count] as const),
   );
 }
 
 /**
  * Count current-version videos per folder, filtered to a space and a
- * set of folder ids. Reads `projects.folder_id` and joins through to
- * the current `videos` row so the count reflects "active projects".
+ * set of folder ids.
  */
 export async function getCurrentVideoCountsByFolder(
   db: Database,
@@ -201,9 +169,7 @@ export async function getCurrentVideoCountsByFolder(
 }
 
 /**
- * Fetch up to 4 thumbnails per folder for the dashboard folder cards.
- * Reads from `videos` joined to `projects` so folder placement is
- * sourced from the projects table.
+ * Up to 4 thumbnails per folder for the dashboard folder cards.
  */
 export async function getCurrentVideoThumbnailsByFolder(
   db: Database,
@@ -237,12 +203,6 @@ export async function getCurrentVideoThumbnailsByFolder(
   }, {});
 }
 
-/**
- * Lightweight project lookup used by mutation handlers that need the
- * canonical project row (e.g. for activity logging or to find the
- * project id from a video). Returns null if the video has no project
- * yet (should only occur during a partial rollout).
- */
 export async function getProjectForVideoId(
   db: Database,
   videoId: string,
@@ -250,7 +210,7 @@ export async function getProjectForVideoId(
   const rows = await db
     .select({ project: projects })
     .from(videos)
-    .leftJoin(projects, eq(projects.id, videos.projectId))
+    .innerJoin(projects, eq(projects.id, videos.projectId))
     .where(eq(videos.id, videoId))
     .limit(1);
   return rows[0]?.project ?? null;

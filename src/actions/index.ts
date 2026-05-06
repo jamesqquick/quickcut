@@ -20,7 +20,7 @@ import {
   transcripts,
 } from "../db/schema";
 import {
-  videoUpdateSchema,
+  projectUpdateSchema,
   phaseSchema,
   approveVideoSchema,
   commentSchema,
@@ -119,20 +119,7 @@ export const server = {
 
   video: {
     update: defineAction({
-      input: z.object({
-        id: z.string().min(1),
-        title: z.string().min(1).max(200).optional(),
-        description: z.string().max(2000).optional(),
-        targetDate: z.string().date().nullable().optional(),
-        folderId: z.string().uuid().nullable().optional(),
-        targetAudience: z.string().max(200).nullable().optional(),
-        hook: z.string().max(500).nullable().optional(),
-        takeaway1: z.string().max(200).nullable().optional(),
-        takeaway2: z.string().max(200).nullable().optional(),
-        takeaway3: z.string().max(200).nullable().optional(),
-        primaryCta: z.string().max(200).nullable().optional(),
-        outro: z.string().max(500).nullable().optional(),
-      }),
+      input: projectUpdateSchema.extend({ id: z.string().min(1) }),
       handler: async (input, context) => {
         const user = requireUser(context);
         const { id } = input;
@@ -223,7 +210,7 @@ export const server = {
         }
 
         const now = new Date().toISOString();
-        const projectId = video.projectId || video.versionGroupId || video.id;
+        const projectId = video.projectId;
 
         if (Object.keys(updates).length > 0) {
           await db
@@ -250,13 +237,7 @@ export const server = {
             .where(eq(projects.id, projectId));
         }
 
-        const updated = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        return { video: updated[0] };
+        return { success: true };
       },
     }),
 
@@ -287,12 +268,11 @@ export const server = {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
 
-        const versionGroupId = video.versionGroupId || video.id;
-        const projectId = video.projectId || versionGroupId;
+        const projectId = video.projectId;
         const projectVersions = await db
           .select({ id: videos.id, streamVideoId: videos.streamVideoId })
           .from(videos)
-          .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)));
+          .where(eq(videos.projectId, projectId));
 
         for (const version of projectVersions) {
           if (!version.streamVideoId) continue;
@@ -379,7 +359,7 @@ export const server = {
         }
 
         const now = new Date().toISOString();
-        const projectId = video.projectId || video.versionGroupId || video.id;
+        const projectId = video.projectId;
         await db
           .update(projects)
           .set({ phase, updatedAt: now })
@@ -415,13 +395,7 @@ export const server = {
         // notifications to every space member has been removed. Approvals
         // are now requested explicitly via `video.requestApprovals`.
 
-        const updated = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        return { video: updated[0] };
+        return { success: true };
       },
     }),
 
@@ -515,7 +489,7 @@ export const server = {
         });
 
         if (status.isApproved) {
-          const projectId = video.projectId || video.versionGroupId || video.id;
+          const projectId = video.projectId;
           const projectRow = await db
             .select({ phase: projects.phase })
             .from(projects)
@@ -604,7 +578,7 @@ export const server = {
         });
 
         if (!status.isApproved) {
-          const projectId = video.projectId || video.versionGroupId || video.id;
+          const projectId = video.projectId;
           const projectRow = await db
             .select({ phase: projects.phase })
             .from(projects)
@@ -813,20 +787,14 @@ export const server = {
           }
         }
 
-        const projectId = video.projectId || video.versionGroupId || video.id;
+        const projectId = video.projectId;
         const now = new Date().toISOString();
         await db
           .update(projects)
           .set({ folderId, updatedAt: now })
           .where(eq(projects.id, projectId));
 
-        const updated = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        return { video: updated[0] };
+        return { success: true };
       },
     }),
 
@@ -875,16 +843,10 @@ export const server = {
           id: videoId,
           spaceId,
           uploadedBy: user.id,
-          folderId: folderId || null,
           projectId,
-          title,
-          description: description || null,
           status: "draft",
-          versionGroupId: videoId,
           versionNumber: 1,
           isCurrentVersion: true,
-          phase: "creating_script",
-          targetDate: null,
           createdAt: now,
           updatedAt: now,
         });
@@ -984,7 +946,7 @@ export const server = {
           })
           .where(eq(videos.id, id));
 
-        const projectId = project.projectId || project.versionGroupId || project.id;
+        const projectId = project.projectId;
         await db
           .update(projects)
           .set({ uploadedBy: user.id, phase: "reviewing_video", updatedAt: now })
@@ -1046,16 +1008,11 @@ export const server = {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
 
-        const versionGroupId = baseVideo.versionGroupId || baseVideo.id;
+        const projectId = baseVideo.projectId;
         const latestResult = await db
           .select({ versionNumber: videos.versionNumber })
           .from(videos)
-          .where(
-            and(
-              eq(videos.spaceId, baseVideo.spaceId),
-              eq(videos.versionGroupId, versionGroupId),
-            ),
-          )
+          .where(eq(videos.projectId, projectId))
           .orderBy(desc(videos.versionNumber))
           .limit(1);
 
@@ -1089,25 +1046,15 @@ export const server = {
         await db
           .update(videos)
           .set({ isCurrentVersion: false, updatedAt: now })
-          .where(
-            and(
-              eq(videos.spaceId, baseVideo.spaceId),
-              eq(videos.versionGroupId, versionGroupId),
-            ),
-          );
+          .where(eq(videos.projectId, projectId));
 
         const trimmedNotes = versionNotes?.trim();
-        const projectId = baseVideo.projectId || versionGroupId;
         await db.insert(videos).values({
           id: videoId,
           spaceId: baseVideo.spaceId,
           uploadedBy: user.id,
-          folderId: baseVideo.folderId,
           projectId,
-          title: baseVideo.title,
-          description: baseVideo.description,
           status: "processing",
-          versionGroupId,
           versionNumber: nextVersionNumber,
           isCurrentVersion: true,
           streamVideoId,
@@ -1120,19 +1067,14 @@ export const server = {
         });
 
         // Reset approvals when a new version is uploaded. We hard-delete
-        // approval rows for ALL prior versions in this version group so the
+        // approval rows for ALL prior versions of this project so the
         // approver list starts fresh on the new version. Old versions are
         // archived/read-only anyway.
         try {
           const groupVersions = await db
             .select({ id: videos.id })
             .from(videos)
-            .where(
-              and(
-                eq(videos.spaceId, baseVideo.spaceId),
-                eq(videos.versionGroupId, versionGroupId),
-              ),
-            );
+            .where(eq(videos.projectId, projectId));
           const priorIds = groupVersions
             .map((row) => row.id)
             .filter((existingId) => existingId !== videoId);

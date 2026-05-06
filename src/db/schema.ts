@@ -129,18 +129,12 @@ export const videos = sqliteTable("videos", {
   uploadedBy: text("uploaded_by").references(() => users.id, {
     onDelete: "set null",
   }),
-  folderId: text("folder_id").references(() => folders.id, {
-    onDelete: "set null",
-  }),
-  projectId: text("project_id").references(() => projects.id, {
-    onDelete: "cascade",
-  }),
-  title: text("title").notNull(),
-  description: text("description"),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
   status: text("status", { enum: ["draft", "processing", "ready", "failed"] })
     .notNull()
     .default("processing"),
-  versionGroupId: text("version_group_id"),
   versionNumber: integer("version_number").notNull().default(1),
   isCurrentVersion: integer("is_current_version", { mode: "boolean" })
     .notNull()
@@ -154,19 +148,6 @@ export const videos = sqliteTable("videos", {
   transcriptRequested: integer("transcript_requested", { mode: "boolean" })
     .notNull()
     .default(false),
-  phase: text("phase", {
-    enum: ["creating_script", "reviewing_script", "reviewing_video", "video_approved", "published"],
-  })
-    .notNull()
-    .default("reviewing_video"),
-  targetDate: text("target_date"),
-  targetAudience: text("target_audience"),
-  hook: text("hook"),
-  takeaway1: text("takeaway1"),
-  takeaway2: text("takeaway2"),
-  takeaway3: text("takeaway3"),
-  primaryCta: text("primary_cta"),
-  outro: text("outro"),
   versionNotes: text("version_notes"),
   createdAt: text("created_at")
     .notNull()

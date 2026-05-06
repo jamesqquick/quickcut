@@ -62,7 +62,10 @@ export const anonymousCommentSchema = z.object({
   urgency: urgencySchema.optional().default("suggestion"),
 });
 
-export const videoUpdateSchema = z.object({
+// Project-level update payload. After issue #121 these fields all live
+// on `projects`, not `videos`. The action handler is still named
+// `actions.video.update` for callsite stability.
+export const projectUpdateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(2000).optional(),
   folderId: z.string().uuid().nullable().optional(),
@@ -74,6 +77,12 @@ export const videoUpdateSchema = z.object({
   takeaway3: z.string().max(200).nullable().optional(),
   primaryCta: z.string().max(200).nullable().optional(),
   outro: z.string().max(500).nullable().optional(),
+});
+
+// Per-version fields. Today this is just the optional release note; if
+// future version-only fields land they go here.
+export const videoVersionSchema = z.object({
+  versionNotes: z.string().max(2000).nullable().optional(),
 });
 
 // ---------------------------------------------------------------------------
