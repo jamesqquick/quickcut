@@ -19,10 +19,18 @@ export interface BroadcastUserNotification {
 	createdAt: string;
 }
 
-type ServerMessage = {
-	type: "notification.new";
-	notification: BroadcastUserNotification;
-};
+/**
+ * Broadcast envelope for "these notifications were just marked read"
+ * fan-out. Sent to every connected tab so the badge count and any
+ * /notifications view can update without refetching.
+ */
+export interface BroadcastNotificationsRead {
+	ids: string[];
+}
+
+type ServerMessage =
+	| { type: "notification.new"; notification: BroadcastUserNotification }
+	| { type: "notification.read.bulk"; ids: string[] };
 
 /**
  * UserNotifications coordinates real-time delivery of badge-count signals
@@ -71,8 +79,23 @@ export class UserNotifications extends DurableObject<Env> {
 		notification: BroadcastUserNotification,
 	): Promise<void> {
 		const message: ServerMessage = { type: "notification.new", notification };
-		const payload = JSON.stringify(message);
+		this.send(message);
+	}
 
+	/**
+	 * RPC method called after a bulk mark-read (e.g. user opened the tab
+	 * containing the referenced content). Fans out the affected
+	 * notification ids so other open tabs can decrement their badge and
+	 * update any /notifications view in place.
+	 */
+	async broadcastNotificationsRead(ids: string[]): Promise<void> {
+		if (ids.length === 0) return;
+		const message: ServerMessage = { type: "notification.read.bulk", ids };
+		this.send(message);
+	}
+
+	private send(message: ServerMessage): void {
+		const payload = JSON.stringify(message);
 		for (const ws of this.ctx.getWebSockets()) {
 			try {
 				ws.send(payload);

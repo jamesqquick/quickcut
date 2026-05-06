@@ -1,3 +1,4 @@
+import { actions } from "astro:actions";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { CommentTimeline } from "./CommentTimeline";
 import { CommentThread } from "./CommentThread";
@@ -174,6 +175,30 @@ export function VideoDetailView({
     setPendingAnnotation(null);
     setActiveTool("none");
   }, []);
+
+  useEffect(() => {
+    if (isShareMode || !currentUserId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await actions.notification.markReadByContext({
+          videoId,
+          tab: "video",
+        });
+        if (cancelled || error || !data || data.count === 0) return;
+        window.dispatchEvent(
+          new CustomEvent("quickcut:notifications-read", {
+            detail: { ids: data.ids, count: data.count },
+          }),
+        );
+      } catch {
+        // Best-effort; the badge will reconcile on next page load.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId, isShareMode, currentUserId]);
 
   // Poll for video status when processing
   useEffect(() => {
