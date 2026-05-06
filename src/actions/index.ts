@@ -40,6 +40,7 @@ import { createDirectUpload, deleteVideo as deleteStreamVideo } from "../lib/str
 import { isTranscriptGenerationEnabled } from "../lib/flags";
 import { queueTranscriptForVideo } from "../lib/transcripts";
 import { logProjectActivity } from "../lib/activity";
+import { getMergedVideoById } from "../lib/projects";
 import {
   broadcastPhaseChange,
   broadcastApprovalUpdate,
@@ -137,17 +138,11 @@ export const server = {
         const { id } = input;
         const db = createDb(env.DB);
 
-        const videoResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        if (videoResult.length === 0) {
+        const video = await getMergedVideoById(db, id);
+        if (!video) {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
         }
 
-        const video = videoResult[0];
         const role = await verifySpaceAccess(db, user.id, video.spaceId);
         if (!role) {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
@@ -228,20 +223,9 @@ export const server = {
         }
 
         const now = new Date().toISOString();
-        const versionGroupId = video.versionGroupId || video.id;
-        const projectId = video.projectId || versionGroupId;
+        const projectId = video.projectId || video.versionGroupId || video.id;
 
         if (Object.keys(updates).length > 0) {
-          await db
-            .update(videos)
-            .set({ ...updates, updatedAt: now })
-            .where(
-              and(
-                eq(videos.spaceId, video.spaceId),
-                eq(videos.versionGroupId, versionGroupId),
-              ),
-            );
-
           await db
             .update(projects)
             .set({ ...updates, updatedAt: now })
@@ -260,11 +244,6 @@ export const server = {
         }
 
         if (folderUpdate !== undefined) {
-          await db
-            .update(videos)
-            .set({ folderId: folderUpdate, updatedAt: now })
-            .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)));
-
           await db
             .update(projects)
             .set({ folderId: folderUpdate, updatedAt: now })
@@ -348,17 +327,11 @@ export const server = {
         const user = requireUser(context);
         const db = createDb(env.DB);
 
-        const videoResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        if (videoResult.length === 0) {
+        const video = await getMergedVideoById(db, id);
+        if (!video) {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
         }
 
-        const video = videoResult[0];
         const role = await verifySpaceAccess(db, user.id, video.spaceId);
         if (!role) {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
@@ -407,11 +380,6 @@ export const server = {
 
         const now = new Date().toISOString();
         const projectId = video.projectId || video.versionGroupId || video.id;
-        await db
-          .update(videos)
-          .set({ phase, updatedAt: now })
-          .where(eq(videos.id, id));
-
         await db
           .update(projects)
           .set({ phase, updatedAt: now })
@@ -781,14 +749,8 @@ export const server = {
           }
         }
 
-        const versionGroupId = video.versionGroupId || video.id;
-        const projectId = video.projectId || versionGroupId;
+        const projectId = video.projectId || video.versionGroupId || video.id;
         const now = new Date().toISOString();
-        await db
-          .update(videos)
-          .set({ folderId, updatedAt: now })
-          .where(and(eq(videos.spaceId, video.spaceId), eq(videos.versionGroupId, versionGroupId)));
-
         await db
           .update(projects)
           .set({ folderId, updatedAt: now })
@@ -898,12 +860,7 @@ export const server = {
         validateUploadFile(fileName, fileSize);
 
         const db = createDb(env.DB);
-        const projectResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-        const project = projectResult[0];
+        const project = await getMergedVideoById(db, id);
 
         if (!project) {
           throw new ActionError({ code: "NOT_FOUND", message: "Project not found" });
@@ -955,7 +912,6 @@ export const server = {
           .set({
             uploadedBy: user.id,
             status: "processing",
-            phase: "reviewing_video",
             streamVideoId,
             fileName,
             fileSize,
@@ -1009,12 +965,7 @@ export const server = {
         validateUploadFile(fileName, fileSize);
 
         const db = createDb(env.DB);
-        const baseResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-        const baseVideo = baseResult[0];
+        const baseVideo = await getMergedVideoById(db, id);
 
         if (!baseVideo) {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
@@ -1282,12 +1233,7 @@ export const server = {
         const user = requireUser(context);
         const db = createDb(env.DB);
 
-        const videoResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, videoId))
-          .limit(1);
-        const video = videoResult[0];
+        const video = await getMergedVideoById(db, videoId);
 
         if (!video) {
           throw new ActionError({ code: "NOT_FOUND", message: "Project not found" });
@@ -1390,24 +1336,20 @@ export const server = {
         const { videoId, text, timestamp, annotation, urgency, phase, textRange } = input;
         const db = createDb(env.DB);
 
-        const videoResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, videoId))
-          .limit(1);
+        const video = await getMergedVideoById(db, videoId);
 
-        if (videoResult.length === 0) {
+        if (!video) {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
         }
 
-        if (videoResult[0].phase === "published") {
+        if (video.phase === "published") {
           throw new ActionError({
             code: "FORBIDDEN",
             message: "Cannot comment on published videos",
           });
         }
 
-        const role = await verifySpaceAccess(db, user.id, videoResult[0].spaceId);
+        const role = await verifySpaceAccess(db, user.id, video.spaceId);
         if (!role) {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
@@ -1710,8 +1652,9 @@ export const server = {
         }
 
         const videoRow = await db
-          .select({ spaceId: videos.spaceId, phase: videos.phase })
+          .select({ spaceId: videos.spaceId, phase: projects.phase })
           .from(videos)
+          .innerJoin(projects, eq(projects.id, videos.projectId))
           .where(eq(videos.id, comment[0].videoId))
           .limit(1);
 
@@ -2489,10 +2432,6 @@ export const server = {
 
         const ids = Array.from(idsToDelete);
         const now = new Date().toISOString();
-        await db
-          .update(videos)
-          .set({ folderId: null, updatedAt: now })
-          .where(inArray(videos.folderId, ids));
         await db
           .update(projects)
           .set({ folderId: null, updatedAt: now })
