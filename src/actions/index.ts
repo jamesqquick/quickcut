@@ -501,7 +501,7 @@ export const server = {
         });
 
         if (status.isApproved) {
-          const projectId = video.projectId || video.versionGroupId || video.id;
+          const projectId = video.projectId;
           const projectRow = await db
             .select({ phase: projects.phase })
             .from(projects)
@@ -590,7 +590,7 @@ export const server = {
         });
 
         if (!status.isApproved) {
-          const projectId = video.projectId || video.versionGroupId || video.id;
+          const projectId = video.projectId;
           const projectRow = await db
             .select({ phase: projects.phase })
             .from(projects)

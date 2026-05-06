@@ -6,14 +6,15 @@ import { PendingToast } from "../components/PendingToast";
 import type { FolderCardItemData } from "../components/FolderCardItem";
 import type { VideoCardItemData } from "../components/VideoCardItem";
 import { createDb } from "../db";
-import { folders, videos, comments, spaceMembers, approvals, projects } from "../db/schema";
-import { and, asc, desc, count, eq, inArray, sql } from "drizzle-orm";
+import { folders, comments, spaceMembers, approvals } from "../db/schema";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getUserSpaces } from "../lib/spaces";
 import {
   getCurrentVideoCountsByFolder,
   getCurrentVideoThumbnailsByFolder,
   getVersionCountsByProjectId,
+  listCurrentMergedVideos,
 } from "../lib/projects";
 
 const user = Astro.locals.user;
@@ -77,24 +78,9 @@ const childFolderIds = childFolders.map((folder) => folder.id);
 const folderVideoCounts = await getCurrentVideoCountsByFolder(db, selectedSpaceId, childFolderIds);
 const folderThumbnails = await getCurrentVideoThumbnailsByFolder(db, selectedSpaceId, childFolderIds);
 
-const allSpaceVideoRows = await db
-  .select({
-    video: videos,
-    projectTitle: projects.title,
-    projectFolderId: projects.folderId,
-    projectPhase: projects.phase,
-  })
-  .from(videos)
-  .leftJoin(projects, eq(projects.id, videos.projectId))
-  .where(and(eq(videos.spaceId, selectedSpaceId), eq(videos.isCurrentVersion, true)))
-  .orderBy(desc(videos.createdAt));
-
-const allSpaceVideos = allSpaceVideoRows.map((row) => ({
-  ...row.video,
-  title: row.projectTitle ?? row.video.title,
-  folderId: row.projectFolderId ?? row.video.folderId,
-  phase: row.projectPhase ?? row.video.phase,
-}));
+const { rows: allSpaceVideos } = await listCurrentMergedVideos(db, {
+  spaceIds: [selectedSpaceId],
+});
 
 const userVideos = allSpaceVideos.filter((video) => {
   if (currentFolderId) return video.folderId === currentFolderId;
