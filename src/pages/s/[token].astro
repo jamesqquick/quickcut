@@ -1,5 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
+import GuestHeader from "../../components/GuestHeader.astro";
 import { ShareView } from "../../components/ShareView";
 import { createDb } from "../../db";
 import { shareLinks, scripts, spaces, videos } from "../../db/schema";
@@ -99,6 +100,7 @@ const isPublished = phase === "published";
 ---
 
 <Layout title={video ? video.title : "Link Unavailable"}>
+  {!currentUser && <GuestHeader />}
   {!isRevoked && video && hasVideo && (
     <script src="https://embed.cloudflarestream.com/embed/sdk.latest.js" is:inline></script>
   )}
