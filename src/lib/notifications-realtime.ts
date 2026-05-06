@@ -2,13 +2,13 @@ import type { BroadcastUserNotification } from "../durable-objects/UserNotificat
 
 export type { BroadcastUserNotification } from "../durable-objects/UserNotifications";
 
-type ServerMessage = {
-	type: "notification.new";
-	notification: BroadcastUserNotification;
-};
+type ServerMessage =
+	| { type: "notification.new"; notification: BroadcastUserNotification }
+	| { type: "notification.read.bulk"; ids: string[] };
 
 export interface UserNotificationHandlers {
 	onNotification?: (notification: BroadcastUserNotification) => void;
+	onNotificationsRead?: (ids: string[]) => void;
 }
 
 export interface UserNotificationConnection {
@@ -60,6 +60,8 @@ export function connectUserNotifications(
 			}
 			if (parsed.type === "notification.new") {
 				handlers.onNotification?.(parsed.notification);
+			} else if (parsed.type === "notification.read.bulk") {
+				handlers.onNotificationsRead?.(parsed.ids);
 			}
 		});
 

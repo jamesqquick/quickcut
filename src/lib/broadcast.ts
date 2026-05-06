@@ -91,3 +91,24 @@ export async function broadcastNotification(
 		console.error("UserNotifications broadcast failed", { userId, err });
 	}
 }
+
+/**
+ * Best-effort fan-out of "these notification ids just transitioned to
+ * read" to every tab the user has open. Used by the auto-mark-read flow
+ * when the user opens the tab containing the referenced content. Failures
+ * are swallowed — D1 already reflects the change, so the next page load
+ * recovers.
+ */
+export async function broadcastNotificationsRead(
+	env: Env,
+	userId: string,
+	ids: string[],
+): Promise<void> {
+	if (ids.length === 0) return;
+	try {
+		const stub = env.USER_NOTIFICATIONS.getByName(userId);
+		await stub.broadcastNotificationsRead(ids);
+	} catch (err) {
+		console.error("UserNotifications read broadcast failed", { userId, err });
+	}
+}

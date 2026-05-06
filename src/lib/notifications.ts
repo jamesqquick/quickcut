@@ -456,3 +456,54 @@ export async function markNotificationRead(
 
   return true;
 }
+
+export type VideoNotificationTab = "video" | "script";
+
+const TAB_NOTIFICATION_TYPES: Record<VideoNotificationTab, NotificationType[]> = {
+  video: ["comment.created", "comment.reply", "approval.requested"],
+  script: ["script_comment.created", "script_comment.reply"],
+};
+
+/**
+ * Bulk mark all of a user's unread notifications for a given video+tab as
+ * read. Returns the ids of rows that were transitioned from unread to read,
+ * so callers can broadcast that subset to other open tabs/devices.
+ *
+ * Caller is responsible for checking access to the video (via
+ * `verifySpaceAccess` on the video's space) before invoking this helper.
+ */
+export async function markNotificationsReadByVideoTab(
+  db: Database,
+  userId: string,
+  videoId: string,
+  tab: VideoNotificationTab,
+): Promise<string[]> {
+  const types = TAB_NOTIFICATION_TYPES[tab];
+
+  const unreadRows = await db
+    .select({ id: notifications.id })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        eq(notifications.videoId, videoId),
+        inArray(notifications.type, types),
+        isNull(notifications.readAt),
+      ),
+    );
+
+  const ids = unreadRows.map((row) => row.id);
+  if (ids.length === 0) return [];
+
+  await db
+    .update(notifications)
+    .set({ readAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        inArray(notifications.id, ids),
+      ),
+    );
+
+  return ids;
+}

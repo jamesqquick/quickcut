@@ -31,6 +31,7 @@ import {
   projectCreateSchema,
   uploadSchema,
   scriptUpdateSchema,
+  notificationsMarkReadByContextSchema,
 } from "../lib/validation";
 import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
 import { generateShareToken } from "../lib/share";
@@ -45,6 +46,7 @@ import {
   broadcastNewComment,
   broadcastCommentReactions,
   broadcastNotification,
+  broadcastNotificationsRead,
 } from "../lib/broadcast";
 import {
   isCommentReactionEmoji,
@@ -55,6 +57,7 @@ import {
   createTargetedApprovalRequestNotifications,
   resolveApprovalRequestsForApprover,
   markNotificationRead,
+  markNotificationsReadByVideoTab,
 } from "../lib/notifications";
 import { buildInviteAuthPath, buildInviteEmail } from "../lib/email";
 
@@ -2193,6 +2196,37 @@ export const server = {
         }
 
         return { success: true };
+      },
+    }),
+
+    markReadByContext: defineAction({
+      input: notificationsMarkReadByContextSchema,
+      handler: async ({ videoId, tab }, context) => {
+        const user = requireUser(context);
+        const db = createDb(env.DB);
+
+        const videoRow = await db
+          .select({ spaceId: videos.spaceId })
+          .from(videos)
+          .where(eq(videos.id, videoId))
+          .limit(1);
+
+        if (videoRow.length === 0) {
+          throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
+        }
+
+        const role = await verifySpaceAccess(db, user.id, videoRow[0].spaceId);
+        if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
+        const ids = await markNotificationsReadByVideoTab(db, user.id, videoId, tab);
+
+        if (ids.length > 0) {
+          await broadcastNotificationsRead(env, user.id, ids);
+        }
+
+        return { ids, count: ids.length };
       },
     }),
   },
