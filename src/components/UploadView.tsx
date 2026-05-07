@@ -1,9 +1,12 @@
 import { useRef, useState } from "react";
 import { actions } from "astro:actions";
+import * as tus from "tus-js-client";
 import { friendlyActionErrorMessage } from "../lib/errors";
 
 const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024;
+const TUS_CHUNK_SIZE = 52_428_800;
+const TUS_RETRY_DELAYS = [0, 3000, 5000, 10000, 20000];
 
 type UploadState = "idle" | "selected" | "uploading" | "processing" | "error";
 
@@ -87,32 +90,29 @@ export function UploadView({
       }
 
       const targetVideoId = data.videoId || videoId;
-      const xhr = new XMLHttpRequest();
-      xhr.open("PATCH", data.uploadUrl);
-      xhr.setRequestHeader("Tus-Resumable", "1.0.0");
-      xhr.setRequestHeader("Upload-Offset", "0");
-      xhr.setRequestHeader("Content-Type", "application/offset+octet-stream");
-
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) setProgress(Math.round((event.loaded / event.total) * 100));
-      };
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
+      const upload = new tus.Upload(file, {
+        uploadUrl: data.uploadUrl,
+        chunkSize: TUS_CHUNK_SIZE,
+        retryDelays: TUS_RETRY_DELAYS,
+        metadata: {
+          name: file.name,
+          filetype: file.type,
+        },
+        onProgress: (bytesUploaded, bytesTotal) => {
+          if (bytesTotal > 0) {
+            setProgress(Math.round((bytesUploaded / bytesTotal) * 100));
+          }
+        },
+        onSuccess: () => {
           setState("processing");
           window.location.href = `/videos/${targetVideoId}?tab=video`;
-          return;
-        }
-        setError("Upload failed. Please try again.");
-        setState("error");
-      };
-
-      xhr.onerror = () => {
-        setError("Upload failed. Please try again.");
-        setState("error");
-      };
-
-      xhr.send(file);
+        },
+        onError: () => {
+          setError("Upload failed. Please try again.");
+          setState("error");
+        },
+      });
+      upload.start();
     } catch (err) {
       setError(
         friendlyActionErrorMessage(
