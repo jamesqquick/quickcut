@@ -8,3 +8,7 @@ export function getSafeReturnUrl(returnUrl: string | null | undefined): string |
 
   return `${url.pathname}${url.search}${url.hash}`;
 }
+
+export function getCanonicalBaseUrl(env: Pick<Cloudflare.Env, "BETTER_AUTH_URL">): string {
+  return new URL(env.BETTER_AUTH_URL).origin;
+}
