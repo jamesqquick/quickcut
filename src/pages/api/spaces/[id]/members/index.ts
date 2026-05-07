@@ -31,7 +31,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     });
   }
 
-  const members = await db
+  const rows = await db
     .select({
       id: spaceMembers.id,
       userId: spaceMembers.userId,
@@ -43,6 +43,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
     .from(spaceMembers)
     .innerJoin(users, eq(spaceMembers.userId, users.id))
     .where(eq(spaceMembers.spaceId, id));
+
+  const members =
+    role === "owner"
+      ? rows
+      : rows.map(({ email: _email, ...rest }) => rest);
 
   return new Response(JSON.stringify({ members }), {
     headers: { "Content-Type": "application/json" },
