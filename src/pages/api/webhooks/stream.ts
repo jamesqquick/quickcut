@@ -101,11 +101,24 @@ async function verifyWebhookSignature(
   return { valid: true, parsed };
 }
 
+function isProductionEnv(): boolean {
+  try {
+    return new URL(env.BETTER_AUTH_URL).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const body = await request.text();
   const signature = request.headers.get("Webhook-Signature");
 
-  if (env.STREAM_WEBHOOK_SECRET) {
+  if (!env.STREAM_WEBHOOK_SECRET) {
+    if (isProductionEnv()) {
+      console.error("STREAM_WEBHOOK_SECRET is required");
+      return new Response("Webhook secret not configured", { status: 500 });
+    }
+  } else {
     const result = await verifyWebhookSignature(
       body,
       signature,
