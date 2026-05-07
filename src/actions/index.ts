@@ -41,6 +41,7 @@ import {
 } from "../lib/validation";
 import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
 import { generateShareToken, generateInviteToken } from "../lib/share";
+import { getCanonicalBaseUrl } from "../lib/urls";
 import { getApprovalStatus } from "../lib/approvals";
 import { createDirectUpload, deleteVideo as deleteStreamVideo } from "../lib/stream";
 import { isTranscriptGenerationEnabled } from "../lib/flags";
@@ -746,7 +747,7 @@ export const server = {
             {
               send: (msg) => env.EMAIL.send(msg),
               from: env.OTP_EMAIL_FROM,
-              baseUrl: new URL(context.request.url).origin,
+              baseUrl: getCanonicalBaseUrl(env),
             },
             env,
           );
@@ -1365,7 +1366,7 @@ export const server = {
             {
               send: (msg) => env.EMAIL.send(msg),
               from: env.OTP_EMAIL_FROM,
-              baseUrl: new URL(context.request.url).origin,
+              baseUrl: getCanonicalBaseUrl(env),
             },
             env,
           );
@@ -1577,7 +1578,7 @@ export const server = {
             {
               send: (msg) => env.EMAIL.send(msg),
               from: env.OTP_EMAIL_FROM,
-              baseUrl: new URL(context.request.url).origin,
+              baseUrl: getCanonicalBaseUrl(env),
             },
             env,
           );
@@ -1907,7 +1908,7 @@ export const server = {
           hasAccount: existingUser.length > 0,
           token: invite.token,
         });
-        const inviteUrl = new URL(invitePath, new URL(context.request.url).origin).toString();
+        const inviteUrl = new URL(invitePath, getCanonicalBaseUrl(env)).toString();
         const email = buildInviteEmail({
           inviteUrl,
           inviterName: user.name,

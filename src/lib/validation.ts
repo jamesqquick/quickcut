@@ -54,12 +54,18 @@ export const commentSchema = z.object({
 });
 
 export const anonymousCommentSchema = z.object({
-  text: z.string().min(1, "Comment text is required").max(5000),
-  timestamp: z.number().nullable().optional(),
-  name: z.string().min(1, "Name is required").max(100),
-  parentId: z.string().optional(),
+  text: z.string().trim().min(1, "Comment text is required").max(5000),
+  timestamp: z
+    .number()
+    .finite("Invalid timestamp")
+    .nullable()
+    .optional(),
+  name: z.string().trim().min(1, "Name is required").max(100),
+  parentId: z.string().min(1).max(100).optional(),
   annotation: annotationSchema.nullable().optional(),
   urgency: urgencySchema.optional().default("suggestion"),
+  phase: z.enum(["script", "review"]).optional().default("review"),
+  textRange: textRangeSchema.nullable().optional(),
 });
 
 // Project-level update payload. After issue #121 these fields all live

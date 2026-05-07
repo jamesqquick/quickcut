@@ -6,6 +6,9 @@ import { eq, asc, gt, and } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { addReactionSummaries } from "../../../../lib/comments";
 import { createCommentNotifications } from "../../../../lib/notifications";
+import { anonymousCommentSchema, commentSchema } from "../../../../lib/validation";
+import { getCanonicalBaseUrl } from "../../../../lib/urls";
+import { z } from "zod";
 
 export const GET: APIRoute = async ({ params, url }) => {
   const { token } = params;
@@ -103,8 +106,30 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   const sessionUser = locals.user;
   const videoId = shareLinkResult[0].videoId;
-  const body = await request.json();
-  const { text, timestamp, name, parentId, annotation, urgency, phase, textRange } = body;
+
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const schema = sessionUser ? commentSchema : anonymousCommentSchema;
+  const parsed = schema.safeParse(rawBody);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message ?? "Invalid request";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  const input = parsed.data;
+  const anonymousName = !sessionUser
+    ? (input as z.infer<typeof anonymousCommentSchema>).name
+    : null;
 
   const videoResult = await db
     .select({ phase: projects.phase })
@@ -127,48 +152,17 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     });
   }
 
-  if (!text || !text.trim()) {
-    return new Response(JSON.stringify({ error: "Comment text is required" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  if (!sessionUser && (!name || !name.trim())) {
-    return new Response(
-      JSON.stringify({ error: "Name is required" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    );
-  }
-
-  // Replies don't carry urgency; force "suggestion" for them. Validate input
-  // for top-level comments and fall back to "suggestion" if missing/invalid.
-  const allowedUrgencies = [
-    "idea",
-    "suggestion",
-    "important",
-    "critical",
-  ] as const;
-  type Urgency = (typeof allowedUrgencies)[number];
-  const isReply = !!parentId;
-  const commentUrgency: Urgency = isReply
-    ? "suggestion"
-    : allowedUrgencies.includes(urgency as Urgency)
-      ? (urgency as Urgency)
-      : "suggestion";
+  const isReply = !!input.parentId;
+  const commentUrgency = isReply ? "suggestion" : input.urgency;
 
   const commentId = crypto.randomUUID();
 
-  // Determine the comment phase:
-  // - Replies inherit the parent comment's phase.
-  // - Top-level comments use the explicit `phase` field if provided.
-  // - Default to "review" for backward compatibility.
-  let commentPhase: "script" | "review" = phase === "script" ? "script" : "review";
-  if (isReply && parentId) {
+  let commentPhase: "script" | "review" = input.phase;
+  if (isReply && input.parentId) {
     const parentRows = await db
       .select({ phase: comments.phase })
       .from(comments)
-      .where(and(eq(comments.id, parentId), eq(comments.videoId, videoId)))
+      .where(and(eq(comments.id, input.parentId), eq(comments.videoId, videoId)))
       .limit(1);
 
     if (parentRows.length === 0) {
@@ -180,6 +174,10 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     commentPhase = parentRows[0].phase;
   }
 
+  const annotation = input.annotation ?? null;
+  const textRange = input.textRange ?? null;
+  const timestampValue = input.timestamp ?? null;
+
   const newComment = sessionUser
     ? {
         id: commentId,
@@ -187,9 +185,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         authorType: "user" as const,
         authorUserId: sessionUser.id,
         authorDisplayName: null,
-        timestamp: timestamp != null ? Number(timestamp) : null,
-        text: text.trim(),
-        parentId: parentId || null,
+        timestamp: timestampValue,
+        text: input.text,
+        parentId: input.parentId ?? null,
         isResolved: false,
         resolvedBy: null,
         resolvedAt: null,
@@ -204,10 +202,10 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         videoId,
         authorType: "anonymous" as const,
         authorUserId: null,
-        authorDisplayName: name.trim(),
-        timestamp: timestamp != null ? Number(timestamp) : null,
-        text: text.trim(),
-        parentId: parentId || null,
+        authorDisplayName: anonymousName!,
+        timestamp: timestampValue,
+        text: input.text,
+        parentId: input.parentId ?? null,
         isResolved: false,
         resolvedBy: null,
         resolvedAt: null,
@@ -234,7 +232,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     }, {
       send: (msg) => env.EMAIL.send(msg),
       from: env.OTP_EMAIL_FROM,
-      baseUrl: new URL(request.url).origin,
+      baseUrl: getCanonicalBaseUrl(env),
     }, env);
   } catch (err) {
     console.error("Failed to create share comment notification", err);
