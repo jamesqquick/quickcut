@@ -14,8 +14,24 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function neutralResponse(): Response {
+  return json({ message: "If the account is eligible we sent a code." });
+}
+
+function rateLimitedResponse(): Response {
+  return json({ error: "Too many requests. Try again in a minute." }, 429);
+}
+
+function getClientIp(request: Request): string {
+  return (
+    request.headers.get("CF-Connecting-IP") ??
+    request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ??
+    "unknown"
+  );
+}
+
 export const POST: APIRoute = async ({ request }) => {
-  const body = await request.json().catch(() => null) as {
+  const body = (await request.json().catch(() => null)) as {
     email?: string;
     mode?: OtpMode;
   } | null;
@@ -27,6 +43,15 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Email and mode are required" }, 400);
   }
 
+  const ip = getClientIp(request);
+  const [ipLimit, emailLimit] = await Promise.all([
+    env.OTP_RATE_LIMITER.limit({ key: `otp:ip:${ip}` }),
+    env.OTP_RATE_LIMITER.limit({ key: `otp:email:${email}` }),
+  ]);
+  if (!ipLimit.success || !emailLimit.success) {
+    return rateLimitedResponse();
+  }
+
   const db = createDb(env.DB);
   const existing = await db
     .select({ id: users.id })
@@ -34,12 +59,13 @@ export const POST: APIRoute = async ({ request }) => {
     .where(eq(users.email, email))
     .limit(1);
 
-  if (mode === "login" && existing.length === 0) {
-    return json({ error: "No account exists for that email. Sign up first." }, 404);
-  }
+  const accountExists = existing.length > 0;
+  const eligible =
+    (mode === "login" && accountExists) ||
+    (mode === "register" && !accountExists);
 
-  if (mode === "register" && existing.length > 0) {
-    return json({ error: "An account already exists for that email. Sign in instead." }, 409);
+  if (!eligible) {
+    return neutralResponse();
   }
 
   const auth = createAuth(env.DB, {
@@ -49,11 +75,13 @@ export const POST: APIRoute = async ({ request }) => {
     OTP_EMAIL_FROM: env.OTP_EMAIL_FROM,
   });
 
-  return auth.api.sendVerificationOTP({
-    body: {
-      email,
-      type: "sign-in",
-    },
-    asResponse: true,
-  });
+  try {
+    await auth.api.sendVerificationOTP({
+      body: { email, type: "sign-in" },
+    });
+  } catch (err) {
+    console.error("sendVerificationOTP failed", err);
+  }
+
+  return neutralResponse();
 };
