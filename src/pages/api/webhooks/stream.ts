@@ -105,22 +105,25 @@ export const POST: APIRoute = async ({ request }) => {
   const body = await request.text();
   const signature = request.headers.get("Webhook-Signature");
 
-  if (env.STREAM_WEBHOOK_SECRET) {
-    const result = await verifyWebhookSignature(
-      body,
-      signature,
-      env.STREAM_WEBHOOK_SECRET,
-    );
-    if (!result.valid) {
-      console.error("Invalid webhook signature", {
-        hasHeader: signature !== null,
-        hasSecret: !!env.STREAM_WEBHOOK_SECRET,
-        parsed: result.parsed,
-        bodyLength: body.length,
-        reason: result.reason,
-      });
-      return new Response("Invalid signature", { status: 403 });
-    }
+  if (!env.STREAM_WEBHOOK_SECRET) {
+    console.error("STREAM_WEBHOOK_SECRET is required");
+    return new Response("Webhook secret not configured", { status: 500 });
+  }
+
+  const result = await verifyWebhookSignature(
+    body,
+    signature,
+    env.STREAM_WEBHOOK_SECRET,
+  );
+  if (!result.valid) {
+    console.error("Invalid webhook signature", {
+      hasHeader: signature !== null,
+      hasSecret: !!env.STREAM_WEBHOOK_SECRET,
+      parsed: result.parsed,
+      bodyLength: body.length,
+      reason: result.reason,
+    });
+    return new Response("Invalid signature", { status: 403 });
   }
 
   let payload: StreamWebhookPayload;

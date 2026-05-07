@@ -40,7 +40,7 @@ import {
   notificationsMarkReadByContextSchema,
 } from "../lib/validation";
 import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
-import { generateShareToken } from "../lib/share";
+import { generateShareToken, generateInviteToken } from "../lib/share";
 import { getApprovalStatus } from "../lib/approvals";
 import { createDirectUpload, deleteVideo as deleteStreamVideo } from "../lib/stream";
 import { isTranscriptGenerationEnabled } from "../lib/flags";
@@ -1890,7 +1890,7 @@ export const server = {
           spaceId: input.id,
           email: input.email,
           invitedBy: user.id,
-          token: nanoid(12),
+          token: generateInviteToken(),
           status: "pending" as const,
         };
 
