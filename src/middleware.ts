@@ -1,7 +1,7 @@
 import { defineMiddleware } from "astro:middleware";
 import { env } from "cloudflare:workers";
 import { createAuth } from "./lib/auth";
-import { getSafeReturnUrl } from "./lib/urls";
+import { getCanonicalBaseUrl, getSafeReturnUrl } from "./lib/urls";
 
 // Extend Astro locals type
 declare global {
@@ -15,8 +15,37 @@ declare global {
 const protectedRoutes = ["/dashboard", "/notifications", "/settings", "/videos/", "/spaces/"];
 const authApiRoutes = ["/api/videos", "/api/comments", "/api/spaces", "/api/invites", "/api/notifications", "/_actions/"];
 
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+const ORIGIN_CHECK_SKIP_PATTERNS: RegExp[] = [
+  /^\/api\/auth\//,
+  /^\/api\/webhooks\/stream\/?$/,
+  /^\/api\/share\/[^/]+\/comments\/?$/,
+  /^\/api\/share\/[^/]+\/view\/?$/,
+];
+
+function shouldEnforceOriginCheck(method: string, pathname: string): boolean {
+  if (SAFE_METHODS.has(method)) return false;
+  const isProtectedScope =
+    pathname.startsWith("/api/") || pathname.startsWith("/_actions/");
+  if (!isProtectedScope) return false;
+  return !ORIGIN_CHECK_SKIP_PATTERNS.some((pattern) => pattern.test(pathname));
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.user = null;
+
+  const pathname = context.url.pathname;
+
+  if (shouldEnforceOriginCheck(context.request.method, pathname)) {
+    const origin = context.request.headers.get("Origin");
+    if (origin && origin !== getCanonicalBaseUrl(env)) {
+      return new Response(JSON.stringify({ error: "Cross-origin request blocked" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
 
   const auth = createAuth(env.DB, {
     BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
@@ -41,8 +70,6 @@ export const onRequest = defineMiddleware(async (context, next) => {
   } catch {
     // Auth error, continue unauthenticated
   }
-
-  const pathname = context.url.pathname;
 
   // Let Better Auth handle its own routes
   if (pathname.startsWith("/api/auth/")) {
