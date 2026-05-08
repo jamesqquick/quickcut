@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
 import { shareLinks, comments, projects, users, videos } from "../../../../db/schema";
-import { eq, asc, gt, and } from "drizzle-orm";
+import { eq, asc, gt, and, inArray } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { addReactionSummaries } from "../../../../lib/comments";
 import { createCommentNotifications } from "../../../../lib/notifications";
@@ -58,7 +58,8 @@ export const GET: APIRoute = async ({ params, url }) => {
   if (userIds.length > 0) {
     const usersResult = await db
       .select({ id: users.id, name: users.name })
-      .from(users);
+      .from(users)
+      .where(inArray(users.id, userIds));
     userMap = Object.fromEntries(usersResult.map((u) => [u.id, u.name]));
   }
 

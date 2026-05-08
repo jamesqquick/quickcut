@@ -19,7 +19,7 @@ interface Member {
   role: string;
   createdAt: string;
   name: string;
-  email: string;
+  email?: string;
 }
 
 interface Invite {
@@ -279,7 +279,9 @@ export function SpaceSettings({
                     <span className="ml-2 text-xs text-text-tertiary">(you)</span>
                   )}
                 </p>
-                <p className="text-xs text-text-tertiary">{member.email}</p>
+                {member.email && (
+                  <p className="text-xs text-text-tertiary">{member.email}</p>
+                )}
               </div>
               <div className="flex items-center gap-3">
                 <span

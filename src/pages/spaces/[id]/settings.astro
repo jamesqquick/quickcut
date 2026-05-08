@@ -26,7 +26,7 @@ const space = await db
 
 if (space.length === 0) return Astro.redirect("/dashboard");
 
-const members = await db
+const memberRows = await db
   .select({
     id: spaceMembers.id,
     userId: spaceMembers.userId,
@@ -38,6 +38,11 @@ const members = await db
   .from(spaceMembers)
   .innerJoin(users, eq(spaceMembers.userId, users.id))
   .where(eq(spaceMembers.spaceId, id));
+
+const members =
+  role === "owner"
+    ? memberRows
+    : memberRows.map(({ email: _email, ...rest }) => rest);
 
 const pendingInvites = role === "owner"
   ? await db

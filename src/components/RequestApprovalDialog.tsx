@@ -5,7 +5,7 @@ import { Modal } from "./Modal";
 interface SpaceMemberOption {
   userId: string;
   name: string;
-  email: string;
+  email?: string;
   role: "owner" | "member";
 }
 
@@ -87,7 +87,7 @@ export function RequestApprovalDialog({
     return eligibleMembers.filter(
       (m) =>
         m.name.toLowerCase().includes(q) ||
-        m.email.toLowerCase().includes(q),
+        (m.email?.toLowerCase().includes(q) ?? false),
     );
   }, [eligibleMembers, filter]);
 
@@ -204,9 +204,11 @@ export function RequestApprovalDialog({
                             </span>
                           )}
                         </span>
-                        <span className="block truncate text-xs text-text-tertiary">
-                          {member.email}
-                        </span>
+                        {member.email && (
+                          <span className="block truncate text-xs text-text-tertiary">
+                            {member.email}
+                          </span>
+                        )}
                       </span>
                     </label>
                   </li>

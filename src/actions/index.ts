@@ -15,6 +15,7 @@ import {
   approvalRequests,
   brainstorms,
   comments,
+  commentReactions,
   projects,
   scripts,
   shareLinks,
@@ -1429,11 +1430,27 @@ export const server = {
           });
         }
 
-        // Delete replies if this is a root comment
         if (!comment[0].parentId) {
-          await db.delete(comments).where(eq(comments.parentId, commentId));
+          const replyIds = await db
+            .select({ id: comments.id })
+            .from(comments)
+            .where(eq(comments.parentId, commentId));
+          if (replyIds.length > 0) {
+            await db
+              .delete(commentReactions)
+              .where(
+                inArray(
+                  commentReactions.commentId,
+                  replyIds.map((r) => r.id),
+                ),
+              );
+            await db.delete(comments).where(eq(comments.parentId, commentId));
+          }
         }
 
+        await db
+          .delete(commentReactions)
+          .where(eq(commentReactions.commentId, commentId));
         await db.delete(comments).where(eq(comments.id, commentId));
 
         return { success: true };

@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
 import { shareLinks, videos, comments, users } from "../../../../db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, inArray } from "drizzle-orm";
 
 export const GET: APIRoute = async ({ params }) => {
   const { token } = params;
@@ -69,7 +69,8 @@ export const GET: APIRoute = async ({ params }) => {
   if (userIds.length > 0) {
     const usersResult = await db
       .select({ id: users.id, name: users.name })
-      .from(users);
+      .from(users)
+      .where(inArray(users.id, userIds));
     userMap = Object.fromEntries(usersResult.map((u) => [u.id, u.name]));
   }
 
