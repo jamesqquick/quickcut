@@ -6,12 +6,16 @@ import { eq, and } from "drizzle-orm";
 import { sessions, videos, shareLinks, spaceMembers } from "../db/schema";
 import * as schema from "../db/schema";
 import type { Database } from "../db";
+import { sendEmail } from "./send-email";
 
 export type VideoAccess =
   | { ok: true; videoId: string; spaceId: string; identity: { type: "user"; userId: string } | { type: "anonymous" } }
   | { ok: false; status: number; error: string };
 
-type AuthEnv = Pick<Cloudflare.Env, "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "EMAIL" | "OTP_EMAIL_FROM">;
+type AuthEnv = Pick<
+  Cloudflare.Env,
+  "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "EMAIL" | "OTP_EMAIL_FROM" | "SEND_REAL_EMAILS"
+>;
 
 function getOtpEmailSubject(type: "sign-in" | "email-verification" | "forget-password" | "change-email"): string {
   switch (type) {
@@ -59,7 +63,7 @@ export function createAuth(d1: D1Database, env: AuthEnv) {
           const normalizedEmail = email.trim().toLowerCase();
           const { subject, text, html } = getOtpEmailBody(otp, type);
 
-          await env.EMAIL.send({
+          await sendEmail(env, {
             to: normalizedEmail,
             from: env.OTP_EMAIL_FROM,
             subject,

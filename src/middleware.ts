@@ -52,6 +52,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     BETTER_AUTH_URL: env.BETTER_AUTH_URL,
     EMAIL: env.EMAIL,
     OTP_EMAIL_FROM: env.OTP_EMAIL_FROM,
+    SEND_REAL_EMAILS: env.SEND_REAL_EMAILS,
   });
 
   try {

@@ -73,6 +73,7 @@ import {
   markNotificationsReadByVideoTab,
 } from "../lib/notifications";
 import { buildInviteAuthPath, buildInviteEmail } from "../lib/email";
+import { sendEmail } from "../lib/send-email";
 
 // Re-export ActionError for convenience
 export { ActionError } from "astro:actions";
@@ -746,7 +747,7 @@ export const server = {
               actorDisplayName: user.name,
             },
             {
-              send: (msg) => env.EMAIL.send(msg),
+              send: (msg) => sendEmail(env, msg),
               from: env.OTP_EMAIL_FROM,
               baseUrl: getCanonicalBaseUrl(env),
             },
@@ -1365,7 +1366,7 @@ export const server = {
               phase,
             },
             {
-              send: (msg) => env.EMAIL.send(msg),
+              send: (msg) => sendEmail(env, msg),
               from: env.OTP_EMAIL_FROM,
               baseUrl: getCanonicalBaseUrl(env),
             },
@@ -1593,7 +1594,7 @@ export const server = {
               phase: parent[0].phase,
             },
             {
-              send: (msg) => env.EMAIL.send(msg),
+              send: (msg) => sendEmail(env, msg),
               from: env.OTP_EMAIL_FROM,
               baseUrl: getCanonicalBaseUrl(env),
             },
@@ -1933,7 +1934,7 @@ export const server = {
         });
 
         try {
-          await env.EMAIL.send({
+          await sendEmail(env, {
             to: input.email,
             from: env.OTP_EMAIL_FROM,
             subject: email.subject,

@@ -6,6 +6,7 @@ import { eq, asc, gt, and, inArray } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { addReactionSummaries } from "../../../../lib/comments";
 import { createCommentNotifications } from "../../../../lib/notifications";
+import { sendEmail } from "../../../../lib/send-email";
 import { anonymousCommentSchema, commentSchema } from "../../../../lib/validation";
 import { getCanonicalBaseUrl } from "../../../../lib/urls";
 import { z } from "zod";
@@ -231,7 +232,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       parentCommentId: newComment.parentId,
       phase: newComment.phase,
     }, {
-      send: (msg) => env.EMAIL.send(msg),
+      send: (msg) => sendEmail(env, msg),
       from: env.OTP_EMAIL_FROM,
       baseUrl: getCanonicalBaseUrl(env),
     }, env);

@@ -69,6 +69,7 @@
     "TRANSCRIPT_CLEANUP_MODEL": "@cf/meta/llama-3.1-8b-instruct",
     "BETTER_AUTH_URL": "http://localhost:4321",
     "OTP_EMAIL_FROM": "noreply@quickcuts.app",
+    "SEND_REAL_EMAILS": "true",
   },
   "ratelimits": [
     {
