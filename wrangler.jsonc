@@ -16,6 +16,7 @@
     {
       "binding": "FLAGS",
       "app_id": "0e0911ff-8d97-4af0-a6cb-95093b8b045e",
+      "remote": true,
     },
   ],
   "ai": {
