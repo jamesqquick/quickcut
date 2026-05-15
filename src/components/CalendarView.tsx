@@ -3,6 +3,7 @@ import { actions } from "astro:actions";
 import { PHASE_LABELS, type VideoPhase } from "../types";
 import { DatePicker } from "./DatePicker";
 import type { DashboardVideo } from "./dashboard-types";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface CalendarViewProps {
   initialVideos: DashboardVideo[];
@@ -105,7 +106,10 @@ export function CalendarView({ initialVideos, spaceId }: CalendarViewProps) {
         id: video.id,
         targetDate,
       });
-      if (error) throw new Error(error.message || "Failed to update launch date");
+      if (error)
+        throw new Error(
+          friendlyActionErrorMessage(error.message, "Failed to update launch date"),
+        );
     } catch (err) {
       console.error(err);
       setVideos(previous);

@@ -3,6 +3,7 @@ import { actions } from "astro:actions";
 import { PHASE_LABELS, VIDEO_PHASES, type VideoPhase } from "../types";
 import type { DashboardVideo } from "./dashboard-types";
 import { Dropdown, type DropdownOption } from "./Dropdown";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface PipelineBoardProps {
   initialVideos: DashboardVideo[];
@@ -55,7 +56,10 @@ export function PipelineBoard({ initialVideos, spaceId }: PipelineBoardProps) {
 
     try {
       const { error } = await actions.video.setPhase({ id: video.id, phase });
-      if (error) throw new Error(error.message || "Failed to move project");
+      if (error)
+        throw new Error(
+          friendlyActionErrorMessage(error.message, "Failed to move project"),
+        );
     } catch (err) {
       console.error(err);
       setVideos(previous);

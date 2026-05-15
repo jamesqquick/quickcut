@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { actions } from "astro:actions";
 import { VIDEO_PHASES, PHASE_LABELS, normalizeVideoPhase, type VideoPhase } from "../types";
 import { Dropdown, type DropdownOption } from "./Dropdown";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface PhaseDropdownProps {
   videoId: string;
@@ -54,7 +55,10 @@ export function PhaseDropdown({
 
     try {
       const { error } = await actions.video.setPhase({ id: videoId, phase });
-      if (error) throw new Error(error.message || "Failed to update phase");
+      if (error)
+        throw new Error(
+          friendlyActionErrorMessage(error.message, "Failed to update phase"),
+        );
       onPhaseChange(phase);
     } catch (err) {
       console.error("Phase update failed:", err);
