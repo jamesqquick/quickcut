@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-12T00:00:00.000Z",
+  "title": "Design System: QuickCut",
+  "extensions": {
+    "colorMeta": {
+      "signal-violet": {
+        "role": "primary",
+        "displayName": "Signal Violet",
+        "canonical": "#6c5ce7",
+        "tonalRamp": ["#1a1547", "#2b2272", "#3d319e", "#4e3fc0", "#6c5ce7", "#8a7cee", "#b1a8f3", "#d7d3f9"]
+      },
+      "bg-primary-dark": {
+        "role": "neutral",
+        "displayName": "Surface Page (Dark)",
+        "canonical": "#0d0d0f",
+        "tonalRamp": ["#050506", "#0d0d0f", "#161619", "#1e1e22", "#2a2a2f", "#3a3a42", "#5a5a66", "#a0a0ab"]
+      },
+      "bg-primary-light": {
+        "role": "neutral",
+        "displayName": "Surface Page (Light)",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#0d0d0f", "#1e1e22", "#3a3a42", "#5a5a66", "#8a8a94", "#c8c8d0", "#e3e3e8", "#ffffff"]
+      },
+      "accent-secondary-dark": {
+        "role": "secondary",
+        "displayName": "Approval Teal",
+        "canonical": "#00b894",
+        "tonalRamp": ["#002b22", "#004a3a", "#006652", "#00866b", "#00a383", "#00b894", "#4dd0b1", "#a8e8d5"]
+      },
+      "accent-warning-dark": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "#f39c12",
+        "tonalRamp": ["#3a2300", "#5e3a00", "#7d4f00", "#a06800", "#d97706", "#f39c12", "#f7b955", "#fbdba6"]
+      },
+      "accent-danger-dark": {
+        "role": "tertiary",
+        "displayName": "Halt Red",
+        "canonical": "#e74c3c",
+        "tonalRamp": ["#3a0e08", "#591611", "#7b1f17", "#a02b20", "#dc2626", "#e74c3c", "#f0827a", "#fac4bf"]
+      },
+      "accent-info-dark": {
+        "role": "tertiary",
+        "displayName": "Reference Blue",
+        "canonical": "#3498db",
+        "tonalRamp": ["#072034", "#0e3a5c", "#155080", "#1d6aa6", "#2980b9", "#3498db", "#76b6e6", "#c2dff3"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines on the landing page only. Never inside the app." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles. Dashboard / Settings / Notifications page headings." },
+      "title": { "displayName": "Title", "purpose": "Card titles, modal titles, section titles inside a page." },
+      "body": { "displayName": "Body", "purpose": "The default voice. Comments, helper text, form labels, button labels, nav." },
+      "label": { "displayName": "Label", "purpose": "Status pill text, chip text, table column headers, eyebrow labels." },
+      "mono": { "displayName": "Mono", "purpose": "Timecodes, upload percentages, share-link tokens, numeric columns." }
+    },
+    "shadows": [
+      { "name": "overlay-subtle", "value": "0 4px 12px rgba(0,0,0,0.15)", "purpose": "Dropdown menus, comment-marker tooltip, small popovers." },
+      { "name": "overlay-lifted", "value": "0 10px 25px rgba(0,0,0,0.2)", "purpose": "User menu, space switcher, version switcher, target-date editor." },
+      { "name": "overlay-modal", "value": "0 25px 50px rgba(0,0,0,0.3)", "purpose": "Modals. Paired with bg-black/85 backdrop." }
+    ],
+    "motion": [
+      { "name": "ease-default", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default easing for hover, focus, and state transitions. Ease-out, no bounce." },
+      { "name": "duration-fast", "value": "150ms", "purpose": "Default transition duration for buttons, inputs, hovers." },
+      { "name": "duration-medium", "value": "300ms", "purpose": "Progress bar fills, modal entrances, sidebar slide-in." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The path forward. One per screen. No shadow on hover.",
+      "html": "<button class=\"ds-btn-primary\">Upload a cut</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #6c5ce7; color: #ffffff; padding: 10px 20px; border: none; border-radius: 8px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 500; line-height: 1.5; cursor: pointer; transition: background 150ms cubic-bezier(0.4,0,0.2,1); } .ds-btn-primary:hover { background: #7c6ff0; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #0d0d0f, 0 0 0 4px #6c5ce7; } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Second-tier actions. Always paired with a primary; never the only CTA.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #161619; color: #f0f0f3; padding: 10px 20px; border: 1px solid #2a2a2f; border-radius: 8px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 150ms cubic-bezier(0.4,0,0.2,1); } .ds-btn-secondary:hover { background: #1e1e22; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Inline action verbs: 'Mark read', 'Use a different email'. No background at rest.",
+      "html": "<button class=\"ds-btn-ghost\">Mark read</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; gap: 8px; background: transparent; color: #a0a0ab; padding: 8px 12px; border: none; border-radius: 8px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 150ms, color 150ms; } .ds-btn-ghost:hover { background: #1e1e22; color: #f0f0f3; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Default input. Border shifts to Signal Violet on focus; no ring, no glow.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"name@studio.com\" />",
+      "css": ".ds-input { display: block; width: 100%; background: #232328; color: #f0f0f3; padding: 10px 16px; border: 1px solid #2a2a2f; border-radius: 8px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; outline: none; transition: border-color 150ms; } .ds-input::placeholder { color: #6b6b76; } .ds-input:focus { border-color: #6c5ce7; }"
+    },
+    {
+      "name": "Status Pill (Processing)",
+      "kind": "chip",
+      "refersTo": "chip-status",
+      "description": "Status badge. Tinted bg at /15 alpha + colored text + pulsing dot for active states.",
+      "html": "<span class=\"ds-chip-processing\"><span class=\"ds-chip-dot\"></span>Processing</span>",
+      "css": ".ds-chip-processing { display: inline-flex; align-items: center; padding: 2px 10px; background: rgba(243, 156, 18, 0.15); color: #f39c12; border-radius: 9999px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 12px; font-weight: 500; letter-spacing: 0.02em; } .ds-chip-dot { width: 6px; height: 6px; margin-right: 6px; background: #f39c12; border-radius: 9999px; animation: ds-pulse 2s ease-in-out infinite; } @keyframes ds-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Flat surface at rest. 1px border, tinted fill, 20px internal padding. No shadow.",
+      "html": "<article class=\"ds-card\"><h3 class=\"ds-card-title\">Reel cut v3</h3><p class=\"ds-card-meta\">Uploaded 2d ago by Jamie</p></article>",
+      "css": ".ds-card { background: #161619; border: 1px solid #2a2a2f; border-radius: 12px; padding: 20px; transition: border-color 150ms; } .ds-card:hover { border-color: #3a3a42; } .ds-card-title { margin: 0 0 4px; color: #f0f0f3; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 18px; font-weight: 600; } .ds-card-meta { margin: 0; color: #a0a0ab; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; }"
+    },
+    {
+      "name": "Dropdown Menu",
+      "kind": "nav",
+      "refersTo": "modal",
+      "description": "Lifted overlay. Subtle shadow. Rounded-lg with a 1px border and tinted panel fill.",
+      "html": "<div class=\"ds-menu\"><button class=\"ds-menu-item\">Share link</button><button class=\"ds-menu-item\">Rename</button><button class=\"ds-menu-item ds-menu-item-danger\">Delete</button></div>",
+      "css": ".ds-menu { display: flex; flex-direction: column; min-width: 176px; background: #161619; border: 1px solid #2a2a2f; border-radius: 8px; padding: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); } .ds-menu-item { display: flex; align-items: center; padding: 8px 12px; background: transparent; color: #f0f0f3; border: none; border-radius: 6px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 14px; text-align: left; cursor: pointer; transition: background 150ms; } .ds-menu-item:hover { background: #1e1e22; } .ds-menu-item-danger { color: #e74c3c; } .ds-menu-item-danger:hover { background: rgba(231, 76, 60, 0.15); }"
+    },
+    {
+      "name": "Timeline Marker",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Signature component. Colored dot positioned on a horizontal track at a comment's timestamp. Hover reveals tooltip with avatar initial, mono timecode, and excerpt. Click seeks the player.",
+      "html": "<div class=\"ds-timeline\"><button class=\"ds-marker\" style=\"left: 32%;\"><span class=\"ds-marker-dot\"></span><span class=\"ds-marker-tooltip\"><span class=\"ds-marker-avatar\">JQ</span><span class=\"ds-marker-time\">0:42</span><span class=\"ds-marker-excerpt\">Tighten this cut</span></span></button></div>",
+      "css": ".ds-timeline { position: relative; height: 24px; background: #1e1e22; border-radius: 12px; } .ds-marker { position: absolute; top: 4px; transform: translateX(-50%); background: transparent; border: none; padding: 0; cursor: pointer; } .ds-marker-dot { display: block; width: 12px; height: 12px; background: #6c5ce7; border-radius: 9999px; transition: transform 150ms; } .ds-marker:hover .ds-marker-dot { transform: scale(1.25); } .ds-marker-tooltip { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); display: none; align-items: center; gap: 8px; padding: 8px 12px; background: #161619; border: 1px solid #2a2a2f; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); white-space: nowrap; } .ds-marker:hover .ds-marker-tooltip { display: inline-flex; } .ds-marker-avatar { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; background: #6c5ce7; color: #fff; border-radius: 9999px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 10px; font-weight: 600; } .ds-marker-time { color: #f0f0f3; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; } .ds-marker-excerpt { color: #a0a0ab; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 12px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Edit Room",
+    "overview": "QuickCut is an edit room rendered as software. A post-production suite at night: low light, a single bright frame in the center, instruments arranged around it. The interface is the room, not the showroom. The video is the only thing the eye should fight for; everything else is the panel around the panel. The system runs in both dark and light, but dark is the home register. Surfaces are flat at rest. Depth is reserved for things that genuinely float. Inter is the only voice. JetBrains Mono is the timecode voice. The single accent, Signal Violet, is rationed.",
+    "keyCharacteristics": [
+      "Flat surfaces, lifted overlays. Pages don't have shadows; popovers do.",
+      "One accent, rationed. Signal Violet occupies less than or equal to 10% of any screen.",
+      "Frame is the largest mass. Anywhere the video appears, it owns the optical center.",
+      "Inter for everything; JetBrains Mono for timecodes. No third font.",
+      "No pure black, no pure white. Every neutral is tinted toward a cool axis."
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Signal Violet appears on less than or equal to 10% of any screen. If two violet things are within 100px of each other, kill one.", "section": "colors" },
+      { "name": "The No-Pure-Surface Rule", "body": "No pure black, no pure white. Every background, every panel, every text color is tinted. The player surface must be a dedicated near-black token, not bg-black.", "section": "colors" },
+      { "name": "The Color-Plus-Glyph Rule", "body": "Status, urgency, and severity are never communicated by color alone. Always pair color with a glyph, label, or shape.", "section": "colors" },
+      { "name": "The Two-Voice Rule", "body": "Inter and JetBrains Mono. No third font. Differentiation comes from weight and size, not from family.", "section": "typography" },
+      { "name": "The Numerals-Are-Mono-When-Aligned Rule", "body": "Numerals that appear in a column use JetBrains Mono. Numerals in prose use Inter.", "section": "typography" },
+      { "name": "The 65ch Rule", "body": "Body copy is capped at 65-75ch.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces at rest have no shadow. Cards, sections, panels, side rails, sidebars are flat.", "section": "elevation" },
+      { "name": "The Floating-Means-Detached Rule", "body": "Shadows mean 'I'm not part of the layer behind me.' Menus, popovers, modals. That is the complete list. Buttons do not float.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Signal Violet to less than or equal to 10% of any screen.",
+      "Do pair color with a glyph, label, or shape for every status, severity, and urgency signal.",
+      "Do use Inter for everything visible and JetBrains Mono for timecodes, upload percentages, and any numeric column.",
+      "Do keep surfaces flat at rest. Reserve shadows for menus, popovers, modals, and the timeline-marker tooltip.",
+      "Do tint every neutral. Page-light should be off-white (#fafafb), page-dark near-black (#0d0d0f), the player surface #0a0a0c.",
+      "Do size cards' internal padding at 20px by default. Modals at 24px.",
+      "Do use the shadow-lg / shadow-xl / shadow-2xl triad for the three depth roles. Don't invent new shadow values.",
+      "Do make the video the largest visual mass on any screen it appears in.",
+      "Do keep transitions at 150ms with an ease-out curve. No bounce, no elastic."
+    ],
+    "donts": [
+      "Don't use SaaS-template gradients. No bg-gradient on text. No background-clip: text with a gradient fill.",
+      "Don't add the purple-glow shadow on buttons. Buttons don't float.",
+      "Don't use side-stripe borders (border-l-2 colored stripes) on cards, list items, comment items, or alerts.",
+      "Don't use glassmorphism decoratively. The only permitted blur is the modal backdrop scrim.",
+      "Don't use pure #000 or pure #fff.",
+      "Don't build identical card grids of 'icon + heading + paragraph' repeated 3-6 times.",
+      "Don't use radial purple glow backgrounds for atmosphere.",
+      "Don't invent new fonts. Inter and JetBrains Mono. That's it.",
+      "Don't put the same CTA in the header, the hero, and the final-CTA section. Once per surface.",
+      "Don't use em dashes in JSX/Astro user-facing copy.",
+      "Don't use modals for routine actions. Inline-edit, popovers, and progressive disclosure exhaust first.",
+      "Don't use alert(). Route through Toast or keep an open ConfirmDialog.",
+      "Don't nest cards."
+    ]
+  }
+}
