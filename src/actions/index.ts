@@ -752,6 +752,7 @@ export const server = {
               baseUrl: getCanonicalBaseUrl(env),
             },
             env,
+            context.locals.cfContext,
           );
         } catch (err) {
           console.error("Failed to dispatch targeted approval-request notifications", err);
@@ -1371,6 +1372,7 @@ export const server = {
               baseUrl: getCanonicalBaseUrl(env),
             },
             env,
+            context.locals.cfContext,
           );
         } catch (err) {
           console.error("Failed to create comment notification", err);
@@ -1385,7 +1387,9 @@ export const server = {
           reactions: [],
         };
 
-        await broadcastNewComment(env, videoId, responseComment);
+        context.locals.cfContext.waitUntil(
+          broadcastNewComment(env, videoId, responseComment),
+        );
 
         return { comment: responseComment };
       },
@@ -1599,6 +1603,7 @@ export const server = {
               baseUrl: getCanonicalBaseUrl(env),
             },
             env,
+            context.locals.cfContext,
           );
         } catch (err) {
           console.error("Failed to create reply notification", err);
@@ -1611,7 +1616,9 @@ export const server = {
           reactions: [],
         };
 
-        await broadcastNewComment(env, parent[0].videoId, responseComment);
+        context.locals.cfContext.waitUntil(
+          broadcastNewComment(env, parent[0].videoId, responseComment),
+        );
 
         return { comment: responseComment };
       },
@@ -1671,13 +1678,15 @@ export const server = {
           name: user.name,
         });
 
-        await broadcastCommentReactions(env, comment[0].videoId, {
-          commentId,
-          reactions: reactions.map((reaction) => ({
-            ...reaction,
-            reactedByMe: false,
-          })),
-        });
+        context.locals.cfContext.waitUntil(
+          broadcastCommentReactions(env, comment[0].videoId, {
+            commentId,
+            reactions: reactions.map((reaction) => ({
+              ...reaction,
+              reactedByMe: false,
+            })),
+          }),
+        );
 
         return { commentId, reactions };
       },
@@ -1954,13 +1963,15 @@ export const server = {
         // their open tabs so the header badge increments — pending invites
         // count toward the unread badge (see Layout.astro).
         if (existingUser.length > 0) {
-          await broadcastNotification(env, existingUser[0].id, {
-            kind: "invite",
-            id: invite.id,
-            title: `${user.name} invited you to ${space[0].name}`,
-            href: "/notifications",
-            createdAt: new Date().toISOString(),
-          });
+          context.locals.cfContext.waitUntil(
+            broadcastNotification(env, existingUser[0].id, {
+              kind: "invite",
+              id: invite.id,
+              title: `${user.name} invited you to ${space[0].name}`,
+              href: "/notifications",
+              createdAt: new Date().toISOString(),
+            }),
+          );
         }
 
         const created = await db
@@ -2158,7 +2169,9 @@ export const server = {
         const ids = await markNotificationsReadByVideoTab(db, user.id, videoId, tab);
 
         if (ids.length > 0) {
-          await broadcastNotificationsRead(env, user.id, ids);
+          context.locals.cfContext.waitUntil(
+            broadcastNotificationsRead(env, user.id, ids),
+          );
         }
 
         return { ids, count: ids.length };

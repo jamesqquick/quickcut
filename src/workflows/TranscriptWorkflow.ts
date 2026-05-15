@@ -98,7 +98,9 @@ export class TranscriptWorkflow extends WorkflowEntrypoint<Env, TranscriptWorkfl
           .set({ status: "transcribing", updatedAt: now() })
           .where(eq(transcripts.id, transcriptId));
 
-        const audioResponse = await fetch(audioUrl);
+        const audioResponse = await fetch(audioUrl, {
+          signal: AbortSignal.timeout(60_000),
+        });
         if (!audioResponse.ok) throw new Error(`Audio fetch failed: ${audioResponse.status}`);
 
         const audioBuffer = await audioResponse.arrayBuffer();
