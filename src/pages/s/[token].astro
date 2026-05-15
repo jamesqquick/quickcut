@@ -20,6 +20,19 @@ const currentUser = Astro.locals.user
   ? { id: Astro.locals.user.id, name: Astro.locals.user.name }
   : null;
 
+const initialGuestName = (() => {
+  if (currentUser) return null;
+  const raw = Astro.cookies.get("qc_guest_name")?.value;
+  if (!raw) return null;
+  try {
+    const decoded = decodeURIComponent(raw);
+    const trimmed = decoded.trim().slice(0, 100);
+    return trimmed || null;
+  } catch {
+    return null;
+  }
+})();
+
 const db = createDb(env.DB);
 
 // Find share link
@@ -185,6 +198,7 @@ const isPublished = phase === "published";
             pipelineEnabled={videoSpace?.pipelineEnabled || false}
             initialTranscriptData={initialTranscriptData}
             currentUser={currentUser}
+            initialGuestName={initialGuestName}
           />
         )}
 
