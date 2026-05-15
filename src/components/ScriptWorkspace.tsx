@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { actions } from "astro:actions";
 import { Mark } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -9,6 +9,8 @@ import type { Comment, CommentUrgency, TextRange } from "../types";
 import { relativeTime } from "../lib/time";
 import { connectVideoRoom, type Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
+import { PendingCommentHighlight } from "./pendingCommentHighlight";
+import { CommentHighlightDecorations } from "./commentHighlightDecorations";
 
 const EMPTY_DOC: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
 
@@ -169,14 +171,7 @@ const CommentHighlight = Mark.create({
     return [{ tag: "mark[data-comment-id]" }];
   },
   renderHTML({ HTMLAttributes }) {
-    return [
-      "mark",
-      {
-        ...HTMLAttributes,
-        class: "rounded bg-accent-warning/25 px-0.5 text-text-primary decoration-accent-warning underline decoration-2 underline-offset-2",
-      },
-      0,
-    ];
+    return ["span", { ...HTMLAttributes }, 0];
   },
 });
 
@@ -258,7 +253,9 @@ export function ScriptWorkspace({
   const [viewers, setViewers] = useState<Viewer[]>([]);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
+  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const commentRowRefs = useRef<Map<string, HTMLElement>>(new Map());
   const isReviewMode = true;
   const isReviewModeRef = useRef(isReviewMode);
 
@@ -350,6 +347,8 @@ export function ScriptWorkspace({
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Placeholder.configure({ placeholder: "Write the hook, outline, or full script here..." }),
       CommentHighlight,
+      PendingCommentHighlight,
+      CommentHighlightDecorations,
     ],
     content: parseInitialContent(initialContent),
     editorProps: {
@@ -381,6 +380,34 @@ export function ScriptWorkspace({
   useEffect(() => {
     if (editor) editor.setEditable(canEditScript);
   }, [editor, canEditScript]);
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.commands.setPendingCommentRange(
+      selectedRange ? { from: selectedRange.from, to: selectedRange.to } : null,
+    );
+  }, [editor, selectedRange]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const items = comments
+      .filter((c) => c.phase === "script" && !c.isResolved && c.textRange && !c.parentId)
+      .map((c) => ({
+        id: c.id,
+        from: c.textRange!.from,
+        to: c.textRange!.to,
+        quote: c.textRange!.quote,
+      }));
+    editor.commands.setCommentHighlights(items);
+  }, [editor, comments]);
+
+  useEffect(() => {
+    if (!activeCommentId) return;
+    const stillActive = comments.some(
+      (c) => c.id === activeCommentId && !c.isResolved && !c.parentId,
+    );
+    if (!stillActive) setActiveCommentId(null);
+  }, [activeCommentId, comments]);
 
   useEffect(() => () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -449,16 +476,6 @@ export function ScriptWorkspace({
         });
         if (error || !data) throw new Error(error?.message || "Failed to create comment");
         comment = data.comment as Comment;
-      }
-
-      if (canEditScript && comment) {
-        editor
-          .chain()
-          .focus()
-          .setTextSelection({ from: selectedRange.from, to: selectedRange.to })
-          .setMark("commentHighlight", { commentId: comment.id })
-          .run();
-        await saveScript(JSON.stringify(editor.getJSON()), editor.getText());
       }
 
       if (comment) {
@@ -536,9 +553,32 @@ export function ScriptWorkspace({
     }
   };
 
+  const activateComment = (commentId: string) => {
+    const comment = comments.find((c) => c.id === commentId);
+    if (!comment) return;
+    setActiveCommentId(commentId);
+    const row = commentRowRefs.current.get(commentId);
+    if (row) row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (editor && comment.textRange) {
+      editor
+        .chain()
+        .focus()
+        .setTextSelection({ from: comment.textRange.from, to: comment.textRange.to })
+        .run();
+    }
+  };
+
   const focusComment = (comment: Comment) => {
-    if (!editor || !comment.textRange) return;
-    editor.chain().focus().setTextSelection({ from: comment.textRange.from, to: comment.textRange.to }).run();
+    activateComment(comment.id);
+  };
+
+  const handleEditorClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    const hit = target.closest<HTMLElement>("[data-comment-id]");
+    if (!hit) return;
+    const id = hit.getAttribute("data-comment-id");
+    if (id) activateComment(id);
   };
 
   return (
@@ -564,7 +604,11 @@ export function ScriptWorkspace({
               )}
             </div>
           </div>
-          <EditorContent editor={editor} className="script-editor max-h-[560px] overflow-y-auto bg-bg-input" />
+          <EditorContent
+            editor={editor}
+            onClick={handleEditorClick}
+            className="script-editor max-h-[560px] overflow-y-auto bg-bg-input"
+          />
         </div>
 
       </div>
@@ -617,12 +661,17 @@ export function ScriptWorkspace({
               const meta = URGENCY_META[comment.urgency];
               const displayName = comment.name || viewerName;
               const replies = getReplies(comment.id);
+              const isActive = activeCommentId === comment.id;
               return (
                 <article
                   key={comment.id}
-                  className={`space-y-3 rounded-lg p-2 -m-2 transition-shadow duration-500 ${
-                    comment.isResolved ? "border-l-2 border-accent-secondary pl-3 opacity-50" : ""
-                  }`}
+                  ref={(el) => {
+                    if (el) commentRowRefs.current.set(comment.id, el);
+                    else commentRowRefs.current.delete(comment.id);
+                  }}
+                  className={`space-y-3 rounded-lg p-2 -m-2 transition-all duration-200 ${
+                    isActive ? "bg-accent-warning/10 ring-1 ring-accent-warning/60" : ""
+                  } ${comment.isResolved ? "border-l-2 border-accent-secondary pl-3 opacity-50" : ""}`}
                 >
                   <div className="flex gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-primary text-xs font-medium text-white">
