@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { actions } from "astro:actions";
 import { Modal } from "./Modal";
 import { Dropdown, type DropdownOption } from "./Dropdown";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface Folder {
   id: string;
@@ -91,18 +92,34 @@ export function MoveToFolderDialog({
     const folderId = selectedFolderId === "root" ? null : selectedFolderId;
 
     try {
+      const fallback =
+        entityType === "video"
+          ? "We couldn't move the project. Please try again."
+          : "We couldn't move the folder. Please try again.";
+
       if (entityType === "video") {
         const { error } = await actions.video.move({ id: entityId, folderId });
-        if (error) throw new Error(error.message || "Failed to move item");
+        if (error) {
+          throw new Error(friendlyActionErrorMessage(error.message, fallback));
+        }
       } else {
         const { error } = await actions.folder.move({ id: entityId, parentId: folderId });
-        if (error) throw new Error(error.message || "Failed to move item");
+        if (error) {
+          throw new Error(friendlyActionErrorMessage(error.message, fallback));
+        }
       }
       onMoved(entityId, folderId);
       setSaving(false);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to move item");
+      setError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          entityType === "video"
+            ? "We couldn't move the project. Please try again."
+            : "We couldn't move the folder. Please try again.",
+        ),
+      );
       setSaving(false);
     }
   };
@@ -156,7 +173,7 @@ export function MoveToFolderDialog({
       </div>
 
       {error && (
-        <div className="mt-4 rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
+        <div className="mt-4 rounded-lg bg-accent-danger/15 px-4 py-2 text-sm break-words text-accent-danger">
           {error}
         </div>
       )}

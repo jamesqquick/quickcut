@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { actions } from "astro:actions";
 import { Modal } from "./Modal";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 export interface CreatedFolder {
   id: string;
@@ -36,7 +37,14 @@ export function CreateFolderDialog({ parentId = null, spaceId, onCreated }: Crea
         parentId,
         spaceId,
       });
-      if (actionError) throw new Error(actionError.message || "Failed to create folder");
+      if (actionError) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            actionError.message,
+            "We couldn't create the folder. Please try again.",
+          ),
+        );
+      }
       if (!data?.folder) throw new Error("Folder was created but no data returned");
       onCreated({
         id: data.folder.id,
@@ -49,7 +57,12 @@ export function CreateFolderDialog({ parentId = null, spaceId, onCreated }: Crea
       setName("");
       setError("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create folder");
+      setError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't create the folder. Please try again.",
+        ),
+      );
       setSaving(false);
     }
   };
@@ -106,7 +119,7 @@ export function CreateFolderDialog({ parentId = null, spaceId, onCreated }: Crea
           </div>
 
           {error && (
-            <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
+            <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm break-words text-accent-danger">
               {error}
             </div>
           )}

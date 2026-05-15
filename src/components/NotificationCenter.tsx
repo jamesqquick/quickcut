@@ -6,6 +6,7 @@ import type {
   UserNotification,
 } from "../lib/notifications";
 import { ToastViewport, useToast } from "./Toast";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface NotificationCenterProps {
   invites: PendingInviteForUser[];
@@ -76,7 +77,14 @@ export function NotificationCenter({
     setMarkingId(notificationId);
     try {
       const { error } = await actions.notification.markRead({ id: notificationId });
-      if (error) throw new Error(error.message || "Failed to mark notification read");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "We couldn't update that notification. Please try again.",
+          ),
+        );
+      }
       setCommentNotifications((current) =>
         current.map((notification) =>
           notification.id === notificationId
@@ -86,7 +94,13 @@ export function NotificationCenter({
       );
       if (wasUnread) window.dispatchEvent(new CustomEvent("quickcut:notification-read"));
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to update notification", "error");
+      showToast(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't update that notification. Please try again.",
+        ),
+        "error",
+      );
       throw err;
     } finally {
       setMarkingId(null);
@@ -110,7 +124,14 @@ export function NotificationCenter({
     try {
       const { data, error } = await actions.space.acceptInvite({ token: invite.token });
 
-      if (error) throw new Error(error.message || "Failed to accept invite");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "We couldn't accept that invite. Please try again.",
+          ),
+        );
+      }
 
       setPendingInvites((current) => current.filter((item) => item.token !== invite.token));
       setAcceptedSpaces((current) => [
@@ -120,7 +141,13 @@ export function NotificationCenter({
       window.dispatchEvent(new CustomEvent("quickcut:invite-accepted"));
       showToast(`Joined ${invite.spaceName}`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to accept invite", "error");
+      showToast(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't accept that invite. Please try again.",
+        ),
+        "error",
+      );
     } finally {
       setLoadingToken(null);
     }

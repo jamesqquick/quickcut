@@ -3,6 +3,8 @@ import { actions } from "astro:actions";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Modal } from "./Modal";
 import { MoveToFolderDialog } from "./MoveToFolderDialog";
+import { ToastViewport, useToast } from "./Toast";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface Folder {
   id: string;
@@ -40,6 +42,7 @@ export function FolderCardMenu({
   const [name, setName] = useState(folderName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const { toasts, showToast, dismissToast } = useToast();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -98,12 +101,24 @@ export function FolderCardMenu({
         id: folderId,
         name: trimmed,
       });
-      if (actionError) throw new Error(actionError.message || "Failed to rename folder");
+      if (actionError) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            actionError.message,
+            "We couldn't rename the folder. Please try again.",
+          ),
+        );
+      }
       onRenamed(folderId, trimmed);
       setSaving(false);
       setRenameOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to rename folder");
+      setError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't rename the folder. Please try again.",
+        ),
+      );
       setSaving(false);
     }
   };
@@ -112,12 +127,25 @@ export function FolderCardMenu({
     setSaving(true);
     try {
       const { error: actionError } = await actions.folder.delete({ id: folderId });
-      if (actionError) throw new Error(actionError.message || "Failed to delete folder");
+      if (actionError) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            actionError.message,
+            "We couldn't delete the folder. Please try again.",
+          ),
+        );
+      }
       onDeleted(folderId);
       setSaving(false);
       setConfirmOpen(false);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete folder");
+      showToast(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't delete the folder. Please try again.",
+        ),
+        "error",
+      );
       setSaving(false);
       setConfirmOpen(false);
     }
@@ -125,6 +153,7 @@ export function FolderCardMenu({
 
   return (
     <>
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
       <div className="relative" ref={menuRef}>
         <button
           onClick={stopAndToggle}
@@ -193,7 +222,7 @@ export function FolderCardMenu({
             className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
           />
           {error && (
-            <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
+            <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm break-words text-accent-danger">
               {error}
             </div>
           )}

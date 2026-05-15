@@ -2,6 +2,7 @@ import { actions } from "astro:actions";
 import { useState } from "react";
 import type { PendingInviteForUser } from "../lib/invites";
 import { ToastViewport, useToast } from "./Toast";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface PendingInvitesListProps {
   invites: PendingInviteForUser[];
@@ -24,7 +25,14 @@ export function PendingInvitesList({ invites }: PendingInvitesListProps) {
     try {
       const { data, error } = await actions.space.acceptInvite({ token: invite.token });
 
-      if (error) throw new Error(error.message || "Failed to accept invite");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "We couldn't accept that invite. Please try again.",
+          ),
+        );
+      }
 
       setPendingInvites((current) => current.filter((item) => item.token !== invite.token));
       setAcceptedSpaces((current) => [
@@ -34,7 +42,13 @@ export function PendingInvitesList({ invites }: PendingInvitesListProps) {
       window.dispatchEvent(new CustomEvent("quickcut:invite-accepted"));
       showToast(`Joined ${invite.spaceName}`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to accept invite", "error");
+      showToast(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't accept that invite. Please try again.",
+        ),
+        "error",
+      );
     } finally {
       setLoadingToken(null);
     }

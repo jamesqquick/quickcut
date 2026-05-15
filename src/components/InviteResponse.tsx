@@ -1,5 +1,6 @@
 import { actions } from "astro:actions";
 import { useState } from "react";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface InviteResponseProps {
   token: string;
@@ -22,7 +23,14 @@ export function InviteResponse({ token, spaceName, spaceId }: InviteResponseProp
           ? await actions.space.acceptInvite({ token })
           : await actions.space.declineInvite({ token });
 
-      if (actionError) throw new Error(actionError.message || `Failed to ${action} invite`);
+      const fallback =
+        action === "accept"
+          ? "We couldn't accept the invite. Please try again."
+          : "We couldn't decline the invite. Please try again.";
+
+      if (actionError) {
+        throw new Error(friendlyActionErrorMessage(actionError.message, fallback));
+      }
 
       setResult(action === "accept" ? "accepted" : "declined");
 
@@ -33,7 +41,14 @@ export function InviteResponse({ token, spaceName, spaceId }: InviteResponseProp
         }, 1500);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to ${action} invite`);
+      setError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          action === "accept"
+            ? "We couldn't accept the invite. Please try again."
+            : "We couldn't decline the invite. Please try again.",
+        ),
+      );
       setLoading(false);
     }
   };
@@ -94,7 +109,7 @@ export function InviteResponse({ token, spaceName, spaceId }: InviteResponseProp
       </p>
 
       {error && (
-        <div className="mt-4 rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
+        <div className="mt-4 rounded-lg bg-accent-danger/15 px-4 py-2 text-sm break-words text-accent-danger">
           {error}
         </div>
       )}

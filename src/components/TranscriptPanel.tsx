@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { actions } from "astro:actions";
 import type { TranscriptStatus } from "../lib/transcript-status";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface TranscriptRecord {
   status: TranscriptStatus;
@@ -121,13 +122,23 @@ export function TranscriptPanel({
           videoId,
         });
         if (actionError || !next) {
-          throw new Error(actionError?.message || "Failed to load transcript");
+          throw new Error(
+            friendlyActionErrorMessage(
+              actionError?.message,
+              "We couldn't load the transcript. Please refresh and try again.",
+            ),
+          );
         }
         setData(next as TranscriptResponse);
         setError("");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load transcript");
+      setError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't load the transcript. Please refresh and try again.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -166,11 +177,21 @@ export function TranscriptPanel({
     try {
       const { error: actionError } = await actions.transcript.queue({ videoId });
       if (actionError) {
-        throw new Error(actionError.message || "Failed to generate transcript");
+        throw new Error(
+          friendlyActionErrorMessage(
+            actionError.message,
+            "We couldn't start the transcript. Please try again.",
+          ),
+        );
       }
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate transcript");
+      setError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't start the transcript. Please try again.",
+        ),
+      );
     } finally {
       setGenerating(false);
     }
@@ -207,7 +228,7 @@ export function TranscriptPanel({
         )}
       </div>
 
-      {error && <div className="mt-3 rounded-lg bg-accent-danger/15 px-3 py-2 text-xs text-accent-danger">{error}</div>}
+      {error && <div className="mt-3 rounded-lg bg-accent-danger/15 px-3 py-2 text-xs break-words text-accent-danger">{error}</div>}
       {status === "failed" && data?.transcript?.errorMessage && (
         <div className="mt-3 rounded-lg bg-accent-danger/15 px-3 py-2 text-xs text-accent-danger">
           {data.transcript.errorMessage}

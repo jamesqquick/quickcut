@@ -2,6 +2,7 @@ import { actions } from "astro:actions";
 import { useState } from "react";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ToastViewport, useToast } from "./Toast";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface Space {
   id: string;
@@ -87,11 +88,23 @@ export function SpaceSettings({
         name: name.trim(),
         requiredApprovals,
       });
-      if (error) throw new Error(error.message || "Failed to update settings");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "We couldn't save your space settings. Please try again.",
+          ),
+        );
+      }
       if (data?.space) setSpace(data.space);
       showToast("Settings saved");
     } catch (err) {
-      setSettingsError(err instanceof Error ? err.message : "Failed to save");
+      setSettingsError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't save your space settings. Please try again.",
+        ),
+      );
     } finally {
       setSettingsSaving(false);
     }
@@ -106,12 +119,25 @@ export function SpaceSettings({
         id: space.id,
         email: inviteEmail.trim(),
       });
-      if (error) throw new Error(error.message || "Failed to send invite");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "We couldn't send that invite. Check the email address and try again.",
+          ),
+        );
+      }
       if (data?.invite) setInvites((prev) => [...prev, data.invite!]);
       setInviteEmail("");
       showToast("Invite sent");
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to invite", "error");
+      showToast(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't send that invite. Check the email address and try again.",
+        ),
+        "error",
+      );
     } finally {
       setInviteSaving(false);
     }
@@ -127,10 +153,22 @@ export function SpaceSettings({
         id: space.id,
         inviteId,
       });
-      if (error) throw new Error(error.message || "Failed to revoke invite");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "We couldn't revoke that invite. Please refresh and try again.",
+          ),
+        );
+      }
     } catch (err) {
       setInvites(previous);
-      setActionError(err instanceof Error ? err.message : "Failed to revoke");
+      setActionError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't revoke that invite. Please refresh and try again.",
+        ),
+      );
     }
   };
 
@@ -144,10 +182,22 @@ export function SpaceSettings({
         id: space.id,
         userId,
       });
-      if (error) throw new Error(error.message || "Failed to remove member");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "We couldn't remove that member. Please refresh and try again.",
+          ),
+        );
+      }
     } catch (err) {
       setMembers(previous);
-      setActionError(err instanceof Error ? err.message : "Failed to remove");
+      setActionError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't remove that member. Please refresh and try again.",
+        ),
+      );
     }
   };
 
@@ -156,10 +206,22 @@ export function SpaceSettings({
     setLeaveLoading(true);
     try {
       const { error } = await actions.space.leave({ id: space.id });
-      if (error) throw new Error(error.message || "Failed to leave space");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "We couldn't leave the space. Please try again.",
+          ),
+        );
+      }
       window.location.href = "/dashboard";
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to leave");
+      setActionError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't leave the space. Please try again.",
+        ),
+      );
       setLeaveLoading(false);
       setLeaveOpen(false);
     }
@@ -170,7 +232,14 @@ export function SpaceSettings({
     setDeleteLoading(true);
     try {
       const { error } = await actions.space.delete({ id: space.id });
-      if (error) throw new Error(error.message || "Failed to delete space");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "We couldn't delete the space. Please try again.",
+          ),
+        );
+      }
       // Persist a toast across the navigation to /dashboard. The dashboard
       // page mounts a <PendingToast /> that consumes and displays this.
       try {
@@ -187,7 +256,12 @@ export function SpaceSettings({
       }
       window.location.href = "/dashboard";
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to delete");
+      setActionError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "We couldn't delete the space. Please try again.",
+        ),
+      );
       setDeleteLoading(false);
       setDeleteOpen(false);
     }
@@ -206,7 +280,7 @@ export function SpaceSettings({
       </div>
 
       {actionError && (
-        <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
+        <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm break-words text-accent-danger">
           {actionError}
         </div>
       )}
@@ -249,7 +323,7 @@ export function SpaceSettings({
             </div>
 
             {settingsError && (
-              <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">
+              <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm break-words text-accent-danger">
                 {settingsError}
               </div>
             )}
