@@ -415,12 +415,9 @@ export async function getNotificationsForUser(
   const limit = options?.limit ?? NOTIFICATIONS_DEFAULT_PAGE_SIZE;
   const cursor = options?.cursor ?? null;
 
-  // Cursor is `createdAt` with strict `lt`. Batched inserts (e.g. one
-  // comment notifying multiple recipients) can stamp identical createdAt
-  // values; if such a batch straddles a page boundary, the next page
-  // will skip the duplicate-timestamp rows. Tolerable for now because
-  // pagination beyond the first page is rare and batch sizes are small.
-  // If this becomes a problem, switch to a tuple cursor (createdAt, id).
+  // Batched inserts can share a createdAt, so `lt(createdAt, cursor)`
+  // may skip duplicate-timestamp rows that straddle a page boundary.
+  // Switch to a tuple cursor (createdAt, id) if this becomes hot.
   const whereClause = cursor
     ? and(
         eq(notifications.userId, userId),
