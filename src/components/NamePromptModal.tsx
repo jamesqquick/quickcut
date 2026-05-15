@@ -46,6 +46,7 @@ export function NamePromptModal({
             onChange={(e) => setName(e.target.value)}
             placeholder="First and last name"
             autoFocus
+            maxLength={100}
             className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
           />
           <div className="flex gap-3">

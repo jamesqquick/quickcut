@@ -53,11 +53,15 @@ interface ShareViewProps {
 const ANON_NAME_KEY = "quickcut_anonymous_name";
 const GUEST_NAME_COOKIE = "qc_guest_name";
 const GUEST_NAME_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const GUEST_NAME_MAX_LENGTH = 100;
 
 function writeGuestNameCookie(name: string) {
   if (typeof document === "undefined") return;
-  const encoded = encodeURIComponent(name);
-  document.cookie = `${GUEST_NAME_COOKIE}=${encoded}; Max-Age=${GUEST_NAME_COOKIE_MAX_AGE}; Path=/s/; SameSite=Lax`;
+  const trimmed = name.slice(0, GUEST_NAME_MAX_LENGTH);
+  const encoded = encodeURIComponent(trimmed);
+  const isHttps = typeof location !== "undefined" && location.protocol === "https:";
+  const secure = isHttps ? "; Secure" : "";
+  document.cookie = `${GUEST_NAME_COOKIE}=${encoded}; Max-Age=${GUEST_NAME_COOKIE_MAX_AGE}; Path=/s/; SameSite=Lax${secure}`;
 }
 
 export function ShareView({
@@ -83,15 +87,27 @@ export function ShareView({
   const viewerName = currentUser?.name ?? anonymousName;
   const viewerId = currentUser?.id ?? "";
 
+  // Backfill the cookie for guests who set their name before this fix shipped
+  // (localStorage present, cookie absent). Without this, the next SSR render
+  // would still show the modal and produce a hydration-mismatch flash.
+  useEffect(() => {
+    if (currentUser) return;
+    if (initialGuestName) return;
+    if (typeof window === "undefined") return;
+    const stored = localStorage.getItem(ANON_NAME_KEY);
+    if (stored) writeGuestNameCookie(stored);
+  }, [currentUser, initialGuestName]);
+
   useEffect(() => {
     if (!viewerName) return;
     fetch(`/api/share/${shareToken}/view`, { method: "POST" }).catch(() => {});
   }, [shareToken, viewerName]);
 
   const handleNameSubmit = (name: string) => {
-    localStorage.setItem(ANON_NAME_KEY, name);
-    writeGuestNameCookie(name);
-    setAnonymousName(name);
+    const capped = name.slice(0, GUEST_NAME_MAX_LENGTH);
+    localStorage.setItem(ANON_NAME_KEY, capped);
+    writeGuestNameCookie(capped);
+    setAnonymousName(capped);
   };
 
   if (!currentUser && !anonymousName) {
