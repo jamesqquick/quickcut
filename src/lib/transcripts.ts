@@ -107,6 +107,15 @@ export async function queueTranscriptForVideo(
     return;
   }
 
+  const workflow = env.TRANSCRIPT_WORKFLOW;
+  if (!workflow) {
+    console.warn(
+      "TRANSCRIPT_WORKFLOW binding is missing; skipping transcript queue for video",
+      video.id,
+    );
+    return;
+  }
+
   const workflowInstanceId = `transcript-${transcriptId}`;
 
   if (existing[0]) {
@@ -130,9 +139,6 @@ export async function queueTranscriptForVideo(
       updatedAt: now,
     });
   }
-
-  const workflow = env.TRANSCRIPT_WORKFLOW;
-  if (!workflow) return;
 
   try {
     await workflow.create({
