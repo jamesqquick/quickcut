@@ -72,8 +72,8 @@ export function NewBrainstormDialog({
         friendlyActionErrorMessage(
           raw,
           editingId
-            ? "We couldn't save your changes. Please try again."
-            : "We couldn't save the idea. Please try again.",
+            ? "Failed to save your changes. Please try again."
+            : "Failed to save the idea. Please try again.",
         ),
       );
       setSaving(false);

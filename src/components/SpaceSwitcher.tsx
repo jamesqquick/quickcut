@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Modal } from "./Modal";
+import { friendlyActionErrorMessage } from "../lib/errors";
 import type { SpaceWithRole } from "../lib/spaces";
 
 interface SpaceSwitcherProps {
@@ -67,10 +68,22 @@ export function SpaceSwitcher({ spaces, selectedSpaceId }: SpaceSwitcherProps) {
         body: JSON.stringify({ name: name.trim(), requiredApprovals }),
       });
       const data = (await res.json().catch(() => null)) as CreateSpaceResponse | null;
-      if (!res.ok || !data?.space) throw new Error(data?.error || "Failed to create space");
+      if (!res.ok || !data?.space) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            data?.error,
+            "Failed to create the space. Please try again.",
+          ),
+        );
+      }
       selectSpace(data.space.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create space");
+      setError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "Failed to create the space. Please try again.",
+        ),
+      );
       setSaving(false);
     }
   };
@@ -196,7 +209,7 @@ export function SpaceSwitcher({ spaces, selectedSpaceId }: SpaceSwitcherProps) {
               className="w-full rounded-lg border border-border-default bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none disabled:opacity-50"
             />
           </div>
-          {error && <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm text-accent-danger">{error}</div>}
+          {error && <div className="rounded-lg bg-accent-danger/15 px-4 py-2 text-sm break-words text-accent-danger">{error}</div>}
           <div className="flex gap-3">
             <button type="button" onClick={closeCreate} disabled={saving} className="flex-1 rounded-lg border border-border-default px-4 py-2 text-sm text-text-primary transition-colors hover:bg-bg-tertiary disabled:opacity-50">Cancel</button>
             <button type="submit" disabled={saving || !name.trim()} className="flex-1 rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover disabled:opacity-50">

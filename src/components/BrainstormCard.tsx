@@ -96,7 +96,7 @@ export function BrainstormCard({
       setError(
         friendlyActionErrorMessage(
           raw,
-          "We couldn't save your reaction. Please try again.",
+          "Failed to save your reaction. Please try again.",
         ),
       );
     } finally {
@@ -117,7 +117,7 @@ export function BrainstormCard({
       setError(
         friendlyActionErrorMessage(
           raw,
-          "We couldn't archive the idea. Please try again.",
+          "Failed to archive the idea. Please try again.",
         ),
       );
     } finally {
@@ -138,7 +138,7 @@ export function BrainstormCard({
       setError(
         friendlyActionErrorMessage(
           raw,
-          "We couldn't restore the idea. Please try again.",
+          "Failed to restore the idea. Please try again.",
         ),
       );
     } finally {
@@ -158,7 +158,7 @@ export function BrainstormCard({
       setError(
         friendlyActionErrorMessage(
           raw,
-          "We couldn't delete the idea. Please try again.",
+          "Failed to delete the idea. Please try again.",
         ),
       );
       setConfirmOpen(false);

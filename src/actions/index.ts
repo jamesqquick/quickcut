@@ -839,7 +839,7 @@ export const server = {
           console.error("[video.createProject] failed:", error);
           throw new ActionError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "We couldn't create the project. Please try again.",
+            message: "Failed to create the project. Please try again.",
           });
         }
       },
@@ -2466,7 +2466,7 @@ export const server = {
           console.error("[brainstorm.create] insert failed:", error);
           throw new ActionError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "We couldn't save the idea. Please try again.",
+            message: "Failed to save the idea. Please try again.",
           });
         }
 
@@ -2511,7 +2511,7 @@ export const server = {
           console.error("[brainstorm.update] update failed:", error);
           throw new ActionError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "We couldn't update the idea. Please try again.",
+            message: "Failed to update the idea. Please try again.",
           });
         }
 
@@ -2557,7 +2557,7 @@ export const server = {
           console.error("[brainstorm.archive] update failed:", error);
           throw new ActionError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "We couldn't archive the idea. Please try again.",
+            message: "Failed to archive the idea. Please try again.",
           });
         }
 
@@ -2600,7 +2600,7 @@ export const server = {
           console.error("[brainstorm.unarchive] update failed:", error);
           throw new ActionError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "We couldn't restore the idea. Please try again.",
+            message: "Failed to restore the idea. Please try again.",
           });
         }
 
@@ -2636,7 +2636,7 @@ export const server = {
           console.error("[brainstorm.delete] delete failed:", error);
           throw new ActionError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "We couldn't delete the idea. Please try again.",
+            message: "Failed to delete the idea. Please try again.",
           });
         }
 
@@ -2670,7 +2670,7 @@ export const server = {
           console.error("[brainstorm.toggleReaction] failed:", error);
           throw new ActionError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "We couldn't save your reaction. Please try again.",
+            message: "Failed to save your reaction. Please try again.",
           });
         }
       },
@@ -2725,7 +2725,7 @@ export const server = {
           console.error("[brainstorm.markPromoted] update failed:", error);
           throw new ActionError({
             code: "INTERNAL_SERVER_ERROR",
-            message: "We couldn't link the idea to the project. Please try again.",
+            message: "Failed to link the idea to the project. Please try again.",
           });
         }
 

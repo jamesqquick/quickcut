@@ -9,6 +9,7 @@ import {
   connectVideoRoom,
   type BroadcastApprovalStatus,
 } from "../lib/realtime";
+import { friendlyActionErrorMessage } from "../lib/errors";
 import type { ApprovalStatus } from "./ApprovalSection";
 
 interface ProjectStatusControlsProps {
@@ -86,7 +87,14 @@ export function ProjectStatusControls({
         phase: nextStatus,
         override,
       });
-      if (error) throw new Error(error.message || "Failed to update project status");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "Failed to update the project status. Please try again.",
+          ),
+        );
+      }
       setStatus(nextStatus);
       onStatusChange?.(nextStatus);
       showToast(
@@ -96,8 +104,10 @@ export function ProjectStatusControls({
       );
       return true;
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to update status";
+      const message = friendlyActionErrorMessage(
+        err instanceof Error ? err.message : null,
+        "Failed to update the project status. Please try again.",
+      );
       if (override) {
         setOverrideError(message);
       } else {

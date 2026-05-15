@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { actions } from "astro:actions";
 import { Modal } from "./Modal";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface SpaceMemberOption {
   userId: string;
@@ -64,7 +65,12 @@ export function RequestApprovalDialog({
       })
       .catch((err) => {
         if ((err as Error).name === "AbortError") return;
-        setFetchError(err instanceof Error ? err.message : "Failed to load");
+        setFetchError(
+          friendlyActionErrorMessage(
+            err instanceof Error ? err.message : null,
+            "Failed to load space members. Please refresh and try again.",
+          ),
+        );
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
@@ -110,7 +116,12 @@ export function RequestApprovalDialog({
         userIds: Array.from(selected),
       });
       if (error) {
-        setSubmitError(error.message || "Could not send requests");
+        setSubmitError(
+          friendlyActionErrorMessage(
+            error.message,
+            "Failed to send the approval requests. Please try again.",
+          ),
+        );
         return;
       }
       onRequested?.(data?.created ?? 0);
@@ -165,7 +176,7 @@ export function RequestApprovalDialog({
             </p>
           )}
           {!loading && fetchError && (
-            <p className="p-4 text-center text-sm text-accent-danger" role="alert">
+            <p className="p-4 text-center text-sm break-words text-accent-danger" role="alert">
               {fetchError}
             </p>
           )}
@@ -220,7 +231,7 @@ export function RequestApprovalDialog({
 
         {submitError && (
           <p
-            className="mt-3 text-sm text-accent-danger"
+            className="mt-3 text-sm break-words text-accent-danger"
             role="alert"
           >
             {submitError}

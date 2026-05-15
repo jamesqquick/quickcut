@@ -62,7 +62,7 @@ export function UploadVersionModal({
           throw new Error(
             friendlyActionErrorMessage(
               actionError?.message,
-              "We couldn't start the upload. Please try again.",
+              "Failed to start the upload. Please try again.",
             ),
           );
         }

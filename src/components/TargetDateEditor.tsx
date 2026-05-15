@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { actions } from "astro:actions";
 import { DatePicker } from "./DatePicker";
 import { ToastViewport, useToast } from "./Toast";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface TargetDateEditorProps {
   videoId: string;
@@ -65,10 +66,20 @@ export function TargetDateEditor({ videoId, initialTargetDate, canEdit, variant 
         id: videoId,
         targetDate: nextDate || null,
       });
-      if (error) throw new Error(error.message || "Failed to update target date");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "Failed to save the launch date. Please try again.",
+          ),
+        );
+      }
       showToast(nextDate ? "Launch date saved" : "Launch date cleared");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update target date";
+      const message = friendlyActionErrorMessage(
+        err instanceof Error ? err.message : null,
+        "Failed to save the launch date. Please try again.",
+      );
       setError(message);
       showToast(message, "error");
     } finally {
@@ -112,7 +123,7 @@ export function TargetDateEditor({ videoId, initialTargetDate, canEdit, variant 
           <span className="text-sm text-text-secondary">{formatTargetDate(targetDate)}</span>
         )}
         {saving && <span className="mt-1 block text-xs text-text-tertiary">Saving...</span>}
-        {error && <span className="mt-1 block text-xs text-accent-danger">{error}</span>}
+        {error && <span className="mt-1 block text-xs break-words text-accent-danger">{error}</span>}
         <ToastViewport toasts={toasts} onDismiss={dismissToast} />
       </>
     );
@@ -260,7 +271,7 @@ export function TargetDateEditor({ videoId, initialTargetDate, canEdit, variant 
           <span>Launch {formatTargetDate(targetDate)}</span>
         )}
         {saving && <span className="text-text-tertiary">Saving...</span>}
-        {error && <span className="text-accent-danger">{error}</span>}
+        {error && <span className="break-words text-accent-danger">{error}</span>}
       </span>
       <ToastViewport toasts={toasts} onDismiss={dismissToast} />
     </>

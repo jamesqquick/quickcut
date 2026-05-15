@@ -4,6 +4,7 @@ import { FullscreenOverlay } from "./FullscreenOverlay";
 import { PhaseStepper, type PipelineStep } from "./PhaseStepper";
 import { normalizeVideoPhase, type VideoPhase } from "../types";
 import { PublishOverrideDialog } from "./PublishOverrideDialog";
+import { friendlyActionErrorMessage } from "../lib/errors";
 import type { ApprovalStatus } from "./ApprovalSection";
 
 type PrimaryAction =
@@ -62,12 +63,24 @@ export function ProjectPhaseControls({
         phase: action.phase,
         override: action.override,
       });
-      if (error) throw new Error(error.message || "Failed to update phase");
+      if (error) {
+        throw new Error(
+          friendlyActionErrorMessage(
+            error.message,
+            "Failed to update the project phase. Please try again.",
+          ),
+        );
+      }
       handlePhaseChange(action.phase);
       setConfirmPhaseOpen(false);
       setOverrideOpen(false);
     } catch (err) {
-      setPhaseError(err instanceof Error ? err.message : "Failed to update phase");
+      setPhaseError(
+        friendlyActionErrorMessage(
+          err instanceof Error ? err.message : null,
+          "Failed to update the project phase. Please try again.",
+        ),
+      );
       console.error(err);
     } finally {
       setSavingPrimaryAction(false);
@@ -201,7 +214,7 @@ export function ProjectPhaseControls({
             </h2>
             <p className="mt-2 text-sm text-text-secondary">{primaryAction.confirmMessage}</p>
             {phaseError && (
-              <div className="mt-4 rounded-lg bg-accent-danger/15 px-3 py-2 text-sm text-accent-danger">
+              <div className="mt-4 rounded-lg bg-accent-danger/15 px-3 py-2 text-sm break-words text-accent-danger">
                 {phaseError}
               </div>
             )}
