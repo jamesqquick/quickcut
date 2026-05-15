@@ -107,6 +107,11 @@ export async function queueTranscriptForVideo(
     return;
   }
 
+  const workflow = env.TRANSCRIPT_WORKFLOW;
+  // If the workflow binding is missing we can't drive the row forward, so
+  // don't materialize a "queued" row that will sit there forever.
+  if (!workflow) return;
+
   const workflowInstanceId = `transcript-${transcriptId}`;
 
   if (existing[0]) {
@@ -130,9 +135,6 @@ export async function queueTranscriptForVideo(
       updatedAt: now,
     });
   }
-
-  const workflow = env.TRANSCRIPT_WORKFLOW;
-  if (!workflow) return;
 
   try {
     await workflow.create({

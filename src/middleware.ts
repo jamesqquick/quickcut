@@ -1,13 +1,29 @@
 import { defineMiddleware } from "astro:middleware";
 import { env } from "cloudflare:workers";
-import { createAuth } from "./lib/auth";
+import { createAuth, type Auth } from "./lib/auth";
 import { getCanonicalBaseUrl, getSafeReturnUrl } from "./lib/urls";
+
+let cachedAuth: Auth | null = null;
+let cachedAuthDb: D1Database | null = null;
+function getAuth(): Auth {
+  if (cachedAuth && cachedAuthDb === env.DB) return cachedAuth;
+  cachedAuth = createAuth(env.DB, {
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+    EMAIL: env.EMAIL,
+    OTP_EMAIL_FROM: env.OTP_EMAIL_FROM,
+    SEND_REAL_EMAILS: env.SEND_REAL_EMAILS,
+  });
+  cachedAuthDb = env.DB;
+  return cachedAuth;
+}
 
 // Extend Astro locals type
 declare global {
   namespace App {
     interface Locals {
       user: { id: string; email: string; name: string; image?: string | null } | null;
+      cfContext?: ExecutionContext;
     }
   }
 }
@@ -47,13 +63,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  const auth = createAuth(env.DB, {
-    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
-    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
-    EMAIL: env.EMAIL,
-    OTP_EMAIL_FROM: env.OTP_EMAIL_FROM,
-    SEND_REAL_EMAILS: env.SEND_REAL_EMAILS,
-  });
+  const auth = getAuth();
 
   try {
     const session = await auth.api.getSession({

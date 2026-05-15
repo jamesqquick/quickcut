@@ -5,6 +5,7 @@ import { shareLinks, comments, projects, users, videos } from "../../../../db/sc
 import { eq, asc, gt, and, inArray } from "drizzle-orm";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { addReactionSummaries } from "../../../../lib/comments";
+import { getWaitUntil } from "../../../../lib/ctx";
 import { createCommentNotifications } from "../../../../lib/notifications";
 import { sendEmail } from "../../../../lib/send-email";
 import { anonymousCommentSchema, commentSchema } from "../../../../lib/validation";
@@ -222,24 +223,6 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   const displayName = sessionUser?.name ?? newComment.authorDisplayName ?? "Anonymous";
 
-  try {
-    await createCommentNotifications(db, {
-      commentId,
-      videoId,
-      actorUserId: sessionUser?.id ?? null,
-      actorDisplayName: displayName,
-      text: newComment.text,
-      parentCommentId: newComment.parentId,
-      phase: newComment.phase,
-    }, {
-      send: (msg) => sendEmail(env, msg),
-      from: env.OTP_EMAIL_FROM,
-      baseUrl: getCanonicalBaseUrl(env),
-    }, env);
-  } catch (err) {
-    console.error("Failed to create share comment notification", err);
-  }
-
   const responseComment = {
     ...newComment,
     annotation: annotation || null,
@@ -249,7 +232,36 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     reactions: [],
   };
 
-  await broadcastNewComment(env, videoId, responseComment);
+  const waitUntil = getWaitUntil(locals);
+  const notificationsPromise = createCommentNotifications(
+    db,
+    {
+      commentId,
+      videoId,
+      actorUserId: sessionUser?.id ?? null,
+      actorDisplayName: displayName,
+      text: newComment.text,
+      parentCommentId: newComment.parentId,
+      phase: newComment.phase,
+    },
+    {
+      send: (msg) => sendEmail(env, msg),
+      from: env.OTP_EMAIL_FROM,
+      baseUrl: getCanonicalBaseUrl(env),
+    },
+    env,
+  ).catch((err) => {
+    console.error("Failed to create share comment notification", err);
+  });
+
+  const broadcastPromise = broadcastNewComment(env, videoId, responseComment);
+
+  if (waitUntil) {
+    waitUntil(notificationsPromise);
+    waitUntil(broadcastPromise);
+  } else {
+    await Promise.all([notificationsPromise, broadcastPromise]);
+  }
 
   return new Response(JSON.stringify({ comment: responseComment }), {
     status: 201,

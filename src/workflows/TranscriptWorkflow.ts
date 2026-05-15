@@ -92,70 +92,108 @@ export class TranscriptWorkflow extends WorkflowEntrypoint<Env, TranscriptWorkfl
         },
       );
 
-      const transcribed = await step.do("transcribe audio", { timeout: "10 minutes" }, async () => {
-        await db
-          .update(transcripts)
-          .set({ status: "transcribing", updatedAt: now() })
-          .where(eq(transcripts.id, transcriptId));
+      const transcribed = await step.do(
+        "transcribe audio",
+        {
+          timeout: "10 minutes",
+          retries: { limit: 3, delay: "30 seconds", backoff: "exponential" },
+        },
+        async () => {
+          await db
+            .update(transcripts)
+            .set({ status: "transcribing", updatedAt: now() })
+            .where(eq(transcripts.id, transcriptId));
 
-        const audioResponse = await fetch(audioUrl);
-        if (!audioResponse.ok) throw new Error(`Audio fetch failed: ${audioResponse.status}`);
+          const audioResponse = await fetch(audioUrl, {
+            signal: AbortSignal.timeout(60_000),
+          });
+          if (!audioResponse.ok) throw new Error(`Audio fetch failed: ${audioResponse.status}`);
 
-        const audioBuffer = await audioResponse.arrayBuffer();
-        const audioBytes = new Uint8Array(audioBuffer);
-        const response = await this.env.AI.run("@cf/openai/whisper", {
-          audio: Array.from(audioBytes),
-        }) as WhisperResponse;
+          const audioBuffer = await audioResponse.arrayBuffer();
+          const audioBytes = new Uint8Array(audioBuffer);
+          const response = await this.env.AI.run("@cf/openai/whisper", {
+            audio: Array.from(audioBytes),
+          }) as WhisperResponse;
 
-        if (!response.text) throw new Error("Workers AI did not return transcript text");
+          if (!response.text) throw new Error("Workers AI did not return transcript text");
 
-        await db
-          .update(transcripts)
-          .set({
-            rawText: response.text,
-            vtt: response.vtt || null,
-            wordCount: response.word_count || null,
-            status: "ready_raw_only",
-            updatedAt: now(),
-          })
-          .where(eq(transcripts.id, transcriptId));
+          await db
+            .update(transcripts)
+            .set({
+              rawText: response.text,
+              vtt: response.vtt || null,
+              wordCount: response.word_count || null,
+              status: "ready_raw_only",
+              updatedAt: now(),
+            })
+            .where(eq(transcripts.id, transcriptId));
 
-        return { text: response.text };
-      });
+          return { text: response.text };
+        },
+      );
 
-      await step.do("clean transcript", { timeout: "5 minutes" }, async () => {
+      await step.do("mark cleaning", async () => {
         await db
           .update(transcripts)
           .set({ status: "cleaning", updatedAt: now() })
           .where(eq(transcripts.id, transcriptId));
+      });
 
-        try {
-          const response = await this.env.AI.run(this.env.TRANSCRIPT_CLEANUP_MODEL, {
-            messages: [{ role: "user", content: getCleanupPrompt(transcribed.text) }],
-          }) as TextGenerationResponse;
+      let cleaned: string | null = null;
+      let cleanupError: unknown = null;
 
-          const cleaned = response.response?.trim();
+      try {
+        cleaned = await step.do(
+          "clean transcript ai call",
+          {
+            timeout: "5 minutes",
+            retries: { limit: 3, delay: "10 seconds" },
+          },
+          async () => {
+            const response = (await this.env.AI.run(
+              this.env.TRANSCRIPT_CLEANUP_MODEL,
+              {
+                messages: [{ role: "user", content: getCleanupPrompt(transcribed.text) }],
+              },
+            )) as TextGenerationResponse;
+
+            return response.response?.trim() || null;
+          },
+        );
+      } catch (err) {
+        // Retries exhausted. Persist `ready_raw_only` in the next step rather
+        // than failing the whole workflow — the raw transcript is still usable.
+        cleanupError = err;
+      }
+
+      await step.do("persist cleaned transcript", async () => {
+        if (cleaned) {
           await db
             .update(transcripts)
             .set({
-              cleanedText: cleaned || null,
-              status: cleaned ? "ready" : "ready_raw_only",
+              cleanedText: cleaned,
+              status: "ready",
               completedAt: now(),
               updatedAt: now(),
             })
             .where(eq(transcripts.id, transcriptId));
-        } catch (cleanupError) {
-          // Cleanup failure is non-fatal -- raw transcript is still usable.
-          await db
-            .update(transcripts)
-            .set({
-              status: "ready_raw_only",
-              errorMessage: cleanupError instanceof Error ? cleanupError.message : "Transcript cleanup failed",
-              completedAt: now(),
-              updatedAt: now(),
-            })
-            .where(eq(transcripts.id, transcriptId));
+          return;
         }
+
+        await db
+          .update(transcripts)
+          .set({
+            status: "ready_raw_only",
+            errorMessage:
+              cleanupError instanceof Error
+                ? cleanupError.message
+                : cleanupError
+                ? "Transcript cleanup failed"
+                : null,
+            completedAt: now(),
+            updatedAt: now(),
+          })
+          .where(eq(transcripts.id, transcriptId));
       });
     } catch (err) {
       await step.do("mark failed", async () => {

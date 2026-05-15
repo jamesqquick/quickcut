@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, lt } from "drizzle-orm";
 import type { Database } from "../db";
 import {
   approvalRequests,
@@ -151,22 +151,24 @@ export async function createCommentNotifications(
 
   await db.insert(notifications).values(rows);
 
-  // Real-time fan-out to each recipient's open tabs. Best-effort; failures
-  // are logged inside broadcastNotification and do not block email delivery.
-  if (realtimeEnv) {
-    const createdAt = new Date().toISOString();
-    await Promise.all(
-      rows.map((row) =>
-        broadcastNotification(realtimeEnv, row.userId, {
-          kind: "notification",
-          id: row.id,
-          type: row.type,
-          title: row.title,
-          href: row.href,
-          createdAt,
-        }),
-      ),
-    );
+  try {
+    if (realtimeEnv) {
+      const createdAt = new Date().toISOString();
+      await Promise.all(
+        rows.map((row) =>
+          broadcastNotification(realtimeEnv, row.userId, {
+            kind: "notification",
+            id: row.id,
+            type: row.type,
+            title: row.title,
+            href: row.href,
+            createdAt,
+          }),
+        ),
+      );
+    }
+  } catch (error) {
+    console.error("Failed to broadcast comment notifications", error);
   }
 
   if (!emailConfig) return;
@@ -279,20 +281,24 @@ export async function createTargetedApprovalRequestNotifications(
 
   await db.insert(notifications).values(rows);
 
-  if (realtimeEnv) {
-    const createdAt = new Date().toISOString();
-    await Promise.all(
-      rows.map((row) =>
-        broadcastNotification(realtimeEnv, row.userId, {
-          kind: "notification",
-          id: row.id,
-          type: row.type,
-          title: row.title,
-          href: row.href,
-          createdAt,
-        }),
-      ),
-    );
+  try {
+    if (realtimeEnv) {
+      const createdAt = new Date().toISOString();
+      await Promise.all(
+        rows.map((row) =>
+          broadcastNotification(realtimeEnv, row.userId, {
+            kind: "notification",
+            id: row.id,
+            type: row.type,
+            title: row.title,
+            href: row.href,
+            createdAt,
+          }),
+        ),
+      );
+    }
+  } catch (error) {
+    console.error("Failed to broadcast approval-request notifications", error);
   }
 
   if (!emailConfig) return;
@@ -399,10 +405,26 @@ export async function resolveApprovalRequestsForApprover(
     );
 }
 
+export const NOTIFICATIONS_DEFAULT_PAGE_SIZE = 50;
+
 export async function getNotificationsForUser(
   db: Database,
   userId: string,
+  options?: { limit?: number; cursor?: string | null },
 ): Promise<UserNotification[]> {
+  const limit = options?.limit ?? NOTIFICATIONS_DEFAULT_PAGE_SIZE;
+  const cursor = options?.cursor ?? null;
+
+  // Batched inserts can share a createdAt, so `lt(createdAt, cursor)`
+  // may skip duplicate-timestamp rows that straddle a page boundary.
+  // Switch to a tuple cursor (createdAt, id) if this becomes hot.
+  const whereClause = cursor
+    ? and(
+        eq(notifications.userId, userId),
+        lt(notifications.createdAt, cursor),
+      )
+    : eq(notifications.userId, userId);
+
   return db
     .select({
       id: notifications.id,
@@ -419,8 +441,9 @@ export async function getNotificationsForUser(
       createdAt: notifications.createdAt,
     })
     .from(notifications)
-    .where(eq(notifications.userId, userId))
-    .orderBy(desc(notifications.createdAt));
+    .where(whereClause)
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
 }
 
 export async function getUnreadNotificationCount(
@@ -428,11 +451,11 @@ export async function getUnreadNotificationCount(
   userId: string,
 ): Promise<number> {
   const rows = await db
-    .select({ id: notifications.id })
+    .select({ value: count() })
     .from(notifications)
     .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
 
-  return rows.length;
+  return rows[0]?.value ?? 0;
 }
 
 export async function markNotificationRead(

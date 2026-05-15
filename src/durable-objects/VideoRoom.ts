@@ -87,7 +87,18 @@ type ServerMessage =
  * D1 remains the source of truth for comments; this DO is purely a fan-out
  * layer triggered by API write routes after a successful insert.
  */
+const PRESENCE_DEBOUNCE_MS = 100;
+
 export class VideoRoom extends DurableObject<Env> {
+	constructor(ctx: DurableObjectState, env: Env) {
+		super(ctx, env);
+		// Cheap ping/pong handled by the runtime so client heartbeats never
+		// wake a hibernating DO.
+		this.ctx.setWebSocketAutoResponse(
+			new WebSocketRequestResponsePair("ping", "pong"),
+		);
+	}
+
 	/**
 	 * Handle the WebSocket upgrade. The route handler forwards the upgrade
 	 * Request to the DO, which accepts the socket and registers it for
@@ -115,13 +126,29 @@ export class VideoRoom extends DurableObject<Env> {
 		// Attach viewer metadata so we can build the presence list later.
 		server.serializeAttachment({ viewer } satisfies SocketMeta);
 
-		// Broadcast the updated presence list to everyone (including the new joiner).
-		this.broadcastPresence();
+		// Coalesce presence updates across a 100ms quiet window so rapid
+		// reload/refresh cycles produce one broadcast instead of N.
+		await this.schedulePresenceBroadcast();
 
 		return new Response(null, {
 			status: 101,
 			webSocket: client,
 		});
+	}
+
+	/**
+	 * Set an alarm to broadcast presence in the near future, unless one is
+	 * already pending. Coalesces rapid join/leave bursts into a single
+	 * broadcast per quiet window.
+	 */
+	private async schedulePresenceBroadcast(): Promise<void> {
+		const existing = await this.ctx.storage.getAlarm();
+		if (existing !== null) return;
+		await this.ctx.storage.setAlarm(Date.now() + PRESENCE_DEBOUNCE_MS);
+	}
+
+	async alarm(): Promise<void> {
+		this.broadcastPresence();
 	}
 
 	/**
@@ -266,8 +293,7 @@ export class VideoRoom extends DurableObject<Env> {
 		} catch {
 			// ignore
 		}
-		// A viewer left — broadcast updated presence to remaining clients.
-		this.broadcastPresence();
+		await this.schedulePresenceBroadcast();
 	}
 
 	async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
@@ -276,7 +302,6 @@ export class VideoRoom extends DurableObject<Env> {
 		} catch {
 			// ignore
 		}
-		// A viewer dropped — broadcast updated presence to remaining clients.
-		this.broadcastPresence();
+		await this.schedulePresenceBroadcast();
 	}
 }
