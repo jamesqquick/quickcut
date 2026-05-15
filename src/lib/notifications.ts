@@ -153,34 +153,34 @@ export async function createCommentNotifications(
   await db.insert(notifications).values(rows);
 
   const fanOut = async () => {
-    if (realtimeEnv) {
-      const createdAt = new Date().toISOString();
-      const broadcastResults = await Promise.allSettled(
-        rows.map((row) =>
-          broadcastNotification(realtimeEnv, row.userId, {
-            kind: "notification",
-            id: row.id,
-            type: row.type,
-            title: row.title,
-            href: row.href,
-            createdAt,
-          }),
-        ),
-      );
-      const broadcastFailures = broadcastResults.filter(
-        (r): r is PromiseRejectedResult => r.status === "rejected",
-      );
-      if (broadcastFailures.length > 0) {
-        console.error(
-          `${broadcastFailures.length}/${broadcastResults.length} notification broadcasts failed`,
-          broadcastFailures.map((f) => f.reason),
-        );
-      }
-    }
-
-    if (!emailConfig) return;
-
     try {
+      if (realtimeEnv) {
+        const createdAt = new Date().toISOString();
+        const broadcastResults = await Promise.allSettled(
+          rows.map((row) =>
+            broadcastNotification(realtimeEnv, row.userId, {
+              kind: "notification",
+              id: row.id,
+              type: row.type,
+              title: row.title,
+              href: row.href,
+              createdAt,
+            }),
+          ),
+        );
+        const broadcastFailures = broadcastResults.filter(
+          (r): r is PromiseRejectedResult => r.status === "rejected",
+        );
+        if (broadcastFailures.length > 0) {
+          console.error(
+            `${broadcastFailures.length}/${broadcastResults.length} notification broadcasts failed`,
+            broadcastFailures.map((f) => f.reason),
+          );
+        }
+      }
+
+      if (!emailConfig) return;
+
       const emailRecipients = await db
         .select({ id: users.id, email: users.email })
         .from(users)
@@ -222,7 +222,7 @@ export async function createCommentNotifications(
         );
       }
     } catch (error) {
-      console.error("Failed to send comment notification emails", error);
+      console.error("Comment notification fan-out failed", error);
     }
   };
 
@@ -297,34 +297,34 @@ export async function createTargetedApprovalRequestNotifications(
   await db.insert(notifications).values(rows);
 
   const fanOut = async () => {
-    if (realtimeEnv) {
-      const createdAt = new Date().toISOString();
-      const broadcastResults = await Promise.allSettled(
-        rows.map((row) =>
-          broadcastNotification(realtimeEnv, row.userId, {
-            kind: "notification",
-            id: row.id,
-            type: row.type,
-            title: row.title,
-            href: row.href,
-            createdAt,
-          }),
-        ),
-      );
-      const broadcastFailures = broadcastResults.filter(
-        (r): r is PromiseRejectedResult => r.status === "rejected",
-      );
-      if (broadcastFailures.length > 0) {
-        console.error(
-          `${broadcastFailures.length}/${broadcastResults.length} approval-request broadcasts failed`,
-          broadcastFailures.map((f) => f.reason),
-        );
-      }
-    }
-
-    if (!emailConfig) return;
-
     try {
+      if (realtimeEnv) {
+        const createdAt = new Date().toISOString();
+        const broadcastResults = await Promise.allSettled(
+          rows.map((row) =>
+            broadcastNotification(realtimeEnv, row.userId, {
+              kind: "notification",
+              id: row.id,
+              type: row.type,
+              title: row.title,
+              href: row.href,
+              createdAt,
+            }),
+          ),
+        );
+        const broadcastFailures = broadcastResults.filter(
+          (r): r is PromiseRejectedResult => r.status === "rejected",
+        );
+        if (broadcastFailures.length > 0) {
+          console.error(
+            `${broadcastFailures.length}/${broadcastResults.length} approval-request broadcasts failed`,
+            broadcastFailures.map((f) => f.reason),
+          );
+        }
+      }
+
+      if (!emailConfig) return;
+
       const emailRecipients = await db
         .select({ id: users.id, email: users.email })
         .from(users)
@@ -366,7 +366,7 @@ export async function createTargetedApprovalRequestNotifications(
         );
       }
     } catch (error) {
-      console.error("Failed to send approval-request emails", error);
+      console.error("Approval-request notification fan-out failed", error);
     }
   };
 
