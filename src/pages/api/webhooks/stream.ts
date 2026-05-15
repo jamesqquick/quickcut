@@ -101,7 +101,7 @@ async function verifyWebhookSignature(
   return { valid: true, parsed };
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   const body = await request.text();
   const signature = request.headers.get("Webhook-Signature");
 
@@ -161,7 +161,7 @@ export const POST: APIRoute = async ({ request }) => {
       })
       .where(eq(videos.id, video.id));
 
-    await queueTranscriptForVideo(env, db, {
+    const queuePromise = queueTranscriptForVideo(env, db, {
       ...video,
       status: "ready",
       duration: payload.duration,
@@ -169,6 +169,12 @@ export const POST: APIRoute = async ({ request }) => {
       streamPlaybackUrl: payload.playback.hls,
       updatedAt: now,
     });
+
+    if (locals.cfContext) {
+      locals.cfContext.waitUntil(queuePromise);
+    } else {
+      await queuePromise;
+    }
   } else if (payload.status.state === "error") {
     await db
       .update(videos)

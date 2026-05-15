@@ -1,5 +1,50 @@
 const STREAM_API_BASE = "https://api.cloudflare.com/client/v4/accounts";
 
+const STREAM_FETCH_TIMEOUT_MS = 15_000;
+const STREAM_FETCH_MAX_ATTEMPTS = 3;
+const STREAM_FETCH_BACKOFF_MS = 500;
+
+async function streamFetch(url: string, init: RequestInit): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= STREAM_FETCH_MAX_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(STREAM_FETCH_TIMEOUT_MS),
+      });
+
+      if (response.status >= 500 && attempt < STREAM_FETCH_MAX_ATTEMPTS) {
+        console.warn(
+          `Stream API ${response.status} (attempt ${attempt}/${STREAM_FETCH_MAX_ATTEMPTS}); retrying`,
+        );
+        await sleep(STREAM_FETCH_BACKOFF_MS * attempt);
+        continue;
+      }
+
+      return response;
+    } catch (err) {
+      lastError = err;
+      if (attempt < STREAM_FETCH_MAX_ATTEMPTS) {
+        console.warn(
+          `Stream API fetch failed (attempt ${attempt}/${STREAM_FETCH_MAX_ATTEMPTS}); retrying`,
+          err,
+        );
+        await sleep(STREAM_FETCH_BACKOFF_MS * attempt);
+        continue;
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Stream API fetch failed after retries");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 interface DirectUploadResult {
   uploadUrl: string;
   streamVideoId: string;
@@ -11,7 +56,7 @@ export async function createDirectUpload(
   fileName: string,
   fileSize: number,
 ): Promise<DirectUploadResult> {
-  const response = await fetch(
+  const response = await streamFetch(
     `${STREAM_API_BASE}/${accountId}/stream?direct_user=true`,
     {
       method: "POST",
@@ -52,7 +97,7 @@ export async function getVideoInfo(
   apiToken: string,
   streamVideoId: string,
 ): Promise<StreamVideoInfo> {
-  const response = await fetch(
+  const response = await streamFetch(
     `${STREAM_API_BASE}/${accountId}/stream/${streamVideoId}`,
     {
       headers: {
@@ -74,7 +119,7 @@ export async function deleteVideo(
   apiToken: string,
   streamVideoId: string,
 ): Promise<void> {
-  const response = await fetch(
+  const response = await streamFetch(
     `${STREAM_API_BASE}/${accountId}/stream/${streamVideoId}`,
     {
       method: "DELETE",
@@ -109,7 +154,7 @@ export async function requestAudioDownload(
   apiToken: string,
   streamVideoId: string,
 ): Promise<StreamAudioDownload> {
-  const response = await fetch(
+  const response = await streamFetch(
     `${STREAM_API_BASE}/${accountId}/stream/${streamVideoId}/downloads/audio`,
     {
       method: "POST",
@@ -142,7 +187,7 @@ export async function getAudioDownload(
   apiToken: string,
   streamVideoId: string,
 ): Promise<StreamAudioDownload | null> {
-  const response = await fetch(
+  const response = await streamFetch(
     `${STREAM_API_BASE}/${accountId}/stream/${streamVideoId}/downloads`,
     {
       headers: {
