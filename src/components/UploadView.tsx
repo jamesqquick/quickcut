@@ -1,25 +1,13 @@
 import { useRef, useState } from "react";
 import { actions } from "astro:actions";
-import * as tus from "tus-js-client";
 import { friendlyActionErrorMessage } from "../lib/errors";
-
-const ALLOWED_EXTENSIONS = ["mp4", "mov", "webm", "avi", "mkv"];
-const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024;
-const TUS_CHUNK_SIZE = 52_428_800;
-const TUS_RETRY_DELAYS = [0, 3000, 5000, 10000, 20000];
-
-type UploadState = "idle" | "selected" | "uploading" | "processing" | "error";
+import { ALLOWED_EXTENSIONS_ACCEPT, formatFileSize } from "../lib/upload";
+import { useTusUpload } from "../hooks/useTusUpload";
 
 interface UploadViewProps {
   videoId: string;
   isFirstCut: boolean;
   transcriptsEnabled: boolean;
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
 export function UploadView({
@@ -28,100 +16,50 @@ export function UploadView({
   transcriptsEnabled,
 }: UploadViewProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [state, setState] = useState<UploadState>("idle");
-  const [file, setFile] = useState<File | null>(null);
   const [versionNotes, setVersionNotes] = useState("");
   const [generateTranscript, setGenerateTranscript] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const { state, file, progress, error, selectFile, startUpload } = useTusUpload();
 
-  const validateFile = (selectedFile: File): string | null => {
-    const ext = selectedFile.name.split(".").pop()?.toLowerCase();
-    if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
-      return "Unsupported file type. Please upload MP4, MOV, WebM, AVI, or MKV.";
-    }
-    if (selectedFile.size > MAX_FILE_SIZE) return "File exceeds the 5GB limit.";
-    return null;
-  };
+  const upload = () => {
+    void startUpload({
+      resolveUploadTarget: async () => {
+        if (!file) {
+          throw new Error("No file selected.");
+        }
+        const { data, error: actionError } = isFirstCut
+          ? await actions.video.uploadFirstCut({
+              id: videoId,
+              fileName: file.name,
+              fileSize: file.size,
+              generateTranscript: transcriptsEnabled ? generateTranscript : false,
+            })
+          : await actions.video.uploadVersion({
+              id: videoId,
+              fileName: file.name,
+              fileSize: file.size,
+              generateTranscript: transcriptsEnabled ? generateTranscript : false,
+              versionNotes: versionNotes.trim() || undefined,
+            });
 
-  const selectFile = (selectedFile: File) => {
-    const validationError = validateFile(selectedFile);
-    if (validationError) {
-      setError(validationError);
-      setState("error");
-      return;
-    }
-    setFile(selectedFile);
-    setError("");
-    setState("selected");
-  };
+        if (actionError || !data?.uploadUrl) {
+          throw new Error(
+            friendlyActionErrorMessage(
+              actionError?.message,
+              "We couldn't start the upload. Please try again.",
+            ),
+          );
+        }
 
-  const upload = async () => {
-    if (!file) return;
-
-    setState("uploading");
-    setError("");
-    setProgress(0);
-
-    try {
-      const { data, error: actionError } = isFirstCut
-        ? await actions.video.uploadFirstCut({
-            id: videoId,
-            fileName: file.name,
-            fileSize: file.size,
-            generateTranscript: transcriptsEnabled ? generateTranscript : false,
-          })
-        : await actions.video.uploadVersion({
-            id: videoId,
-            fileName: file.name,
-            fileSize: file.size,
-            generateTranscript: transcriptsEnabled ? generateTranscript : false,
-            versionNotes: versionNotes.trim() || undefined,
-          });
-
-      if (actionError || !data?.uploadUrl) {
-        throw new Error(
-          friendlyActionErrorMessage(
-            actionError?.message,
-            "We couldn't start the upload. Please try again.",
-          ),
-        );
-      }
-
-      const targetVideoId = data.videoId || videoId;
-      const upload = new tus.Upload(file, {
-        uploadUrl: data.uploadUrl,
-        chunkSize: TUS_CHUNK_SIZE,
-        retryDelays: TUS_RETRY_DELAYS,
-        metadata: {
-          name: file.name,
-          filetype: file.type,
-        },
-        onProgress: (bytesUploaded, bytesTotal) => {
-          if (bytesTotal > 0) {
-            setProgress(Math.round((bytesUploaded / bytesTotal) * 100));
-          }
-        },
-        onSuccess: () => {
-          setState("processing");
-          window.location.href = `/videos/${targetVideoId}?tab=video`;
-        },
-        onError: () => {
-          setError("Upload failed. Please try again.");
-          setState("error");
-        },
-      });
-      upload.start();
-    } catch (err) {
-      setError(
-        friendlyActionErrorMessage(
-          err instanceof Error ? err.message : null,
-          "Upload failed. Please try again.",
-        ),
-      );
-      setState("error");
-    }
+        return {
+          uploadUrl: data.uploadUrl,
+          videoId: data.videoId || videoId,
+        };
+      },
+      onComplete: (targetVideoId) => {
+        window.location.href = `/videos/${targetVideoId}?tab=video`;
+      },
+    });
   };
 
   return (
@@ -159,7 +97,7 @@ export function UploadView({
             <input
               ref={inputRef}
               type="file"
-              accept=".mp4,.mov,.webm,.avi,.mkv"
+              accept={ALLOWED_EXTENSIONS_ACCEPT}
               className="hidden"
               onChange={(event) => {
                 const selectedFile = event.target.files?.[0];
