@@ -47,9 +47,18 @@ interface ShareViewProps {
   pipelineEnabled: boolean;
   initialTranscriptData: TranscriptResponse | null;
   currentUser: ShareViewCurrentUser | null;
+  initialGuestName?: string | null;
 }
 
 const ANON_NAME_KEY = "quickcut_anonymous_name";
+const GUEST_NAME_COOKIE = "qc_guest_name";
+const GUEST_NAME_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+function writeGuestNameCookie(name: string) {
+  if (typeof document === "undefined") return;
+  const encoded = encodeURIComponent(name);
+  document.cookie = `${GUEST_NAME_COOKIE}=${encoded}; Max-Age=${GUEST_NAME_COOKIE_MAX_AGE}; Path=/s/; SameSite=Lax`;
+}
 
 export function ShareView({
   activeTab,
@@ -62,9 +71,11 @@ export function ShareView({
   pipelineEnabled,
   initialTranscriptData,
   currentUser,
+  initialGuestName,
 }: ShareViewProps) {
   const [anonymousName, setAnonymousName] = useState<string | null>(() => {
     if (currentUser) return null;
+    if (initialGuestName) return initialGuestName;
     if (typeof window === "undefined") return null;
     return localStorage.getItem(ANON_NAME_KEY);
   });
@@ -79,6 +90,7 @@ export function ShareView({
 
   const handleNameSubmit = (name: string) => {
     localStorage.setItem(ANON_NAME_KEY, name);
+    writeGuestNameCookie(name);
     setAnonymousName(name);
   };
 
