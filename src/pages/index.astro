@@ -29,7 +29,7 @@ if (user) {
         <a href="/login" class="text-sm text-text-secondary transition-colors hover:text-text-primary">Sign in</a>
         <a
           href="/register"
-          class="rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
+          class="rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
         >
           Get Started
         </a>
@@ -38,13 +38,7 @@ if (user) {
   </header>
 
   <!-- Hero -->
-  <section class="relative overflow-hidden">
-    <!-- Background glow -->
-    <div
-      class="pointer-events-none absolute inset-x-0 top-[-10%] -z-10 h-[600px] bg-[radial-gradient(ellipse_at_top,rgba(108,92,231,0.18),transparent_60%)]"
-    >
-    </div>
-
+  <section>
     <div class="mx-auto max-w-[1280px] px-6 pt-20 pb-24 sm:px-8 sm:pt-28 sm:pb-32">
       <div class="mx-auto max-w-3xl text-center">
         <div
@@ -66,13 +60,13 @@ if (user) {
         <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
           <a
             href="/register"
-            class="rounded-lg bg-accent-primary px-6 py-3 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
+            class="rounded-lg bg-accent-primary px-6 py-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
           >
             Get Started Free
           </a>
           <a
             href="/login"
-            class="rounded-lg border border-border-default bg-bg-secondary px-6 py-3 text-sm font-medium text-text-primary transition-all duration-150 hover:border-border-hover"
+            class="rounded-lg border border-border-default bg-bg-secondary px-6 py-3 text-sm font-medium text-text-primary transition-colors duration-150 hover:border-border-hover"
           >
             Sign In
           </a>
@@ -808,33 +802,27 @@ if (user) {
   <section class="border-t border-border-default">
     <div class="mx-auto max-w-[1280px] px-6 py-20 sm:px-8 sm:py-24">
       <div
-        class="relative overflow-hidden rounded-2xl border border-accent-primary/30 bg-gradient-to-br from-accent-primary/15 via-bg-secondary to-bg-secondary p-10 text-center sm:p-16"
+        class="rounded-2xl border border-border-default bg-bg-secondary p-10 text-center sm:p-16"
       >
-        <div
-          class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(108,92,231,0.15),transparent_70%)]"
-        >
-        </div>
-        <div class="relative">
-          <h2 class="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
-            Start reviewing in under 60 seconds
-          </h2>
-          <p class="mx-auto mt-4 max-w-xl text-text-secondary">
-            Free to start. Upload your first video and share a link before your coffee gets cold.
-          </p>
-          <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <a
-              href="/register"
-              class="rounded-lg bg-accent-primary px-6 py-3 text-sm font-medium text-white transition-all duration-150 hover:bg-accent-hover hover:shadow-[0_2px_8px_rgba(108,92,231,0.3)]"
-            >
-              Get Started Free
-            </a>
-            <a
-              href="/login"
-              class="rounded-lg border border-border-default bg-bg-secondary px-6 py-3 text-sm font-medium text-text-primary transition-all duration-150 hover:border-border-hover"
-            >
-              Sign In
-            </a>
-          </div>
+        <h2 class="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
+          Start reviewing in under 60 seconds
+        </h2>
+        <p class="mx-auto mt-4 max-w-xl text-text-secondary">
+          Free to start. Upload your first video and share a link before your coffee gets cold.
+        </p>
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href="/register"
+            class="rounded-lg bg-accent-primary px-6 py-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+          >
+            Get Started Free
+          </a>
+          <a
+            href="/login"
+            class="rounded-lg border border-border-default bg-bg-secondary px-6 py-3 text-sm font-medium text-text-primary transition-colors duration-150 hover:border-border-hover"
+          >
+            Sign In
+          </a>
         </div>
       </div>
     </div>
