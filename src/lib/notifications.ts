@@ -33,8 +33,6 @@ export interface EmailConfig {
   baseUrl: string;
 }
 
-export type WaitUntil = (promise: Promise<unknown>) => void;
-
 export interface UserNotification {
   id: string;
   actorDisplayName: string;
@@ -90,7 +88,6 @@ export async function createCommentNotifications(
   input: CommentNotificationInput,
   emailConfig?: EmailConfig,
   realtimeEnv?: Env,
-  waitUntil?: WaitUntil,
 ): Promise<void> {
   const videoRows = await db
     .select({
@@ -154,7 +151,7 @@ export async function createCommentNotifications(
 
   await db.insert(notifications).values(rows);
 
-  const fanOut = (async () => {
+  try {
     if (realtimeEnv) {
       const createdAt = new Date().toISOString();
       await Promise.all(
@@ -170,59 +167,55 @@ export async function createCommentNotifications(
         ),
       );
     }
+  } catch (error) {
+    console.error("Failed to broadcast comment notifications", error);
+  }
 
-    if (!emailConfig) return;
+  if (!emailConfig) return;
 
-    try {
-      const emailRecipients = await db
-        .select({ id: users.id, email: users.email })
-        .from(users)
-        .where(
-          and(
-            inArray(users.id, recipientIds),
-            eq(users.emailNotificationsEnabled, true),
-          ),
-        );
-
-      if (emailRecipients.length === 0) return;
-
-      const emailContent = buildCommentNotificationEmail({
-        type,
-        actorDisplayName: input.actorDisplayName,
-        videoTitle: video.title,
-        commentSnippet: body,
-        href,
-        baseUrl: emailConfig.baseUrl,
-      });
-
-      const results = await Promise.allSettled(
-        emailRecipients.map((recipient) =>
-          emailConfig.send({
-            to: recipient.email,
-            from: emailConfig.from,
-            subject: emailContent.subject,
-            text: emailContent.text,
-            html: emailContent.html,
-          }),
+  try {
+    const emailRecipients = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(
+        and(
+          inArray(users.id, recipientIds),
+          eq(users.emailNotificationsEnabled, true),
         ),
       );
 
-      const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
-      if (failures.length > 0) {
-        console.error(
-          `${failures.length}/${results.length} notification emails failed`,
-          failures.map((f) => f.reason),
-        );
-      }
-    } catch (error) {
-      console.error("Failed to send comment notification emails", error);
-    }
-  })();
+    if (emailRecipients.length === 0) return;
 
-  if (waitUntil) {
-    waitUntil(fanOut);
-  } else {
-    await fanOut;
+    const emailContent = buildCommentNotificationEmail({
+      type,
+      actorDisplayName: input.actorDisplayName,
+      videoTitle: video.title,
+      commentSnippet: body,
+      href,
+      baseUrl: emailConfig.baseUrl,
+    });
+
+    const results = await Promise.allSettled(
+      emailRecipients.map((recipient) =>
+        emailConfig.send({
+          to: recipient.email,
+          from: emailConfig.from,
+          subject: emailContent.subject,
+          text: emailContent.text,
+          html: emailContent.html,
+        }),
+      ),
+    );
+
+    const failures = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    if (failures.length > 0) {
+      console.error(
+        `${failures.length}/${results.length} notification emails failed`,
+        failures.map((f) => f.reason),
+      );
+    }
+  } catch (error) {
+    console.error("Failed to send comment notification emails", error);
   }
 }
 
@@ -244,7 +237,6 @@ export async function createTargetedApprovalRequestNotifications(
   input: TargetedApprovalRequestInput,
   emailConfig?: EmailConfig,
   realtimeEnv?: Env,
-  waitUntil?: WaitUntil,
 ): Promise<void> {
   if (input.requestedUserIds.length === 0) return;
 
@@ -289,7 +281,7 @@ export async function createTargetedApprovalRequestNotifications(
 
   await db.insert(notifications).values(rows);
 
-  const fanOut = (async () => {
+  try {
     if (realtimeEnv) {
       const createdAt = new Date().toISOString();
       await Promise.all(
@@ -305,59 +297,55 @@ export async function createTargetedApprovalRequestNotifications(
         ),
       );
     }
+  } catch (error) {
+    console.error("Failed to broadcast approval-request notifications", error);
+  }
 
-    if (!emailConfig) return;
+  if (!emailConfig) return;
 
-    try {
-      const emailRecipients = await db
-        .select({ id: users.id, email: users.email })
-        .from(users)
-        .where(
-          and(
-            inArray(users.id, recipientIds),
-            eq(users.emailNotificationsEnabled, true),
-          ),
-        );
-
-      if (emailRecipients.length === 0) return;
-
-      const emailContent = buildApprovalRequestEmail({
-        actorDisplayName: input.actorDisplayName,
-        videoTitle: video.title,
-        href,
-        baseUrl: emailConfig.baseUrl,
-      });
-
-      const results = await Promise.allSettled(
-        emailRecipients.map((recipient) =>
-          emailConfig.send({
-            to: recipient.email,
-            from: emailConfig.from,
-            subject: emailContent.subject,
-            text: emailContent.text,
-            html: emailContent.html,
-          }),
+  try {
+    const emailRecipients = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(
+        and(
+          inArray(users.id, recipientIds),
+          eq(users.emailNotificationsEnabled, true),
         ),
       );
 
-      const failures = results.filter(
-        (r): r is PromiseRejectedResult => r.status === "rejected",
-      );
-      if (failures.length > 0) {
-        console.error(
-          `${failures.length}/${results.length} approval-request emails failed`,
-          failures.map((f) => f.reason),
-        );
-      }
-    } catch (error) {
-      console.error("Failed to send approval-request emails", error);
-    }
-  })();
+    if (emailRecipients.length === 0) return;
 
-  if (waitUntil) {
-    waitUntil(fanOut);
-  } else {
-    await fanOut;
+    const emailContent = buildApprovalRequestEmail({
+      actorDisplayName: input.actorDisplayName,
+      videoTitle: video.title,
+      href,
+      baseUrl: emailConfig.baseUrl,
+    });
+
+    const results = await Promise.allSettled(
+      emailRecipients.map((recipient) =>
+        emailConfig.send({
+          to: recipient.email,
+          from: emailConfig.from,
+          subject: emailContent.subject,
+          text: emailContent.text,
+          html: emailContent.html,
+        }),
+      ),
+    );
+
+    const failures = results.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
+    );
+    if (failures.length > 0) {
+      console.error(
+        `${failures.length}/${results.length} approval-request emails failed`,
+        failures.map((f) => f.reason),
+      );
+    }
+  } catch (error) {
+    console.error("Failed to send approval-request emails", error);
   }
 }
 
@@ -427,6 +415,12 @@ export async function getNotificationsForUser(
   const limit = options?.limit ?? NOTIFICATIONS_DEFAULT_PAGE_SIZE;
   const cursor = options?.cursor ?? null;
 
+  // Cursor is `createdAt` with strict `lt`. Batched inserts (e.g. one
+  // comment notifying multiple recipients) can stamp identical createdAt
+  // values; if such a batch straddles a page boundary, the next page
+  // will skip the duplicate-timestamp rows. Tolerable for now because
+  // pagination beyond the first page is rare and batch sizes are small.
+  // If this becomes a problem, switch to a tuple cursor (createdAt, id).
   const whereClause = cursor
     ? and(
         eq(notifications.userId, userId),

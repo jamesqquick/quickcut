@@ -1,4 +1,4 @@
-import type { WaitUntil } from "./notifications";
+export type WaitUntil = (promise: Promise<unknown>) => void;
 
 export function getWaitUntil(locals: App.Locals): WaitUntil | undefined {
   const ctx = locals.cfContext;

@@ -250,7 +250,6 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       baseUrl: getCanonicalBaseUrl(env),
     },
     env,
-    waitUntil,
   ).catch((err) => {
     console.error("Failed to create share comment notification", err);
   });

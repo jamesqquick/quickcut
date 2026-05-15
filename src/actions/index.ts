@@ -781,7 +781,6 @@ export const server = {
             baseUrl: getCanonicalBaseUrl(env),
           },
           env,
-          waitUntil,
         ).catch((err) => {
           console.error("Failed to dispatch targeted approval-request notifications", err);
         });
@@ -1431,7 +1430,6 @@ export const server = {
             baseUrl: getCanonicalBaseUrl(env),
           },
           env,
-          waitUntil,
         ).catch((err) => {
           console.error("Failed to create comment notification", err);
         });
@@ -1664,7 +1662,6 @@ export const server = {
             baseUrl: getCanonicalBaseUrl(env),
           },
           env,
-          waitUntil,
         ).catch((err) => {
           console.error("Failed to create reply notification", err);
         });
