@@ -25,8 +25,8 @@ export function InviteResponse({ token, spaceName, spaceId }: InviteResponseProp
 
       const fallback =
         action === "accept"
-          ? "We couldn't accept the invite. Please try again."
-          : "We couldn't decline the invite. Please try again.";
+          ? "Failed to accept the invite. Please try again."
+          : "Failed to decline the invite. Please try again.";
 
       if (actionError) {
         throw new Error(friendlyActionErrorMessage(actionError.message, fallback));
@@ -45,8 +45,8 @@ export function InviteResponse({ token, spaceName, spaceId }: InviteResponseProp
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
           action === "accept"
-            ? "We couldn't accept the invite. Please try again."
-            : "We couldn't decline the invite. Please try again.",
+            ? "Failed to accept the invite. Please try again."
+            : "Failed to decline the invite. Please try again.",
         ),
       );
       setLoading(false);

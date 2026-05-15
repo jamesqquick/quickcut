@@ -72,7 +72,7 @@ export function SpaceSwitcher({ spaces, selectedSpaceId }: SpaceSwitcherProps) {
         throw new Error(
           friendlyActionErrorMessage(
             data?.error,
-            "We couldn't create the space. Please try again.",
+            "Failed to create the space. Please try again.",
           ),
         );
       }
@@ -81,7 +81,7 @@ export function SpaceSwitcher({ spaces, selectedSpaceId }: SpaceSwitcherProps) {
       setError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't create the space. Please try again.",
+          "Failed to create the space. Please try again.",
         ),
       );
       setSaving(false);

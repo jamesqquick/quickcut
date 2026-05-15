@@ -92,7 +92,7 @@ export function SpaceSettings({
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't save your space settings. Please try again.",
+            "Failed to save your space settings. Please try again.",
           ),
         );
       }
@@ -102,7 +102,7 @@ export function SpaceSettings({
       setSettingsError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't save your space settings. Please try again.",
+          "Failed to save your space settings. Please try again.",
         ),
       );
     } finally {
@@ -123,7 +123,7 @@ export function SpaceSettings({
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't send that invite. Check the email address and try again.",
+            "Failed to send that invite. Check the email address and try again.",
           ),
         );
       }
@@ -134,7 +134,7 @@ export function SpaceSettings({
       showToast(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't send that invite. Check the email address and try again.",
+          "Failed to send that invite. Check the email address and try again.",
         ),
         "error",
       );
@@ -157,7 +157,7 @@ export function SpaceSettings({
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't revoke that invite. Please refresh and try again.",
+            "Failed to revoke that invite. Please refresh and try again.",
           ),
         );
       }
@@ -166,7 +166,7 @@ export function SpaceSettings({
       setActionError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't revoke that invite. Please refresh and try again.",
+          "Failed to revoke that invite. Please refresh and try again.",
         ),
       );
     }
@@ -186,7 +186,7 @@ export function SpaceSettings({
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't remove that member. Please refresh and try again.",
+            "Failed to remove that member. Please refresh and try again.",
           ),
         );
       }
@@ -195,7 +195,7 @@ export function SpaceSettings({
       setActionError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't remove that member. Please refresh and try again.",
+          "Failed to remove that member. Please refresh and try again.",
         ),
       );
     }
@@ -210,7 +210,7 @@ export function SpaceSettings({
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't leave the space. Please try again.",
+            "Failed to leave the space. Please try again.",
           ),
         );
       }
@@ -219,7 +219,7 @@ export function SpaceSettings({
       setActionError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't leave the space. Please try again.",
+          "Failed to leave the space. Please try again.",
         ),
       );
       setLeaveLoading(false);
@@ -236,7 +236,7 @@ export function SpaceSettings({
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't delete the space. Please try again.",
+            "Failed to delete the space. Please try again.",
           ),
         );
       }
@@ -259,7 +259,7 @@ export function SpaceSettings({
       setActionError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't delete the space. Please try again.",
+          "Failed to delete the space. Please try again.",
         ),
       );
       setDeleteLoading(false);

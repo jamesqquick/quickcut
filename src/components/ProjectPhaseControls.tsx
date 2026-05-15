@@ -67,7 +67,7 @@ export function ProjectPhaseControls({
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't update the project phase. Please try again.",
+            "Failed to update the project phase. Please try again.",
           ),
         );
       }
@@ -78,7 +78,7 @@ export function ProjectPhaseControls({
       setPhaseError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't update the project phase. Please try again.",
+          "Failed to update the project phase. Please try again.",
         ),
       );
       console.error(err);

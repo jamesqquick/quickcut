@@ -81,7 +81,7 @@ export function NotificationCenter({
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't update that notification. Please try again.",
+            "Failed to update that notification. Please try again.",
           ),
         );
       }
@@ -97,7 +97,7 @@ export function NotificationCenter({
       showToast(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't update that notification. Please try again.",
+          "Failed to update that notification. Please try again.",
         ),
         "error",
       );
@@ -128,7 +128,7 @@ export function NotificationCenter({
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't accept that invite. Please try again.",
+            "Failed to accept that invite. Please try again.",
           ),
         );
       }
@@ -144,7 +144,7 @@ export function NotificationCenter({
       showToast(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't accept that invite. Please try again.",
+          "Failed to accept that invite. Please try again.",
         ),
         "error",
       );

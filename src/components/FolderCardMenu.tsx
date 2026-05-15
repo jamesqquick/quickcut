@@ -105,7 +105,7 @@ export function FolderCardMenu({
         throw new Error(
           friendlyActionErrorMessage(
             actionError.message,
-            "We couldn't rename the folder. Please try again.",
+            "Failed to rename the folder. Please try again.",
           ),
         );
       }
@@ -116,7 +116,7 @@ export function FolderCardMenu({
       setError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't rename the folder. Please try again.",
+          "Failed to rename the folder. Please try again.",
         ),
       );
       setSaving(false);
@@ -131,7 +131,7 @@ export function FolderCardMenu({
         throw new Error(
           friendlyActionErrorMessage(
             actionError.message,
-            "We couldn't delete the folder. Please try again.",
+            "Failed to delete the folder. Please try again.",
           ),
         );
       }
@@ -142,7 +142,7 @@ export function FolderCardMenu({
       showToast(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't delete the folder. Please try again.",
+          "Failed to delete the folder. Please try again.",
         ),
         "error",
       );

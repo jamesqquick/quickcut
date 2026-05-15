@@ -29,7 +29,7 @@ export function PendingInvitesList({ invites }: PendingInvitesListProps) {
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't accept that invite. Please try again.",
+            "Failed to accept that invite. Please try again.",
           ),
         );
       }
@@ -45,7 +45,7 @@ export function PendingInvitesList({ invites }: PendingInvitesListProps) {
       showToast(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't accept that invite. Please try again.",
+          "Failed to accept that invite. Please try again.",
         ),
         "error",
       );

@@ -134,7 +134,7 @@ export function NewProjectDialog({
       setError(
         friendlyActionErrorMessage(
           raw,
-          "We couldn't create the project. Please try again.",
+          "Failed to create the project. Please try again.",
         ),
       );
       setSaving(false);

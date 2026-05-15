@@ -91,7 +91,7 @@ export function ProjectStatusControls({
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't update the project status. Please try again.",
+            "Failed to update the project status. Please try again.",
           ),
         );
       }
@@ -106,7 +106,7 @@ export function ProjectStatusControls({
     } catch (err) {
       const message = friendlyActionErrorMessage(
         err instanceof Error ? err.message : null,
-        "We couldn't update the project status. Please try again.",
+        "Failed to update the project status. Please try again.",
       );
       if (override) {
         setOverrideError(message);

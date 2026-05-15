@@ -70,7 +70,7 @@ export function TargetDateEditor({ videoId, initialTargetDate, canEdit, variant 
         throw new Error(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't save the launch date. Please try again.",
+            "Failed to save the launch date. Please try again.",
           ),
         );
       }
@@ -78,7 +78,7 @@ export function TargetDateEditor({ videoId, initialTargetDate, canEdit, variant 
     } catch (err) {
       const message = friendlyActionErrorMessage(
         err instanceof Error ? err.message : null,
-        "We couldn't save the launch date. Please try again.",
+        "Failed to save the launch date. Please try again.",
       );
       setError(message);
       showToast(message, "error");

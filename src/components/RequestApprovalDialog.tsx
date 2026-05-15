@@ -68,7 +68,7 @@ export function RequestApprovalDialog({
         setFetchError(
           friendlyActionErrorMessage(
             err instanceof Error ? err.message : null,
-            "We couldn't load space members. Please refresh and try again.",
+            "Failed to load space members. Please refresh and try again.",
           ),
         );
       })
@@ -119,7 +119,7 @@ export function RequestApprovalDialog({
         setSubmitError(
           friendlyActionErrorMessage(
             error.message,
-            "We couldn't send the approval requests. Please try again.",
+            "Failed to send the approval requests. Please try again.",
           ),
         );
         return;

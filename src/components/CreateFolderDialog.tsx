@@ -41,7 +41,7 @@ export function CreateFolderDialog({ parentId = null, spaceId, onCreated }: Crea
         throw new Error(
           friendlyActionErrorMessage(
             actionError.message,
-            "We couldn't create the folder. Please try again.",
+            "Failed to create the folder. Please try again.",
           ),
         );
       }
@@ -60,7 +60,7 @@ export function CreateFolderDialog({ parentId = null, spaceId, onCreated }: Crea
       setError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't create the folder. Please try again.",
+          "Failed to create the folder. Please try again.",
         ),
       );
       setSaving(false);

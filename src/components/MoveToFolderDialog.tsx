@@ -94,8 +94,8 @@ export function MoveToFolderDialog({
     try {
       const fallback =
         entityType === "video"
-          ? "We couldn't move the project. Please try again."
-          : "We couldn't move the folder. Please try again.";
+          ? "Failed to move the project. Please try again."
+          : "Failed to move the folder. Please try again.";
 
       if (entityType === "video") {
         const { error } = await actions.video.move({ id: entityId, folderId });
@@ -116,8 +116,8 @@ export function MoveToFolderDialog({
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
           entityType === "video"
-            ? "We couldn't move the project. Please try again."
-            : "We couldn't move the folder. Please try again.",
+            ? "Failed to move the project. Please try again."
+            : "Failed to move the folder. Please try again.",
         ),
       );
       setSaving(false);

@@ -125,7 +125,7 @@ export function TranscriptPanel({
           throw new Error(
             friendlyActionErrorMessage(
               actionError?.message,
-              "We couldn't load the transcript. Please refresh and try again.",
+              "Failed to load the transcript. Please refresh and try again.",
             ),
           );
         }
@@ -136,7 +136,7 @@ export function TranscriptPanel({
       setError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't load the transcript. Please refresh and try again.",
+          "Failed to load the transcript. Please refresh and try again.",
         ),
       );
     } finally {
@@ -180,7 +180,7 @@ export function TranscriptPanel({
         throw new Error(
           friendlyActionErrorMessage(
             actionError.message,
-            "We couldn't start the transcript. Please try again.",
+            "Failed to start the transcript. Please try again.",
           ),
         );
       }
@@ -189,7 +189,7 @@ export function TranscriptPanel({
       setError(
         friendlyActionErrorMessage(
           err instanceof Error ? err.message : null,
-          "We couldn't start the transcript. Please try again.",
+          "Failed to start the transcript. Please try again.",
         ),
       );
     } finally {
