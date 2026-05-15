@@ -62,7 +62,7 @@ export function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
                 </svg>
               )}
             </span>
-            <span className="min-w-0 flex-1">{toast.message}</span>
+            <span className="min-w-0 flex-1 break-words">{toast.message}</span>
             <button
               type="button"
               onClick={() => onDismiss(toast.id)}

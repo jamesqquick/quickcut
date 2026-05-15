@@ -11,6 +11,7 @@ import { connectVideoRoom, type Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
 import { PendingCommentHighlight } from "./pendingCommentHighlight";
 import { CommentHighlightDecorations } from "./commentHighlightDecorations";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 const EMPTY_DOC: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
 
@@ -323,7 +324,10 @@ export function ScriptWorkspace({
         content,
         plainText,
       });
-      if (error || !data) throw new Error(error?.message || "Failed to save script");
+      if (error || !data)
+        throw new Error(
+          friendlyActionErrorMessage(error?.message, "Failed to save script"),
+        );
       if (data.resolvedCommentIds?.length) {
         const resolvedAt = new Date().toISOString();
         setComments((current) =>
@@ -474,7 +478,10 @@ export function ScriptWorkspace({
           timestamp: null,
           textRange: selectedRange,
         });
-        if (error || !data) throw new Error(error?.message || "Failed to create comment");
+        if (error || !data)
+          throw new Error(
+            friendlyActionErrorMessage(error?.message, "Failed to create comment"),
+          );
         comment = data.comment as Comment;
       }
 
@@ -505,7 +512,10 @@ export function ScriptWorkspace({
         id: comment.id,
         resolved: nextResolved,
       });
-      if (error) throw new Error(error.message || "Failed to resolve comment");
+      if (error)
+        throw new Error(
+          friendlyActionErrorMessage(error.message, "Failed to resolve comment"),
+        );
     } catch (err) {
       console.error(err);
       setComments((current) => current.map((item) => (item.id === comment.id ? comment : item)));
@@ -537,7 +547,10 @@ export function ScriptWorkspace({
           parentId,
           text: replyText.trim(),
         });
-        if (error || !data) throw new Error(error?.message || "Failed to post reply");
+        if (error || !data)
+          throw new Error(
+            friendlyActionErrorMessage(error?.message, "Failed to post reply"),
+          );
         comment = data.comment as Comment;
       }
 
