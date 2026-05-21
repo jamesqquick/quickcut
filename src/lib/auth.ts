@@ -14,7 +14,13 @@ export type VideoAccess =
 
 type AuthEnv = Pick<
   Cloudflare.Env,
-  "BETTER_AUTH_SECRET" | "BETTER_AUTH_URL" | "EMAIL" | "OTP_EMAIL_FROM" | "SEND_REAL_EMAILS"
+  | "BETTER_AUTH_SECRET"
+  | "BETTER_AUTH_URL"
+  | "EMAIL"
+  | "OTP_EMAIL_FROM"
+  | "SEND_REAL_EMAILS"
+  | "GOOGLE_CLIENT_ID"
+  | "GOOGLE_CLIENT_SECRET"
 >;
 
 function getOtpEmailSubject(type: "sign-in" | "email-verification" | "forget-password" | "change-email"): string {
@@ -55,6 +61,18 @@ export function createAuth(d1: D1Database, env: AuthEnv) {
     }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
+    socialProviders: {
+      google: {
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+      },
+    },
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google"],
+      },
+    },
     plugins: [
       emailOTP({
         expiresIn: 300,
@@ -108,6 +126,18 @@ export function createAuth(d1: D1Database, env: AuthEnv) {
 }
 
 export type Auth = ReturnType<typeof createAuth>;
+
+export function getAuth(env: Cloudflare.Env): Auth {
+  return createAuth(env.DB, {
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+    EMAIL: env.EMAIL,
+    OTP_EMAIL_FROM: env.OTP_EMAIL_FROM,
+    SEND_REAL_EMAILS: env.SEND_REAL_EMAILS,
+    GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
+  });
+}
 
 function parseCookies(cookieHeader: string): Record<string, string> {
   const cookies: Record<string, string> = {};

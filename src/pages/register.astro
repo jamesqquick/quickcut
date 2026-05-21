@@ -1,13 +1,19 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { LoginOtpForm } from "../components/LoginOtpForm";
+import { SocialButtons } from "../components/SocialButtons";
 
 const user = Astro.locals.user;
 if (user) {
   return Astro.redirect("/dashboard");
 }
 
-const error = Astro.url.searchParams.get("error");
+const rawError = Astro.url.searchParams.get("error");
+const errorMessages: Record<string, string> = {
+  oauth_failed: "We couldn't sign you up with that provider. Please try again.",
+  access_denied: "Sign-up was cancelled.",
+};
+const error = rawError ? errorMessages[rawError] ?? rawError : null;
 const message = Astro.url.searchParams.get("message");
 const email = Astro.url.searchParams.get("email") ?? undefined;
 const returnUrl = Astro.url.searchParams.get("returnUrl") ?? undefined;
@@ -36,8 +42,16 @@ const returnUrl = Astro.url.searchParams.get("returnUrl") ?? undefined;
         )}
 
         <p class="mb-6 text-center text-sm text-text-tertiary">
-          Create your account with a one-time code sent to your email.
+          Sign up with Google, or use a one-time code sent to your email.
         </p>
+
+        <SocialButtons mode="register" returnUrl={returnUrl} client:load />
+
+        <div class="my-6 flex items-center gap-3">
+          <div class="h-px flex-1 bg-border-default"></div>
+          <span class="text-xs uppercase tracking-wide text-text-tertiary">or</span>
+          <div class="h-px flex-1 bg-border-default"></div>
+        </div>
 
         <LoginOtpForm mode="register" email={email} returnUrl={returnUrl} client:load />
 
