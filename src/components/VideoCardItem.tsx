@@ -126,7 +126,6 @@ export function VideoCardItem({ video, folders, onDeleted, onMoved }: VideoCardI
               name={creatorName}
               imageUrl={creatorImageUrl}
               size="sm"
-              showTooltip
               className="absolute right-8 top-2"
             />
           )}
