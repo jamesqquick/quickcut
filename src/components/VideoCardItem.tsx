@@ -127,7 +127,7 @@ export function VideoCardItem({ video, folders, onDeleted, onMoved }: VideoCardI
               imageUrl={creatorImageUrl}
               size="sm"
               showTooltip
-              className="absolute right-8 top-2 ring-2 ring-bg-secondary"
+              className="absolute right-8 top-2"
             />
           )}
           {versionCount > 1 && (
