@@ -277,11 +277,23 @@ export const server = {
         if (!role) {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
-        if (role !== "owner" && video.uploadedBy !== user.id) {
+
+        const projectId = video.projectId;
+        const projectResult = await db
+          .select({ uploadedBy: projects.uploadedBy })
+          .from(projects)
+          .where(eq(projects.id, projectId))
+          .limit(1);
+        const projectCreatorId = projectResult[0]?.uploadedBy ?? null;
+
+        const canDelete =
+          role === "owner" ||
+          video.uploadedBy === user.id ||
+          projectCreatorId === user.id;
+        if (!canDelete) {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
 
-        const projectId = video.projectId;
         const projectVersions = await db
           .select({ id: videos.id, streamVideoId: videos.streamVideoId })
           .from(videos)
