@@ -90,6 +90,7 @@ const tabHref = (tab: "script" | "video" | "details") => {
       backHref={backHref}
       spaceName={videoSpace.name}
       versions={versions}
+      canManageProject={canManageProject}
       uploadVersion={hasVideo && !isPublished && canManageProject ? {
         transcriptsEnabled,
       } : null}
