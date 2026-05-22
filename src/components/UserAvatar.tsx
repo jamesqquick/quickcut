@@ -61,7 +61,7 @@ export function UserAvatar({
   if (!showTooltip) return avatar;
 
   return (
-    <span className={`group/avatar relative inline-flex ${wrapperClassName}`}>
+    <span className={`group/avatar inline-flex ${wrapperClassName || "relative"}`}>
       {avatar}
       <span
         role="tooltip"
