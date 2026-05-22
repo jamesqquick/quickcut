@@ -4,6 +4,7 @@ import { formatTimecode, relativeTime } from "../lib/time";
 import { connectVideoRoom } from "../lib/realtime";
 import type { Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
+import { UserAvatar } from "./UserAvatar";
 import { AnnotationToolbar } from "./AnnotationOverlay";
 import type { AnnotationTool } from "./AnnotationOverlay";
 import type {
@@ -826,15 +827,6 @@ export function CommentThread({
     return comment.authorType === "user" && comment.authorUserId === currentUserId;
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const formatTC = (seconds: number | null) => {
     return formatTimecode(seconds);
   };
@@ -912,9 +904,7 @@ export function CommentThread({
               >
                 {/* Root comment */}
                 <div className="flex gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-primary text-xs font-medium text-white">
-                    {getInitials(comment.name)}
-                  </div>
+                  <UserAvatar name={comment.name} size="lg" />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-text-primary">
@@ -1011,9 +1001,7 @@ export function CommentThread({
                   <div className="ml-10 space-y-3 border-l border-border-default pl-4">
                     {replies.map((reply) => (
                       <div key={reply.id} className="flex gap-3">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary/60 text-[10px] font-medium text-white">
-                          {getInitials(reply.name)}
-                        </div>
+                        <UserAvatar name={reply.name} size="sm" muted />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-text-primary">
