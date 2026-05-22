@@ -44,7 +44,6 @@ import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
 import {
   getProjectPermissions,
   requireProjectManage,
-  requireSpaceAccess,
 } from "../lib/permissions";
 import { generateShareToken, generateInviteToken } from "../lib/share";
 import { getCanonicalBaseUrl } from "../lib/urls";
@@ -2646,7 +2645,7 @@ export const server = {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
 
-        const isAuthor = current.createdBy === user.id;
+        const isAuthor = current.authorUserId === user.id;
         const isSpaceOwner = role === "owner";
         if (!isAuthor && !isSpaceOwner) {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });

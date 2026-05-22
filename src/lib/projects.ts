@@ -45,7 +45,19 @@ const PROJECT_OVERRIDE_COLUMNS = {
 } as const;
 
 type ProjectOverrideRow = {
-  [K in keyof typeof PROJECT_OVERRIDE_COLUMNS]: ProjectRow[K];
+  title: string;
+  description: string | null;
+  phase: ProjectRow["phase"];
+  targetDate: string | null;
+  targetAudience: string | null;
+  hook: string | null;
+  takeaway1: string | null;
+  takeaway2: string | null;
+  takeaway3: string | null;
+  primaryCta: string | null;
+  outro: string | null;
+  folderId: string | null;
+  projectOwnerId: string | null;
 };
 
 function mergeRow(video: VideoRow, project: ProjectOverrideRow): MergedVideo {
