@@ -1,4 +1,5 @@
 import { StatusBadge } from "./StatusBadge";
+import { UserAvatar } from "./UserAvatar";
 import { VideoCardMenu } from "./VideoCardMenu";
 
 export interface UrgencyCounts {
@@ -30,6 +31,8 @@ export interface VideoCardItemData {
   requiredApprovals: number;
   approvalCount: number;
   phase: string | null;
+  creatorName: string | null;
+  creatorImageUrl: string | null;
 }
 
 interface VideoCardItemProps {
@@ -86,6 +89,8 @@ export function VideoCardItem({ video, folders, onDeleted, onMoved }: VideoCardI
     requiredApprovals,
     approvalCount,
     phase,
+    creatorName,
+    creatorImageUrl,
   } = video;
 
   const showApprovalBadge = requiredApprovals > 0;
@@ -115,6 +120,15 @@ export function VideoCardItem({ video, folders, onDeleted, onMoved }: VideoCardI
             <div className="absolute left-2 top-2">
               <StatusBadge status={status} />
             </div>
+          )}
+          {creatorName && (
+            <UserAvatar
+              name={creatorName}
+              imageUrl={creatorImageUrl}
+              size="sm"
+              showTooltip
+              className="absolute right-8 top-2 ring-2 ring-bg-secondary"
+            />
           )}
           {versionCount > 1 && (
             <div className="absolute left-2 bottom-2 rounded bg-black/75 px-1.5 py-0.5 text-xs font-medium text-white">

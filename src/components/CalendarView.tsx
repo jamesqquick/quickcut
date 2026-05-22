@@ -4,6 +4,7 @@ import { PHASE_LABELS, type VideoPhase } from "../types";
 import { DatePicker } from "./DatePicker";
 import type { DashboardVideo } from "./dashboard-types";
 import { friendlyActionErrorMessage } from "../lib/errors";
+import { UserAvatar } from "./UserAvatar";
 
 interface CalendarViewProps {
   initialVideos: DashboardVideo[];
@@ -43,27 +44,9 @@ function getCalendarDays(month: Date) {
   });
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .filter(Boolean)
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
 function OwnerAvatar({ name }: { name: string | null }) {
   if (!name) return null;
-  return (
-    <span
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary text-[10px] font-medium text-white"
-      title={`Owner: ${name}`}
-      aria-label={`Owner: ${name}`}
-    >
-      {getInitials(name)}
-    </span>
-  );
+  return <UserAvatar name={name} size="sm" showTooltip />;
 }
 
 function getRiskLabel(video: DashboardVideo) {
