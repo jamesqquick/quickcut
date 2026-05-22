@@ -4,8 +4,8 @@ import { eq } from "drizzle-orm";
 import { createDb } from "../../../../db";
 import { scripts } from "../../../../db/schema";
 import { scriptStatusUpdateSchema } from "../../../../lib/validation";
-import { verifySpaceAccess } from "../../../../lib/spaces";
 import { getMergedVideoById } from "../../../../lib/projects";
+import { getProjectPermissions } from "../../../../lib/permissions";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -29,8 +29,8 @@ export const PATCH: APIRoute = async ({ params, locals, request }) => {
   if (!project) return json({ error: "Project not found" }, 404);
   if (project.phase === "published") return json({ error: "Cannot update published scripts" }, 403);
 
-  const role = await verifySpaceAccess(db, locals.user.id, project.spaceId);
-  if (!role) return json({ error: "Forbidden" }, 403);
+  const perms = await getProjectPermissions(db, locals.user.id, project);
+  if (!perms?.canManage) return json({ error: "Forbidden" }, 403);
 
   const now = new Date().toISOString();
   const existing = await db.select().from(scripts).where(eq(scripts.videoId, id)).limit(1);

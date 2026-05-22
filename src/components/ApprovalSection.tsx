@@ -28,6 +28,8 @@ interface ApprovalSectionProps {
   isSpaceMember: boolean;
   /** The id of the user who uploaded the video, if known. */
   uploadedBy: string | null;
+  /** The id of the user who created the project. */
+  projectOwnerId?: string | null;
   /** When true, never show approve/undo buttons regardless of state. */
   readOnly?: boolean;
   /** Optional viewer info for the realtime connection. */
@@ -99,6 +101,7 @@ export function ApprovalSection({
   onStatusChange,
   spaceId,
   userRole,
+  projectOwnerId = null,
 }: ApprovalSectionProps) {
   const [status, setStatus] = useState<ApprovalStatus>(initialStatus);
   const [busy, setBusy] = useState(false);
@@ -136,12 +139,14 @@ export function ApprovalSection({
     !readOnly && !!currentUserId && isSpaceMember && !isUploader && !hasApproved;
   const canUndo =
     !readOnly && !!currentUserId && isSpaceMember && hasApproved;
+  const isProjectCreator =
+    !!currentUserId && !!projectOwnerId && projectOwnerId === currentUserId;
   const canRequestApprovals =
     !readOnly &&
     !!currentUserId &&
     !!spaceId &&
     isSpaceMember &&
-    (isUploader || userRole === "owner");
+    (isUploader || isProjectCreator || userRole === "owner");
 
   const dispatchLocalApprovalUpdate = useCallback(
     (next: ApprovalStatus) => {

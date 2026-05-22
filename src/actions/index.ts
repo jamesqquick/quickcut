@@ -41,6 +41,11 @@ import {
   notificationsMarkReadByContextSchema,
 } from "../lib/validation";
 import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
+import {
+  getProjectPermissions,
+  requireProjectManage,
+  requireSpaceAccess,
+} from "../lib/permissions";
 import { generateShareToken, generateInviteToken } from "../lib/share";
 import { getCanonicalBaseUrl } from "../lib/urls";
 import { getApprovalStatus } from "../lib/approvals";
@@ -143,10 +148,8 @@ export const server = {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
         }
 
-        const role = await verifySpaceAccess(db, user.id, video.spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
+        const perms = await getProjectPermissions(db, user.id, video);
+        requireProjectManage(perms);
 
         const targetDateOnly =
           input.targetDate !== undefined &&
@@ -262,24 +265,13 @@ export const server = {
         const user = requireUser(context);
         const db = createDb(env.DB);
 
-        const videoResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        if (videoResult.length === 0) {
+        const video = await getMergedVideoById(db, id);
+        if (!video) {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
         }
 
-        const video = videoResult[0];
-        const role = await verifySpaceAccess(db, user.id, video.spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
-        if (role !== "owner" && video.uploadedBy !== user.id) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
+        const perms = await getProjectPermissions(db, user.id, video);
+        requireProjectManage(perms);
 
         const projectId = video.projectId;
         const projectVersions = await db
@@ -325,33 +317,16 @@ export const server = {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
         }
 
-        const role = await verifySpaceAccess(db, user.id, video.spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
+        const perms = await getProjectPermissions(db, user.id, video);
+        requireProjectManage(perms);
 
-        if (
-          (phase === "published" || video.phase === "published") &&
-          role !== "owner" &&
-          video.uploadedBy !== user.id
-        ) {
-          throw new ActionError({
-            code: "FORBIDDEN",
-            message: "Only the space owner or video uploader can publish or unpublish",
-          });
-        }
-
-        // Server-side approval gate. Only enforced on transitions INTO
-        // published — already-published videos can be unpublished freely,
-        // and increasing requiredApprovals later does not retroactively
-        // un-publish anything.
         let publishedWithOverride = false;
         let shortApprovalsBy = 0;
         if (phase === "published" && video.phase !== "published") {
           const status = await getApprovalStatus(db, id, video.spaceId);
           if (status.requiredApprovals > 0 && !status.isApproved) {
             if (override) {
-              if (role !== "owner") {
+              if (!perms.isSpaceOwner) {
                 throw new ActionError({
                   code: "FORBIDDEN",
                   message: "Only the space owner can publish without full approvals",
@@ -634,29 +609,13 @@ export const server = {
         const user = requireUser(context);
         const db = createDb(env.DB);
 
-        const videoResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        if (videoResult.length === 0) {
+        const video = await getMergedVideoById(db, id);
+        if (!video) {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
         }
 
-        const video = videoResult[0];
-
-        const role = await verifySpaceAccess(db, user.id, video.spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
-
-        if (role !== "owner" && video.uploadedBy !== user.id) {
-          throw new ActionError({
-            code: "FORBIDDEN",
-            message: "Only the uploader or a space owner can request approvals",
-          });
-        }
+        const perms = await getProjectPermissions(db, user.id, video);
+        requireProjectManage(perms);
 
         const spaceRow = await db
           .select({ requiredApprovals: spaces.requiredApprovals })
@@ -773,21 +732,13 @@ export const server = {
         const user = requireUser(context);
         const db = createDb(env.DB);
 
-        const videoResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, id))
-          .limit(1);
-
-        if (videoResult.length === 0) {
+        const video = await getMergedVideoById(db, id);
+        if (!video) {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
         }
 
-        const video = videoResult[0];
-        const role = await verifySpaceAccess(db, user.id, video.spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
+        const perms = await getProjectPermissions(db, user.id, video);
+        requireProjectManage(perms);
 
         if (folderId) {
           const folder = await db
@@ -874,10 +825,8 @@ export const server = {
           });
         }
 
-        const role = await verifySpaceAccess(db, user.id, project.spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
+        const perms = await getProjectPermissions(db, user.id, project);
+        requireProjectManage(perms);
 
         let uploadUrl: string;
         let streamVideoId: string;
@@ -973,10 +922,8 @@ export const server = {
           });
         }
 
-        const role = await verifySpaceAccess(db, user.id, baseVideo.spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
+        const perms = await getProjectPermissions(db, user.id, baseVideo);
+        requireProjectManage(perms);
 
         const projectId = baseVideo.projectId;
         const latestResult = await db
@@ -1222,10 +1169,8 @@ export const server = {
           });
         }
 
-        const role = await verifySpaceAccess(db, user.id, video.spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
+        const perms = await getProjectPermissions(db, user.id, video);
+        requireProjectManage(perms);
 
         const now = new Date().toISOString();
         const plainText = (plainTextInput ?? content).replace(/\s+/g, " ").trim();
@@ -2246,6 +2191,9 @@ export const server = {
         if (!role) {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
+        if (role !== "owner") {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
 
         const updates: { name?: string; parentId?: string | null; updatedAt: string } = {
           updatedAt: new Date().toISOString(),
@@ -2326,6 +2274,9 @@ export const server = {
         if (!role) {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
+        if (role !== "owner") {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
 
         const nextParentId = parentId ?? null;
         if (nextParentId === id) {
@@ -2398,6 +2349,9 @@ export const server = {
 
         const role = await verifySpaceAccess(db, user.id, current[0].spaceId);
         if (!role) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+        if (role !== "owner") {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
 
@@ -2692,6 +2646,12 @@ export const server = {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
 
+        const isAuthor = current.createdBy === user.id;
+        const isSpaceOwner = role === "owner";
+        if (!isAuthor && !isSpaceOwner) {
+          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
+        }
+
         if (current.status === "promoted") {
           throw new ActionError({
             code: "BAD_REQUEST",
@@ -2743,20 +2703,13 @@ export const server = {
         const user = requireUser(context);
         const db = createDb(env.DB);
 
-        const videoResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, videoId))
-          .limit(1);
-
-        if (videoResult.length === 0) {
+        const video = await getMergedVideoById(db, videoId);
+        if (!video) {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
         }
 
-        const role = await verifySpaceAccess(db, user.id, videoResult[0].spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
+        const perms = await getProjectPermissions(db, user.id, video);
+        requireProjectManage(perms);
 
         // Replace any existing share link so the previous URL is invalidated.
         await db.delete(shareLinks).where(eq(shareLinks.videoId, videoId));
@@ -2790,20 +2743,13 @@ export const server = {
         const user = requireUser(context);
         const db = createDb(env.DB);
 
-        const videoResult = await db
-          .select()
-          .from(videos)
-          .where(eq(videos.id, videoId))
-          .limit(1);
-
-        if (videoResult.length === 0) {
+        const video = await getMergedVideoById(db, videoId);
+        if (!video) {
           throw new ActionError({ code: "NOT_FOUND", message: "Video not found" });
         }
 
-        const role = await verifySpaceAccess(db, user.id, videoResult[0].spaceId);
-        if (!role) {
-          throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
-        }
+        const perms = await getProjectPermissions(db, user.id, video);
+        requireProjectManage(perms);
 
         await db.delete(shareLinks).where(eq(shareLinks.videoId, videoId));
 
