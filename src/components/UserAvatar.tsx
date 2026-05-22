@@ -40,16 +40,19 @@ export function UserAvatar({
   const bgClass = muted ? "bg-accent-primary/60" : "bg-accent-primary";
   const showImage = imageUrl && !imgError;
 
+  const avatarClassName = showTooltip ? "" : className;
+  const wrapperClassName = showTooltip ? className : "";
+
   const avatar = showImage ? (
     <img
       src={imageUrl}
       alt={name}
       onError={() => setImgError(true)}
-      className={`${container} shrink-0 rounded-full object-cover ${className}`}
+      className={`${container} shrink-0 rounded-full object-cover ${avatarClassName}`}
     />
   ) : (
     <span
-      className={`flex ${container} shrink-0 items-center justify-center rounded-full ${bgClass} ${text} font-medium text-white ${className}`}
+      className={`flex ${container} shrink-0 items-center justify-center rounded-full ${bgClass} ${text} font-medium text-white ${avatarClassName}`}
     >
       {getInitials(name)}
     </span>
@@ -58,7 +61,7 @@ export function UserAvatar({
   if (!showTooltip) return avatar;
 
   return (
-    <span className="group/avatar relative inline-flex">
+    <span className={`group/avatar relative inline-flex ${wrapperClassName}`}>
       {avatar}
       <span
         role="tooltip"
