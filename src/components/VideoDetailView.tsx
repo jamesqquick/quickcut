@@ -53,6 +53,7 @@ interface VideoDetailViewProps {
   takeaway3?: string | null;
   /** Per-version "what changed" note. Only set on version 2+ uploads. */
   versionNotes?: string | null;
+  projectOwnerId?: string | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -97,6 +98,7 @@ export function VideoDetailView({
   takeaway2 = null,
   takeaway3 = null,
   versionNotes = null,
+  projectOwnerId = null,
 }: VideoDetailViewProps) {
   const isShareMode = !!shareToken;
   const initialReviewComments = initialComments.filter((comment) => comment.phase !== "script");
@@ -105,8 +107,10 @@ export function VideoDetailView({
   const [approvalStatus, setApprovalStatus] = useState(initialApprovalStatus);
   const [liveComments, setLiveComments] = useState(initialReviewComments);
   const isPublished = currentPhase === "published";
-  const canChangePhase = !isShareMode && pipelineEnabled && (userRole === "owner" || uploadedBy === currentUserId);
-  const isOwner = userRole === "owner";
+  const isSpaceOwner = userRole === "owner";
+  const isProjectCreator = projectOwnerId === currentUserId;
+  const canChangePhase = !isShareMode && pipelineEnabled && (isSpaceOwner || isProjectCreator);
+  const isOwner = isSpaceOwner;
   const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
   const requiresApproval =
     !!approvalStatus && approvalStatus.requiredApprovals > 0;
@@ -338,6 +342,7 @@ export function VideoDetailView({
           onStatusChange={setApprovalStatus}
           spaceId={spaceId}
           userRole={userRole === "owner" ? "owner" : "member"}
+          projectOwnerId={projectOwnerId}
         />
       )}
     </>

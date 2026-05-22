@@ -33,9 +33,10 @@ interface VideoHeaderProps {
   spaceName?: string;
   versions: VersionSummary[];
   uploadVersion?: UploadVersionConfig | null;
+  canManageProject?: boolean;
 }
 
-export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to Dashboard", spaceName, versions, uploadVersion = null }: VideoHeaderProps) {
+export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to Dashboard", spaceName, versions, uploadVersion = null, canManageProject = false }: VideoHeaderProps) {
   const [shareLink, setShareLink] = useState(initialLink);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -225,6 +226,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
           </>
         )}
 
+        {canManageProject && (
         <div className="relative" ref={moreMenuRef}>
           <button
             onClick={() => setMoreMenuOpen((o) => !o)}
@@ -396,6 +398,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
           </div>
         )}
         </div>
+        )}
       </div>
     </div>
 
