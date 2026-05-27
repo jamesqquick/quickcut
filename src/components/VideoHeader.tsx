@@ -3,6 +3,8 @@ import { actions } from "astro:actions";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { UploadVersionModal } from "./UploadVersionModal";
 import { VersionSwitcher } from "./VersionSwitcher";
+import { ToastViewport, useToast } from "./Toast";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface ShareLink {
   id: string;
@@ -31,9 +33,10 @@ interface VideoHeaderProps {
   spaceName?: string;
   versions: VersionSummary[];
   uploadVersion?: UploadVersionConfig | null;
+  canManageProject?: boolean;
 }
 
-export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to Dashboard", spaceName, versions, uploadVersion = null }: VideoHeaderProps) {
+export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to Dashboard", spaceName, versions, uploadVersion = null, canManageProject = false }: VideoHeaderProps) {
   const [shareLink, setShareLink] = useState(initialLink);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -44,6 +47,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
   const [deleting, setDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmRevokeOpen, setConfirmRevokeOpen] = useState(false);
+  const { toasts, showToast, dismissToast } = useToast();
   const popoverRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -103,9 +107,12 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
         window.location.href = data?.redirectVideoId ? `/videos/${data.redirectVideoId}?space=${spaceId}` : `/dashboard?space=${spaceId}`;
         return;
       }
-      alert(error.message || "Failed to delete video");
+      showToast(
+        friendlyActionErrorMessage(error.message, "Failed to delete video. Please try again."),
+        "error",
+      );
     } catch {
-      alert("Failed to delete video");
+      showToast("Failed to delete video. Please try again.", "error");
     }
     setDeleting(false);
     setConfirmDeleteOpen(false);
@@ -167,6 +174,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
 
   return (
     <>
+    <ToastViewport toasts={toasts} onDismiss={dismissToast} />
     <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
       <div className="flex min-w-0 items-center gap-2">
         <a
@@ -218,6 +226,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
           </>
         )}
 
+        {canManageProject && (
         <div className="relative" ref={moreMenuRef}>
           <button
             onClick={() => setMoreMenuOpen((o) => !o)}
@@ -389,6 +398,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
           </div>
         )}
         </div>
+        )}
       </div>
     </div>
 

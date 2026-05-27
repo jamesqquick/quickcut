@@ -1,7 +1,7 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import GuestHeader from "../../components/GuestHeader.astro";
-import { ShareView } from "../../components/ShareView";
+import { ShareView, GUEST_NAME_MAX_LENGTH } from "../../components/ShareView";
 import { createDb } from "../../db";
 import { shareLinks, scripts, spaces, videos } from "../../db/schema";
 import { count, eq } from "drizzle-orm";
@@ -19,6 +19,19 @@ if (!token) return Astro.redirect("/");
 const currentUser = Astro.locals.user
   ? { id: Astro.locals.user.id, name: Astro.locals.user.name }
   : null;
+
+const initialGuestName = (() => {
+  if (currentUser) return null;
+  const raw = Astro.cookies.get("qc_guest_name")?.value;
+  if (!raw) return null;
+  try {
+    const decoded = decodeURIComponent(raw);
+    const trimmed = decoded.trim().slice(0, GUEST_NAME_MAX_LENGTH);
+    return trimmed || null;
+  } catch {
+    return null;
+  }
+})();
 
 const db = createDb(env.DB);
 
@@ -185,6 +198,7 @@ const isPublished = phase === "published";
             pipelineEnabled={videoSpace?.pipelineEnabled || false}
             initialTranscriptData={initialTranscriptData}
             currentUser={currentUser}
+            initialGuestName={initialGuestName}
           />
         )}
 

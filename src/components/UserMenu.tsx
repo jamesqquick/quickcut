@@ -6,6 +6,7 @@ import {
   setStoredTheme,
   type Theme,
 } from "../lib/theme";
+import { getInitials } from "./UserAvatar";
 
 interface UserMenuProps {
   name: string;
@@ -49,16 +50,6 @@ function MoonIcon() {
       />
     </svg>
   );
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .filter(Boolean)
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 export function UserMenu({ name, email, notificationCount = 0 }: UserMenuProps) {

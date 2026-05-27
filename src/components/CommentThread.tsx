@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { actions } from "astro:actions";
 import { formatTimecode, relativeTime } from "../lib/time";
+import { LinkifiedText } from "../lib/linkify";
 import { connectVideoRoom } from "../lib/realtime";
 import type { Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
+import { UserAvatar } from "./UserAvatar";
 import { AnnotationToolbar } from "./AnnotationOverlay";
 import type { AnnotationTool } from "./AnnotationOverlay";
 import type {
@@ -366,6 +368,7 @@ interface CommentThreadProps {
   /** When true, open a WebSocket to the per-video room for live updates. */
   liveEnabled?: boolean;
   onSeek?: (time: number) => void;
+  onPause?: () => void;
   onNameRequired?: () => void;
   onCommentsChange?: (comments: Comment[]) => void;
   focusRequest?: FocusRequest | null;
@@ -406,6 +409,7 @@ export function CommentThread({
   anonymousName,
   liveEnabled = false,
   onSeek,
+  onPause,
   onNameRequired,
   onCommentsChange,
   focusRequest,
@@ -426,12 +430,22 @@ export function CommentThread({
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [lockedTimestamp, setLockedTimestamp] = useState<number | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Viewer[]>([]);
   const [presenceLoading, setPresenceLoading] = useState(!!liveEnabled);
   const lastFetchRef = useRef<string>(new Date().toISOString());
   const threadRef = useRef<HTMLDivElement>(null);
   const commentRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+
+  const effectiveTime = lockedTimestamp ?? currentTime;
+
+  const handleComposeFocus = useCallback(() => {
+    if (videoStatus === "ready") {
+      onPause?.();
+      setLockedTimestamp(currentTime);
+    }
+  }, [videoStatus, onPause, currentTime]);
 
   // Notify parent when comments change
   useEffect(() => {
@@ -587,7 +601,7 @@ export function CommentThread({
     setError("");
 
     try {
-      const timestamp = videoStatus === "ready" ? currentTime : null;
+      const timestamp = videoStatus === "ready" ? effectiveTime : null;
 
       if (shareToken) {
         // Anonymous share flow stays on the dedicated share endpoint.
@@ -613,6 +627,7 @@ export function CommentThread({
           });
           setNewComment("");
           setNewCommentUrgency("suggestion");
+          setLockedTimestamp(null);
           onAnnotationClear?.();
           lastFetchRef.current = new Date().toISOString();
         } else {
@@ -637,6 +652,7 @@ export function CommentThread({
           });
           setNewComment("");
           setNewCommentUrgency("suggestion");
+          setLockedTimestamp(null);
           onAnnotationClear?.();
           lastFetchRef.current = new Date().toISOString();
         }
@@ -826,15 +842,6 @@ export function CommentThread({
     return comment.authorType === "user" && comment.authorUserId === currentUserId;
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   const formatTC = (seconds: number | null) => {
     return formatTimecode(seconds);
   };
@@ -912,9 +919,7 @@ export function CommentThread({
               >
                 {/* Root comment */}
                 <div className="flex gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-primary text-xs font-medium text-white">
-                    {getInitials(comment.name)}
-                  </div>
+                  <UserAvatar name={comment.name} size="lg" />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-semibold text-text-primary">
@@ -960,7 +965,7 @@ export function CommentThread({
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-text-secondary whitespace-pre-wrap">
-                      {comment.text}
+                      <LinkifiedText text={comment.text} />
                     </p>
                     <ReactionBar
                       comment={comment}
@@ -1011,9 +1016,7 @@ export function CommentThread({
                   <div className="ml-10 space-y-3 border-l border-border-default pl-4">
                     {replies.map((reply) => (
                       <div key={reply.id} className="flex gap-3">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary/60 text-[10px] font-medium text-white">
-                          {getInitials(reply.name)}
-                        </div>
+                        <UserAvatar name={reply.name} size="sm" muted />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-text-primary">
@@ -1024,7 +1027,7 @@ export function CommentThread({
                             </span>
                           </div>
                           <p className="mt-0.5 text-sm text-text-secondary whitespace-pre-wrap">
-                            {reply.text}
+                            <LinkifiedText text={reply.text} />
                           </p>
                           <ReactionBar
                             comment={reply}
@@ -1133,7 +1136,7 @@ export function CommentThread({
             <>
               <AnnotationToolbar activeTool={activeTool} onToolChange={onToolChange} />
               <span className="rounded bg-bg-tertiary px-2 py-1 font-mono text-xs text-accent-primary">
-                {formatTC(currentTime)}
+                {formatTC(effectiveTime)}
               </span>
             </>
           )}
@@ -1147,6 +1150,7 @@ export function CommentThread({
             type="text"
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
+            onFocus={handleComposeFocus}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -1157,7 +1161,7 @@ export function CommentThread({
               pendingAnnotation
                 ? "Describe what you see here..."
                 : videoStatus === "ready"
-                  ? `Add a comment at ${formatTC(currentTime)}...`
+                  ? `Add a comment at ${formatTC(effectiveTime)}...`
                   : "Add a comment..."
             }
             className="min-w-0 flex-1 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"

@@ -7,10 +7,13 @@ import StarterKit from "@tiptap/starter-kit";
 import type { JSONContent } from "@tiptap/core";
 import type { Comment, CommentUrgency, TextRange } from "../types";
 import { relativeTime } from "../lib/time";
+import { LinkifiedText } from "../lib/linkify";
 import { connectVideoRoom, type Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
+import { UserAvatar } from "./UserAvatar";
 import { PendingCommentHighlight } from "./pendingCommentHighlight";
 import { CommentHighlightDecorations } from "./commentHighlightDecorations";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 const EMPTY_DOC: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
 
@@ -215,15 +218,6 @@ function initialContentHasText(content: string): boolean {
   return getTextFromContent(parseInitialContent(content)).trim().length > 0;
 }
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
 export function ScriptWorkspace({
   videoId,
   spaceId,
@@ -323,7 +317,10 @@ export function ScriptWorkspace({
         content,
         plainText,
       });
-      if (error || !data) throw new Error(error?.message || "Failed to save script");
+      if (error || !data)
+        throw new Error(
+          friendlyActionErrorMessage(error?.message, "Failed to save script"),
+        );
       if (data.resolvedCommentIds?.length) {
         const resolvedAt = new Date().toISOString();
         setComments((current) =>
@@ -474,7 +471,10 @@ export function ScriptWorkspace({
           timestamp: null,
           textRange: selectedRange,
         });
-        if (error || !data) throw new Error(error?.message || "Failed to create comment");
+        if (error || !data)
+          throw new Error(
+            friendlyActionErrorMessage(error?.message, "Failed to create comment"),
+          );
         comment = data.comment as Comment;
       }
 
@@ -505,7 +505,10 @@ export function ScriptWorkspace({
         id: comment.id,
         resolved: nextResolved,
       });
-      if (error) throw new Error(error.message || "Failed to resolve comment");
+      if (error)
+        throw new Error(
+          friendlyActionErrorMessage(error.message, "Failed to resolve comment"),
+        );
     } catch (err) {
       console.error(err);
       setComments((current) => current.map((item) => (item.id === comment.id ? comment : item)));
@@ -537,7 +540,10 @@ export function ScriptWorkspace({
           parentId,
           text: replyText.trim(),
         });
-        if (error || !data) throw new Error(error?.message || "Failed to post reply");
+        if (error || !data)
+          throw new Error(
+            friendlyActionErrorMessage(error?.message, "Failed to post reply"),
+          );
         comment = data.comment as Comment;
       }
 
@@ -674,9 +680,7 @@ export function ScriptWorkspace({
                   } ${comment.isResolved ? "border-l-2 border-accent-secondary pl-3 opacity-50" : ""}`}
                 >
                   <div className="flex gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-primary text-xs font-medium text-white">
-                      {getInitials(displayName)}
-                    </div>
+                    <UserAvatar name={displayName} size="lg" />
                     <div className="min-w-0 flex-1">
                       <button type="button" onClick={() => focusComment(comment)} className="block w-full text-left">
                         <div className="flex flex-wrap items-center gap-2">
@@ -695,8 +699,8 @@ export function ScriptWorkspace({
                             </span>
                           )}
                         </div>
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">{comment.text}</p>
                       </button>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary"><LinkifiedText text={comment.text} /></p>
                       <div className="mt-2 flex flex-wrap gap-3">
                         {canComment && (
                           <button
@@ -731,15 +735,13 @@ export function ScriptWorkspace({
                             const replyDisplayName = reply.name || viewerName;
                             return (
                               <div key={reply.id} className="flex gap-3">
-                                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-primary/60 text-[10px] font-medium text-white">
-                                  {getInitials(replyDisplayName)}
-                                </div>
+                                <UserAvatar name={replyDisplayName} size="sm" muted />
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <span className="text-xs font-semibold text-text-primary">{replyDisplayName}</span>
                                     <span className="text-xs text-text-tertiary">{relativeTime(reply.createdAt)}</span>
                                   </div>
-                                  <p className="mt-0.5 whitespace-pre-wrap text-sm text-text-secondary">{reply.text}</p>
+                                  <p className="mt-0.5 whitespace-pre-wrap text-sm text-text-secondary"><LinkifiedText text={reply.text} /></p>
                                 </div>
                               </div>
                             );

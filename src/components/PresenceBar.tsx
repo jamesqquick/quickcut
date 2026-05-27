@@ -1,4 +1,5 @@
 import type { Viewer } from "../lib/realtime";
+import { UserAvatar } from "./UserAvatar";
 
 interface PresenceBarProps {
   viewers: Viewer[];
@@ -6,16 +7,6 @@ interface PresenceBarProps {
 }
 
 const MAX_VISIBLE = 4;
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .filter(Boolean)
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 function PresenceBarSkeleton() {
   return (
@@ -40,13 +31,13 @@ export function PresenceBar({ viewers, loading }: PresenceBarProps) {
     <div className="flex items-center gap-2 px-4 py-2 border-b border-border-default">
       <div className="flex -space-x-2">
         {visible.map((viewer, i) => (
-          <div
+          <UserAvatar
             key={viewer.userId ?? `anon-${viewer.name}-${i}`}
-            className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg-secondary bg-accent-primary text-[10px] font-medium text-white"
-            title={viewer.name}
-          >
-            {getInitials(viewer.name)}
-          </div>
+            name={viewer.name}
+            size="md"
+            className="border-2 border-bg-secondary"
+            showTooltip
+          />
         ))}
         {overflow > 0 && (
           <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-bg-secondary bg-bg-tertiary text-[10px] font-medium text-text-secondary">

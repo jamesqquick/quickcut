@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { actions } from "astro:actions";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { MoveToFolderDialog } from "./MoveToFolderDialog";
+import { ToastViewport, useToast } from "./Toast";
+import { friendlyActionErrorMessage } from "../lib/errors";
 
 interface Folder {
   id: string;
@@ -30,6 +32,7 @@ export function VideoCardMenu({
   const [moveOpen, setMoveOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const { toasts, showToast, dismissToast } = useToast();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,9 +70,12 @@ export function VideoCardMenu({
         setDeleting(false);
         return;
       }
-      alert(error.message || "Failed to delete video");
+      showToast(
+        friendlyActionErrorMessage(error.message, "Failed to delete video. Please try again."),
+        "error",
+      );
     } catch {
-      alert("Failed to delete video");
+      showToast("Failed to delete video. Please try again.", "error");
     }
     setDeleting(false);
     setConfirmOpen(false);
@@ -83,6 +89,7 @@ export function VideoCardMenu({
 
   return (
     <>
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
       <div className="relative" ref={menuRef}>
         <button
           onClick={stopAndToggle}

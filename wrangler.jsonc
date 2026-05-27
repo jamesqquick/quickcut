@@ -73,6 +73,7 @@
     "TRANSCRIPTS_ENABLED": "true",
     "TRANSCRIPT_CLEANUP_MODEL": "@cf/meta/llama-3.1-8b-instruct",
     "OTP_EMAIL_FROM": "noreply@quickcuts.app",
+    "BETTER_AUTH_URL": "https://quickcuts.app",
   },
   "ratelimits": [
     {

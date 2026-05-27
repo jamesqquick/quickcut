@@ -134,5 +134,9 @@ export function useStreamPlayer({
     }
   }, []);
 
-  return { iframeRef, currentTime, videoDuration, setVideoDuration, handleSeek };
+  const handlePause = useCallback(() => {
+    playerRef.current?.pause();
+  }, []);
+
+  return { iframeRef, currentTime, videoDuration, setVideoDuration, handleSeek, handlePause };
 }

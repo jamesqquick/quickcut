@@ -13,6 +13,8 @@ function getAuth(): Auth {
     EMAIL: env.EMAIL,
     OTP_EMAIL_FROM: env.OTP_EMAIL_FROM,
     SEND_REAL_EMAILS: env.SEND_REAL_EMAILS,
+    GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
   });
   cachedAuthDb = env.DB;
   return cachedAuth;
