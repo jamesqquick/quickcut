@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
-import { env, waitUntil } from "cloudflare:workers";
+import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
 import { shareLinks, comments, projects, users, videos } from "../../../../db/schema";
 import { eq, asc, gt, and, inArray } from "drizzle-orm";
+import { defer } from "../../../../lib/background";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { addReactionSummaries } from "../../../../lib/comments";
 import { createCommentNotifications } from "../../../../lib/notifications";
@@ -231,7 +232,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     reactions: [],
   };
 
-  waitUntil(
+  defer(
     createCommentNotifications(
       db,
       {
@@ -253,7 +254,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       console.error("Failed to create share comment notification", err);
     }),
   );
-  waitUntil(broadcastNewComment(env, videoId, responseComment));
+  defer(broadcastNewComment(env, videoId, responseComment));
 
   return new Response(JSON.stringify({ comment: responseComment }), {
     status: 201,

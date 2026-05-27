@@ -1,6 +1,6 @@
 import { defineAction, ActionError } from "astro:actions";
 import { z } from "astro/zod";
-import { env, waitUntil } from "cloudflare:workers";
+import { env } from "cloudflare:workers";
 import { eq, and, count, desc, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { createDb } from "../db";
@@ -61,6 +61,7 @@ import {
   broadcastNotification,
   broadcastNotificationsRead,
 } from "../lib/broadcast";
+import { defer } from "../lib/background";
 import {
   isCommentReactionEmoji,
   toggleCommentReaction,
@@ -372,7 +373,7 @@ export const server = {
           });
         }
 
-        waitUntil(broadcastPhaseChange(env, id, {
+        defer(broadcastPhaseChange(env, id, {
           videoId: id,
           phase,
           changedBy: user.name,
@@ -461,7 +462,7 @@ export const server = {
         }
 
         const status = await getApprovalStatus(db, id, video.spaceId);
-        waitUntil(broadcastApprovalUpdate(env, id, status));
+        defer(broadcastApprovalUpdate(env, id, status));
 
         await logProjectActivity(db, {
           videoId: id,
@@ -498,7 +499,7 @@ export const server = {
               createdAt: now,
             });
 
-            waitUntil(broadcastPhaseChange(env, id, {
+            defer(broadcastPhaseChange(env, id, {
               videoId: id,
               phase: "video_approved",
               changedBy: user.name,
@@ -549,7 +550,7 @@ export const server = {
           .where(and(eq(approvals.videoId, id), eq(approvals.userId, user.id)));
 
         const status = await getApprovalStatus(db, id, video.spaceId);
-        waitUntil(broadcastApprovalUpdate(env, id, status));
+        defer(broadcastApprovalUpdate(env, id, status));
 
         const now = new Date().toISOString();
         await logProjectActivity(db, {
@@ -587,7 +588,7 @@ export const server = {
               createdAt: now,
             });
 
-            waitUntil(broadcastPhaseChange(env, id, {
+            defer(broadcastPhaseChange(env, id, {
               videoId: id,
               phase: "reviewing_video",
               changedBy: user.name,
@@ -695,7 +696,7 @@ export const server = {
 
         await db.insert(approvalRequests).values(newRows);
 
-        waitUntil(
+        defer(
           createTargetedApprovalRequestNotifications(
             db,
             {
@@ -888,7 +889,7 @@ export const server = {
           createdAt: now,
         });
 
-        waitUntil(broadcastPhaseChange(env, id, {
+        defer(broadcastPhaseChange(env, id, {
           videoId: id,
           phase: "reviewing_video",
           changedBy: user.name,
@@ -1021,7 +1022,7 @@ export const server = {
                 videoId,
                 baseVideo.spaceId,
               );
-              waitUntil(broadcastApprovalUpdate(env, videoId, status));
+              defer(broadcastApprovalUpdate(env, videoId, status));
             }
           }
         } catch (err) {
@@ -1306,7 +1307,7 @@ export const server = {
           reactions: [],
         };
 
-        waitUntil(
+        defer(
           createCommentNotifications(
             db,
             {
@@ -1328,7 +1329,7 @@ export const server = {
             console.error("Failed to create comment notification", err);
           }),
         );
-        waitUntil(broadcastNewComment(env, videoId, responseComment));
+        defer(broadcastNewComment(env, videoId, responseComment));
 
         return { comment: responseComment };
       },
@@ -1531,7 +1532,7 @@ export const server = {
           reactions: [],
         };
 
-        waitUntil(
+        defer(
           createCommentNotifications(
             db,
             {
@@ -1553,7 +1554,7 @@ export const server = {
             console.error("Failed to create reply notification", err);
           }),
         );
-        waitUntil(broadcastNewComment(env, parent[0].videoId, responseComment));
+        defer(broadcastNewComment(env, parent[0].videoId, responseComment));
 
         return { comment: responseComment };
       },
@@ -1613,7 +1614,7 @@ export const server = {
           name: user.name,
         });
 
-        waitUntil(broadcastCommentReactions(env, comment[0].videoId, {
+        defer(broadcastCommentReactions(env, comment[0].videoId, {
           commentId,
           reactions: reactions.map((reaction) => ({
             ...reaction,
@@ -1893,7 +1894,7 @@ export const server = {
         }
 
         if (existingUser.length > 0) {
-          waitUntil(broadcastNotification(env, existingUser[0].id, {
+          defer(broadcastNotification(env, existingUser[0].id, {
             kind: "invite",
             id: invite.id,
             title: `${user.name} invited you to ${space[0].name}`,
@@ -2097,7 +2098,7 @@ export const server = {
         const ids = await markNotificationsReadByVideoTab(db, user.id, videoId, tab);
 
         if (ids.length > 0) {
-          waitUntil(broadcastNotificationsRead(env, user.id, ids));
+          defer(broadcastNotificationsRead(env, user.id, ids));
         }
 
         return { ids, count: ids.length };

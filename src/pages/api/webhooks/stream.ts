@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
-import { env, waitUntil } from "cloudflare:workers";
+import { env } from "cloudflare:workers";
 import { createDb } from "../../../db";
 import { videos } from "../../../db/schema";
 import { eq } from "drizzle-orm";
+import { defer } from "../../../lib/background";
 import { queueTranscriptForVideo } from "../../../lib/transcripts";
 
 interface StreamWebhookPayload {
@@ -161,7 +162,7 @@ export const POST: APIRoute = async ({ request }) => {
       })
       .where(eq(videos.id, video.id));
 
-    waitUntil(queueTranscriptForVideo(env, db, {
+    defer(queueTranscriptForVideo(env, db, {
       ...video,
       status: "ready",
       duration: payload.duration,
