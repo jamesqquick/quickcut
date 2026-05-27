@@ -1,6 +1,6 @@
 import { defineAction, ActionError } from "astro:actions";
 import { z } from "astro/zod";
-import { env } from "cloudflare:workers";
+import { env, waitUntil } from "cloudflare:workers";
 import { eq, and, count, desc, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { createDb } from "../db";
@@ -57,7 +57,6 @@ import {
   broadcastNotification,
   broadcastNotificationsRead,
 } from "../lib/broadcast";
-import { getWaitUntil } from "../lib/ctx";
 import {
   isCommentReactionEmoji,
   toggleCommentReaction,
@@ -399,17 +398,11 @@ export const server = {
           });
         }
 
-        const waitUntil = getWaitUntil(context.locals);
-        const broadcastPromise = broadcastPhaseChange(env, id, {
+        waitUntil(broadcastPhaseChange(env, id, {
           videoId: id,
           phase,
           changedBy: user.name,
-        });
-        if (waitUntil) {
-          waitUntil(broadcastPromise);
-        } else {
-          await broadcastPromise;
-        }
+        }));
 
         // NOTE: per issue #93 the generic fan-out of approval.requested
         // notifications to every space member has been removed. Approvals
@@ -494,13 +487,7 @@ export const server = {
         }
 
         const status = await getApprovalStatus(db, id, video.spaceId);
-        const waitUntil = getWaitUntil(context.locals);
-        const approvalBroadcast = broadcastApprovalUpdate(env, id, status);
-        if (waitUntil) {
-          waitUntil(approvalBroadcast);
-        } else {
-          await approvalBroadcast;
-        }
+        waitUntil(broadcastApprovalUpdate(env, id, status));
 
         await logProjectActivity(db, {
           videoId: id,
@@ -537,16 +524,11 @@ export const server = {
               createdAt: now,
             });
 
-            const phaseBroadcast = broadcastPhaseChange(env, id, {
+            waitUntil(broadcastPhaseChange(env, id, {
               videoId: id,
               phase: "video_approved",
               changedBy: user.name,
-            });
-            if (waitUntil) {
-              waitUntil(phaseBroadcast);
-            } else {
-              await phaseBroadcast;
-            }
+            }));
           }
         }
 
@@ -593,13 +575,7 @@ export const server = {
           .where(and(eq(approvals.videoId, id), eq(approvals.userId, user.id)));
 
         const status = await getApprovalStatus(db, id, video.spaceId);
-        const waitUntil = getWaitUntil(context.locals);
-        const approvalBroadcast = broadcastApprovalUpdate(env, id, status);
-        if (waitUntil) {
-          waitUntil(approvalBroadcast);
-        } else {
-          await approvalBroadcast;
-        }
+        waitUntil(broadcastApprovalUpdate(env, id, status));
 
         const now = new Date().toISOString();
         await logProjectActivity(db, {
@@ -637,16 +613,11 @@ export const server = {
               createdAt: now,
             });
 
-            const phaseBroadcast = broadcastPhaseChange(env, id, {
+            waitUntil(broadcastPhaseChange(env, id, {
               videoId: id,
               phase: "reviewing_video",
               changedBy: user.name,
-            });
-            if (waitUntil) {
-              waitUntil(phaseBroadcast);
-            } else {
-              await phaseBroadcast;
-            }
+            }));
           }
         }
 
@@ -766,30 +737,25 @@ export const server = {
 
         await db.insert(approvalRequests).values(newRows);
 
-        const waitUntil = getWaitUntil(context.locals);
-        const notificationsPromise = createTargetedApprovalRequestNotifications(
-          db,
-          {
-            videoId: id,
-            requestedUserIds: toCreate,
-            actorUserId: user.id,
-            actorDisplayName: user.name,
-          },
-          {
-            send: (msg) => sendEmail(env, msg),
-            from: env.OTP_EMAIL_FROM,
-            baseUrl: getCanonicalBaseUrl(env),
-          },
-          env,
-        ).catch((err) => {
-          console.error("Failed to dispatch targeted approval-request notifications", err);
-        });
-
-        if (waitUntil) {
-          waitUntil(notificationsPromise);
-        } else {
-          await notificationsPromise;
-        }
+        waitUntil(
+          createTargetedApprovalRequestNotifications(
+            db,
+            {
+              videoId: id,
+              requestedUserIds: toCreate,
+              actorUserId: user.id,
+              actorDisplayName: user.name,
+            },
+            {
+              send: (msg) => sendEmail(env, msg),
+              from: env.OTP_EMAIL_FROM,
+              baseUrl: getCanonicalBaseUrl(env),
+            },
+            env,
+          ).catch((err) => {
+            console.error("Failed to dispatch targeted approval-request notifications", err);
+          }),
+        );
 
         return {
           created: toCreate.length,
@@ -974,17 +940,11 @@ export const server = {
           createdAt: now,
         });
 
-        const waitUntil = getWaitUntil(context.locals);
-        const phaseBroadcast = broadcastPhaseChange(env, id, {
+        waitUntil(broadcastPhaseChange(env, id, {
           videoId: id,
           phase: "reviewing_video",
           changedBy: user.name,
-        });
-        if (waitUntil) {
-          waitUntil(phaseBroadcast);
-        } else {
-          await phaseBroadcast;
-        }
+        }));
 
         return { videoId: id, uploadUrl };
       },
@@ -1115,17 +1075,7 @@ export const server = {
                 videoId,
                 baseVideo.spaceId,
               );
-              const waitUntil = getWaitUntil(context.locals);
-              const approvalBroadcast = broadcastApprovalUpdate(
-                env,
-                videoId,
-                status,
-              );
-              if (waitUntil) {
-                waitUntil(approvalBroadcast);
-              } else {
-                await approvalBroadcast;
-              }
+              waitUntil(broadcastApprovalUpdate(env, videoId, status));
             }
           }
         } catch (err) {
@@ -1412,36 +1362,29 @@ export const server = {
           reactions: [],
         };
 
-        const waitUntil = getWaitUntil(context.locals);
-        const notificationsPromise = createCommentNotifications(
-          db,
-          {
-            commentId,
-            videoId,
-            actorUserId: user.id,
-            actorDisplayName: user.name,
-            text: newComment.text,
-            parentCommentId: null,
-            phase,
-          },
-          {
-            send: (msg) => sendEmail(env, msg),
-            from: env.OTP_EMAIL_FROM,
-            baseUrl: getCanonicalBaseUrl(env),
-          },
-          env,
-        ).catch((err) => {
-          console.error("Failed to create comment notification", err);
-        });
-
-        const broadcastPromise = broadcastNewComment(env, videoId, responseComment);
-
-        if (waitUntil) {
-          waitUntil(notificationsPromise);
-          waitUntil(broadcastPromise);
-        } else {
-          await Promise.all([notificationsPromise, broadcastPromise]);
-        }
+        waitUntil(
+          createCommentNotifications(
+            db,
+            {
+              commentId,
+              videoId,
+              actorUserId: user.id,
+              actorDisplayName: user.name,
+              text: newComment.text,
+              parentCommentId: null,
+              phase,
+            },
+            {
+              send: (msg) => sendEmail(env, msg),
+              from: env.OTP_EMAIL_FROM,
+              baseUrl: getCanonicalBaseUrl(env),
+            },
+            env,
+          ).catch((err) => {
+            console.error("Failed to create comment notification", err);
+          }),
+        );
+        waitUntil(broadcastNewComment(env, videoId, responseComment));
 
         return { comment: responseComment };
       },
@@ -1644,40 +1587,29 @@ export const server = {
           reactions: [],
         };
 
-        const waitUntil = getWaitUntil(context.locals);
-        const notificationsPromise = createCommentNotifications(
-          db,
-          {
-            commentId,
-            videoId: parent[0].videoId,
-            actorUserId: user.id,
-            actorDisplayName: user.name,
-            text: newReply.text,
-            parentCommentId: parentId,
-            phase: parent[0].phase,
-          },
-          {
-            send: (msg) => sendEmail(env, msg),
-            from: env.OTP_EMAIL_FROM,
-            baseUrl: getCanonicalBaseUrl(env),
-          },
-          env,
-        ).catch((err) => {
-          console.error("Failed to create reply notification", err);
-        });
-
-        const broadcastPromise = broadcastNewComment(
-          env,
-          parent[0].videoId,
-          responseComment,
+        waitUntil(
+          createCommentNotifications(
+            db,
+            {
+              commentId,
+              videoId: parent[0].videoId,
+              actorUserId: user.id,
+              actorDisplayName: user.name,
+              text: newReply.text,
+              parentCommentId: parentId,
+              phase: parent[0].phase,
+            },
+            {
+              send: (msg) => sendEmail(env, msg),
+              from: env.OTP_EMAIL_FROM,
+              baseUrl: getCanonicalBaseUrl(env),
+            },
+            env,
+          ).catch((err) => {
+            console.error("Failed to create reply notification", err);
+          }),
         );
-
-        if (waitUntil) {
-          waitUntil(notificationsPromise);
-          waitUntil(broadcastPromise);
-        } else {
-          await Promise.all([notificationsPromise, broadcastPromise]);
-        }
+        waitUntil(broadcastNewComment(env, parent[0].videoId, responseComment));
 
         return { comment: responseComment };
       },
@@ -1737,20 +1669,13 @@ export const server = {
           name: user.name,
         });
 
-        const waitUntil = getWaitUntil(context.locals);
-        const broadcastPromise = broadcastCommentReactions(env, comment[0].videoId, {
+        waitUntil(broadcastCommentReactions(env, comment[0].videoId, {
           commentId,
           reactions: reactions.map((reaction) => ({
             ...reaction,
             reactedByMe: false,
           })),
-        });
-
-        if (waitUntil) {
-          waitUntil(broadcastPromise);
-        } else {
-          await broadcastPromise;
-        }
+        }));
 
         return { commentId, reactions };
       },
@@ -2024,20 +1949,13 @@ export const server = {
         }
 
         if (existingUser.length > 0) {
-          const waitUntil = getWaitUntil(context.locals);
-          const broadcastPromise = broadcastNotification(env, existingUser[0].id, {
+          waitUntil(broadcastNotification(env, existingUser[0].id, {
             kind: "invite",
             id: invite.id,
             title: `${user.name} invited you to ${space[0].name}`,
             href: "/notifications",
             createdAt: new Date().toISOString(),
-          });
-
-          if (waitUntil) {
-            waitUntil(broadcastPromise);
-          } else {
-            await broadcastPromise;
-          }
+          }));
         }
 
         const created = await db
@@ -2235,13 +2153,7 @@ export const server = {
         const ids = await markNotificationsReadByVideoTab(db, user.id, videoId, tab);
 
         if (ids.length > 0) {
-          const waitUntil = getWaitUntil(context.locals);
-          const broadcastPromise = broadcastNotificationsRead(env, user.id, ids);
-          if (waitUntil) {
-            waitUntil(broadcastPromise);
-          } else {
-            await broadcastPromise;
-          }
+          waitUntil(broadcastNotificationsRead(env, user.id, ids));
         }
 
         return { ids, count: ids.length };

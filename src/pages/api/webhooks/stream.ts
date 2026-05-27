@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { env } from "cloudflare:workers";
+import { env, waitUntil } from "cloudflare:workers";
 import { createDb } from "../../../db";
 import { videos } from "../../../db/schema";
 import { eq } from "drizzle-orm";
@@ -101,7 +101,7 @@ async function verifyWebhookSignature(
   return { valid: true, parsed };
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request }) => {
   const body = await request.text();
   const signature = request.headers.get("Webhook-Signature");
 
@@ -161,20 +161,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
       })
       .where(eq(videos.id, video.id));
 
-    const queuePromise = queueTranscriptForVideo(env, db, {
+    waitUntil(queueTranscriptForVideo(env, db, {
       ...video,
       status: "ready",
       duration: payload.duration,
       thumbnailUrl: payload.thumbnail,
       streamPlaybackUrl: payload.playback.hls,
       updatedAt: now,
-    });
-
-    if (locals.cfContext) {
-      locals.cfContext.waitUntil(queuePromise);
-    } else {
-      await queuePromise;
-    }
+    }));
   } else if (payload.status.state === "error") {
     await db
       .update(videos)
