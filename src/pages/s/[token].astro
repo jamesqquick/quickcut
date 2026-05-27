@@ -1,7 +1,7 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import GuestHeader from "../../components/GuestHeader.astro";
-import { ShareView } from "../../components/ShareView";
+import { ShareView, GUEST_NAME_MAX_LENGTH } from "../../components/ShareView";
 import { createDb } from "../../db";
 import { shareLinks, scripts, spaces, videos } from "../../db/schema";
 import { count, eq } from "drizzle-orm";
@@ -26,7 +26,7 @@ const initialGuestName = (() => {
   if (!raw) return null;
   try {
     const decoded = decodeURIComponent(raw);
-    const trimmed = decoded.trim().slice(0, 100);
+    const trimmed = decoded.trim().slice(0, GUEST_NAME_MAX_LENGTH);
     return trimmed || null;
   } catch {
     return null;

@@ -53,7 +53,7 @@ interface ShareViewProps {
 const ANON_NAME_KEY = "quickcut_anonymous_name";
 const GUEST_NAME_COOKIE = "qc_guest_name";
 const GUEST_NAME_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-const GUEST_NAME_MAX_LENGTH = 100;
+export const GUEST_NAME_MAX_LENGTH = 100;
 
 function writeGuestNameCookie(name: string) {
   if (typeof document === "undefined") return;
