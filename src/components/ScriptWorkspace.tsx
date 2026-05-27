@@ -7,6 +7,7 @@ import StarterKit from "@tiptap/starter-kit";
 import type { JSONContent } from "@tiptap/core";
 import type { Comment, CommentUrgency, TextRange } from "../types";
 import { relativeTime } from "../lib/time";
+import { LinkifiedText } from "../lib/linkify";
 import { connectVideoRoom, type Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
 import { UserAvatar } from "./UserAvatar";
@@ -698,8 +699,8 @@ export function ScriptWorkspace({
                             </span>
                           )}
                         </div>
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary">{comment.text}</p>
                       </button>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary"><LinkifiedText text={comment.text} /></p>
                       <div className="mt-2 flex flex-wrap gap-3">
                         {canComment && (
                           <button
@@ -740,7 +741,7 @@ export function ScriptWorkspace({
                                     <span className="text-xs font-semibold text-text-primary">{replyDisplayName}</span>
                                     <span className="text-xs text-text-tertiary">{relativeTime(reply.createdAt)}</span>
                                   </div>
-                                  <p className="mt-0.5 whitespace-pre-wrap text-sm text-text-secondary">{reply.text}</p>
+                                  <p className="mt-0.5 whitespace-pre-wrap text-sm text-text-secondary"><LinkifiedText text={reply.text} /></p>
                                 </div>
                               </div>
                             );
