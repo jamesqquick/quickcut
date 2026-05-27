@@ -1,0 +1,123 @@
+---
+import { readFileSync } from "fs";
+import { join } from "path";
+import Logo from "../components/Logo.astro";
+import "../styles/tailwind.css";
+
+const raw = readFileSync(join(process.cwd(), "CHANGELOG.md"), "utf-8");
+
+type Section = { heading: string; items: string[] };
+
+const sections: Section[] = [];
+let current: Section | null = null;
+
+for (const line of raw.split("\n")) {
+  if (line.startsWith("## ")) {
+    if (current) sections.push(current);
+    current = { heading: line.slice(3).trim(), items: [] };
+  } else if (line.startsWith("- ") && current) {
+    current.items.push(line.slice(2).trim());
+  }
+}
+if (current) sections.push(current);
+
+function linkify(text: string): string {
+  return text
+    .replace(/\(#(\d+)(?:,\s*#(\d+))*\)/g, (match) => {
+      const nums = match.match(/\d+/g) ?? [];
+      const links = nums.map(
+        (n) =>
+          `<a href="https://github.com/jamesqquick/quickcut/pull/${n}" target="_blank" rel="noopener noreferrer" class="text-accent-primary hover:underline">#${n}</a>`
+      );
+      return `(${links.join(", ")})`;
+    });
+}
+---
+
+<!doctype html>
+<html lang="en" class="bg-bg-primary text-text-primary">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="See what's new in Quick Cuts — a running log of features, fixes, and improvements." />
+    <script is:inline>
+      (function () {
+        var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var isDark = prefersDark;
+        try {
+          var stored = localStorage.getItem("quickcut:theme");
+          if (stored === "light" || stored === "dark") isDark = stored === "dark";
+        } catch (_) {}
+        document.documentElement.classList.toggle("dark", isDark);
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <title>Changelog | Quick Cuts</title>
+  </head>
+  <body class="min-h-screen bg-bg-primary font-sans antialiased">
+    <header class="sticky top-0 z-50 border-b border-border-default bg-bg-primary/80 backdrop-blur">
+      <div class="mx-auto flex h-14 max-w-[1280px] items-center px-6 sm:px-8">
+        <a href="/" class="flex items-center gap-2 text-lg font-bold text-text-primary">
+          <Logo />
+          Quick Cuts
+        </a>
+        <div class="ml-auto flex items-center gap-3">
+          <a href="/login" class="text-sm text-text-secondary transition-colors hover:text-text-primary">Sign in</a>
+          <a
+            href="/register"
+            class="rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover"
+          >
+            Get Started
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="mx-auto max-w-[1280px] px-6 py-16 sm:px-8">
+        <div class="mx-auto max-w-2xl">
+          <h1 class="text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">Changelog</h1>
+          <p class="mt-3 text-text-secondary">What's new in Quick Cuts.</p>
+
+          <div class="mt-12 space-y-10">
+            {
+              sections.map((section) => (
+                <div>
+                  <h2 class="text-sm font-semibold uppercase tracking-widest text-accent-primary">
+                    {section.heading}
+                  </h2>
+                  <ul class="mt-4 space-y-3 border-l border-border-default pl-6">
+                    {section.items.map((item) => (
+                      <li class="text-sm text-text-secondary leading-relaxed" set:html={linkify(item)} />
+                    ))}
+                  </ul>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="border-t border-border-default">
+      <div class="mx-auto flex max-w-[1280px] flex-col items-center justify-between gap-4 px-6 py-10 sm:flex-row sm:px-8">
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-bold text-text-primary">Quick Cuts</span>
+          <span class="text-xs text-text-tertiary">Collaborative video review.</span>
+        </div>
+        <div class="flex items-center gap-6">
+          <a href="/login" class="text-xs text-text-tertiary transition-colors hover:text-text-primary">Sign in</a>
+          <a href="/register" class="text-xs text-text-tertiary transition-colors hover:text-text-primary">Sign up</a>
+          <a href="/changelog" class="text-xs text-text-tertiary transition-colors hover:text-text-primary">Changelog</a>
+          <span class="text-xs text-text-tertiary">© 2026 Quick Cuts</span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

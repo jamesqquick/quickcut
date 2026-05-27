@@ -105,6 +105,30 @@ one. If `tsc` is configured for a separate check, run that. Otherwise
 
 Do not push or open a PR if the build fails. Fix the failures first.
 
+### 5b. Update CHANGELOG.md
+
+Before committing, prepend a user-facing entry to `CHANGELOG.md` at the repo root.
+
+- If today's date group already exists at the top, append a bullet to it.
+- If not, add a new `## Month DD, YYYY` heading above the previous top entry.
+- Write **one sentence in plain user-facing language** — no component names, no
+  internal jargon, no Conventional Commit scopes. Write it as something a user
+  would read to understand what changed for them.
+- End the bullet with the PR number in parentheses, e.g. `(#42)`.
+
+Example entry:
+
+```markdown
+## May 27, 2026
+
+- You can now export clips as a CSV file from the clip library. (#42)
+```
+
+Stage `CHANGELOG.md` alongside the rest of the commit. This is not optional —
+every user-facing change must have a changelog entry. Skip this step only for
+purely internal changes (chore, refactor, docs, ci) that have no visible effect
+on users.
+
 ### 6. Commit
 
 Use Conventional Commits, scoped to the area of change. Match the prefix
@@ -206,6 +230,7 @@ with the equivalent way to exercise the code (e.g. an API call via
 | Create worktree | `using-git-worktrees` skill |
 | Restore local state | `worktree-setup` skill |
 | Verify | `pnpm build` (typecheck + build) |
+| Changelog | Prepend entry to `CHANGELOG.md`, stage it |
 | Push | `git push -u origin <branch>` (after confirming) |
 | Open PR | `gh pr create` with `Closes #<n>` in body |
 
@@ -226,6 +251,7 @@ with the equivalent way to exercise the code (e.g. an API call via
 - Push or open a PR without running `pnpm build` successfully first.
 - Commit files in `tmp/` or `.dev.vars`.
 - Open the PR without `Closes #<num>` in the body.
+- Skip the `CHANGELOG.md` update for user-facing changes.
 
 ## Integration
 
