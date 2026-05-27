@@ -1,7 +1,24 @@
 import { defineMiddleware } from "astro:middleware";
 import { env } from "cloudflare:workers";
-import { getAuth } from "./lib/auth";
+import { createAuth, type Auth } from "./lib/auth";
 import { getCanonicalBaseUrl, getSafeReturnUrl } from "./lib/urls";
+
+let cachedAuth: Auth | null = null;
+let cachedAuthDb: D1Database | null = null;
+function getAuth(): Auth {
+  if (cachedAuth && cachedAuthDb === env.DB) return cachedAuth;
+  cachedAuth = createAuth(env.DB, {
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET,
+    BETTER_AUTH_URL: env.BETTER_AUTH_URL,
+    EMAIL: env.EMAIL,
+    OTP_EMAIL_FROM: env.OTP_EMAIL_FROM,
+    SEND_REAL_EMAILS: env.SEND_REAL_EMAILS,
+    GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
+  });
+  cachedAuthDb = env.DB;
+  return cachedAuth;
+}
 
 // Extend Astro locals type
 declare global {
@@ -47,7 +64,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  const auth = getAuth(env);
+  const auth = getAuth();
 
   try {
     const session = await auth.api.getSession({

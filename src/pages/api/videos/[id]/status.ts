@@ -3,9 +3,8 @@ import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
 import { videos } from "../../../../db/schema";
 import { eq } from "drizzle-orm";
-import { getVideoInfo } from "../../../../lib/stream";
-import { queueTranscriptForVideo } from "../../../../lib/transcripts";
 import { verifySpaceAccess } from "../../../../lib/spaces";
+import { getVideoInfo } from "../../../../lib/stream";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
@@ -25,7 +24,14 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const db = createDb(env.DB);
   const result = await db
-    .select()
+    .select({
+      status: videos.status,
+      thumbnailUrl: videos.thumbnailUrl,
+      duration: videos.duration,
+      streamPlaybackUrl: videos.streamPlaybackUrl,
+      streamVideoId: videos.streamVideoId,
+      spaceId: videos.spaceId,
+    })
     .from(videos)
     .where(eq(videos.id, id))
     .limit(1);
@@ -39,7 +45,6 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const video = result[0];
 
-  // Verify user has space access
   const statusRole = await verifySpaceAccess(db, locals.user.id, video.spaceId);
   if (!statusRole) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -48,8 +53,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
     });
   }
 
-  // If still processing and we have a Stream video ID, check Stream API directly
-  // This handles the case where the webhook can't reach us (e.g. local dev)
+  // When DB still says "processing", check Stream API for the real status.
+  // Read-only: the webhook owns DB transitions, but this lets the client
+  // see progress (especially in local dev where webhooks can't arrive).
   if (video.status === "processing" && video.streamVideoId) {
     try {
       const info = await getVideoInfo(
@@ -59,28 +65,6 @@ export const GET: APIRoute = async ({ params, locals }) => {
       );
 
       if (info.readyToStream && info.status.state === "ready") {
-        const now = new Date().toISOString();
-        // Update DB with the real data from Stream
-        await db
-          .update(videos)
-          .set({
-            status: "ready",
-            duration: info.duration,
-            thumbnailUrl: info.thumbnail,
-            streamPlaybackUrl: info.playback.hls,
-            updatedAt: now,
-          })
-          .where(eq(videos.id, id));
-
-        await queueTranscriptForVideo(env, db, {
-          ...video,
-          status: "ready",
-          duration: info.duration,
-          thumbnailUrl: info.thumbnail,
-          streamPlaybackUrl: info.playback.hls,
-          updatedAt: now,
-        });
-
         return new Response(
           JSON.stringify({
             status: "ready",
@@ -93,14 +77,6 @@ export const GET: APIRoute = async ({ params, locals }) => {
       }
 
       if (info.status.state === "error") {
-        await db
-          .update(videos)
-          .set({
-            status: "failed",
-            updatedAt: new Date().toISOString(),
-          })
-          .where(eq(videos.id, id));
-
         return new Response(
           JSON.stringify({
             status: "failed",
@@ -112,7 +88,6 @@ export const GET: APIRoute = async ({ params, locals }) => {
         );
       }
     } catch (e) {
-      // Stream API check failed — fall through and return DB status
       console.error("Stream API status check failed:", e);
     }
   }

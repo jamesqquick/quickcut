@@ -2,20 +2,57 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 function waitForStream(timeoutMs = 5000): Promise<NonNullable<Window["Stream"]>> {
   return new Promise((resolve, reject) => {
-    if (typeof window !== "undefined" && window.Stream) {
+    if (typeof window === "undefined") {
+      reject(new Error("Stream SDK is only available in the browser"));
+      return;
+    }
+    if (window.Stream) {
       resolve(window.Stream);
       return;
     }
-    const start = Date.now();
-    const interval = setInterval(() => {
-      if (typeof window !== "undefined" && window.Stream) {
-        clearInterval(interval);
+
+    const script = document.querySelector<HTMLScriptElement>(
+      'script[src*="embed.cloudflarestream.com"]',
+    );
+
+    let timeoutId: number | undefined;
+    let cleanup: () => void = () => {};
+
+    const onReady = () => {
+      cleanup();
+      if (window.Stream) {
         resolve(window.Stream);
-      } else if (Date.now() - start > timeoutMs) {
-        clearInterval(interval);
-        reject(new Error("Stream SDK did not load in time"));
+      } else {
+        reject(new Error("Stream SDK loaded but window.Stream is undefined"));
       }
-    }, 50);
+    };
+
+    const onError = () => {
+      cleanup();
+      reject(new Error("Stream SDK failed to load"));
+    };
+
+    cleanup = () => {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      script?.removeEventListener("load", onReady);
+      script?.removeEventListener("error", onError);
+    };
+
+    timeoutId = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Stream SDK did not load in time"));
+    }, timeoutMs);
+
+    if (script) {
+      script.addEventListener("load", onReady);
+      script.addEventListener("error", onError);
+    } else {
+      // Script tag isn't in the DOM yet — fall back to a short timeout-only
+      // wait. The Astro page injects the script inline so this branch is rare.
+      window.setTimeout(() => {
+        if (window.Stream) onReady();
+      }, 100);
+    }
   });
 }
 

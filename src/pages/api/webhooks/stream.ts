@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { createDb } from "../../../db";
 import { videos } from "../../../db/schema";
 import { eq } from "drizzle-orm";
+import { defer } from "../../../lib/background";
 import { queueTranscriptForVideo } from "../../../lib/transcripts";
 
 interface StreamWebhookPayload {
@@ -161,14 +162,14 @@ export const POST: APIRoute = async ({ request }) => {
       })
       .where(eq(videos.id, video.id));
 
-    await queueTranscriptForVideo(env, db, {
+    defer(queueTranscriptForVideo(env, db, {
       ...video,
       status: "ready",
       duration: payload.duration,
       thumbnailUrl: payload.thumbnail,
       streamPlaybackUrl: payload.playback.hls,
       updatedAt: now,
-    });
+    }));
   } else if (payload.status.state === "error") {
     await db
       .update(videos)

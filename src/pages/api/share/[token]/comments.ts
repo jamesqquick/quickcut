@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers";
 import { createDb } from "../../../../db";
 import { shareLinks, comments, projects, users, videos } from "../../../../db/schema";
 import { eq, asc, gt, and, inArray } from "drizzle-orm";
+import { defer } from "../../../../lib/background";
 import { broadcastNewComment } from "../../../../lib/broadcast";
 import { addReactionSummaries } from "../../../../lib/comments";
 import { createCommentNotifications } from "../../../../lib/notifications";
@@ -222,24 +223,6 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   const displayName = sessionUser?.name ?? newComment.authorDisplayName ?? "Anonymous";
 
-  try {
-    await createCommentNotifications(db, {
-      commentId,
-      videoId,
-      actorUserId: sessionUser?.id ?? null,
-      actorDisplayName: displayName,
-      text: newComment.text,
-      parentCommentId: newComment.parentId,
-      phase: newComment.phase,
-    }, {
-      send: (msg) => sendEmail(env, msg),
-      from: env.OTP_EMAIL_FROM,
-      baseUrl: getCanonicalBaseUrl(env),
-    }, env);
-  } catch (err) {
-    console.error("Failed to create share comment notification", err);
-  }
-
   const responseComment = {
     ...newComment,
     annotation: annotation || null,
@@ -249,7 +232,29 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     reactions: [],
   };
 
-  await broadcastNewComment(env, videoId, responseComment);
+  defer(
+    createCommentNotifications(
+      db,
+      {
+        commentId,
+        videoId,
+        actorUserId: sessionUser?.id ?? null,
+        actorDisplayName: displayName,
+        text: newComment.text,
+        parentCommentId: newComment.parentId,
+        phase: newComment.phase,
+      },
+      {
+        send: (msg) => sendEmail(env, msg),
+        from: env.OTP_EMAIL_FROM,
+        baseUrl: getCanonicalBaseUrl(env),
+      },
+      env,
+    ).catch((err) => {
+      console.error("Failed to create share comment notification", err);
+    }),
+  );
+  defer(broadcastNewComment(env, videoId, responseComment));
 
   return new Response(JSON.stringify({ comment: responseComment }), {
     status: 201,

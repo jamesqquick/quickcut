@@ -61,6 +61,7 @@ import {
   broadcastNotification,
   broadcastNotificationsRead,
 } from "../lib/broadcast";
+import { defer } from "../lib/background";
 import {
   isCommentReactionEmoji,
   toggleCommentReaction,
@@ -372,11 +373,11 @@ export const server = {
           });
         }
 
-        await broadcastPhaseChange(env, id, {
+        defer(broadcastPhaseChange(env, id, {
           videoId: id,
           phase,
           changedBy: user.name,
-        });
+        }));
 
         // NOTE: per issue #93 the generic fan-out of approval.requested
         // notifications to every space member has been removed. Approvals
@@ -461,7 +462,7 @@ export const server = {
         }
 
         const status = await getApprovalStatus(db, id, video.spaceId);
-        await broadcastApprovalUpdate(env, id, status);
+        defer(broadcastApprovalUpdate(env, id, status));
 
         await logProjectActivity(db, {
           videoId: id,
@@ -498,11 +499,11 @@ export const server = {
               createdAt: now,
             });
 
-            await broadcastPhaseChange(env, id, {
+            defer(broadcastPhaseChange(env, id, {
               videoId: id,
               phase: "video_approved",
               changedBy: user.name,
-            });
+            }));
           }
         }
 
@@ -549,7 +550,7 @@ export const server = {
           .where(and(eq(approvals.videoId, id), eq(approvals.userId, user.id)));
 
         const status = await getApprovalStatus(db, id, video.spaceId);
-        await broadcastApprovalUpdate(env, id, status);
+        defer(broadcastApprovalUpdate(env, id, status));
 
         const now = new Date().toISOString();
         await logProjectActivity(db, {
@@ -587,11 +588,11 @@ export const server = {
               createdAt: now,
             });
 
-            await broadcastPhaseChange(env, id, {
+            defer(broadcastPhaseChange(env, id, {
               videoId: id,
               phase: "reviewing_video",
               changedBy: user.name,
-            });
+            }));
           }
         }
 
@@ -695,8 +696,8 @@ export const server = {
 
         await db.insert(approvalRequests).values(newRows);
 
-        try {
-          await createTargetedApprovalRequestNotifications(
+        defer(
+          createTargetedApprovalRequestNotifications(
             db,
             {
               videoId: id,
@@ -710,10 +711,10 @@ export const server = {
               baseUrl: getCanonicalBaseUrl(env),
             },
             env,
-          );
-        } catch (err) {
-          console.error("Failed to dispatch targeted approval-request notifications", err);
-        }
+          ).catch((err) => {
+            console.error("Failed to dispatch targeted approval-request notifications", err);
+          }),
+        );
 
         return {
           created: toCreate.length,
@@ -888,11 +889,11 @@ export const server = {
           createdAt: now,
         });
 
-        await broadcastPhaseChange(env, id, {
+        defer(broadcastPhaseChange(env, id, {
           videoId: id,
           phase: "reviewing_video",
           changedBy: user.name,
-        });
+        }));
 
         return { videoId: id, uploadUrl };
       },
@@ -1021,7 +1022,7 @@ export const server = {
                 videoId,
                 baseVideo.spaceId,
               );
-              await broadcastApprovalUpdate(env, videoId, status);
+              defer(broadcastApprovalUpdate(env, videoId, status));
             }
           }
         } catch (err) {
@@ -1297,8 +1298,17 @@ export const server = {
 
         await db.insert(comments).values(newComment);
 
-        try {
-          await createCommentNotifications(
+        const responseComment = {
+          ...newComment,
+          annotation: annotation ?? null,
+          textRange: textRange ?? null,
+          createdAt: now,
+          name: user.name,
+          reactions: [],
+        };
+
+        defer(
+          createCommentNotifications(
             db,
             {
               commentId,
@@ -1315,21 +1325,11 @@ export const server = {
               baseUrl: getCanonicalBaseUrl(env),
             },
             env,
-          );
-        } catch (err) {
-          console.error("Failed to create comment notification", err);
-        }
-
-        const responseComment = {
-          ...newComment,
-          annotation: annotation ?? null,
-          textRange: textRange ?? null,
-          createdAt: now,
-          name: user.name,
-          reactions: [],
-        };
-
-        await broadcastNewComment(env, videoId, responseComment);
+          ).catch((err) => {
+            console.error("Failed to create comment notification", err);
+          }),
+        );
+        defer(broadcastNewComment(env, videoId, responseComment));
 
         return { comment: responseComment };
       },
@@ -1525,8 +1525,15 @@ export const server = {
 
         await db.insert(comments).values(newReply);
 
-        try {
-          await createCommentNotifications(
+        const responseComment = {
+          ...newReply,
+          createdAt: now,
+          name: user.name,
+          reactions: [],
+        };
+
+        defer(
+          createCommentNotifications(
             db,
             {
               commentId,
@@ -1543,19 +1550,11 @@ export const server = {
               baseUrl: getCanonicalBaseUrl(env),
             },
             env,
-          );
-        } catch (err) {
-          console.error("Failed to create reply notification", err);
-        }
-
-        const responseComment = {
-          ...newReply,
-          createdAt: now,
-          name: user.name,
-          reactions: [],
-        };
-
-        await broadcastNewComment(env, parent[0].videoId, responseComment);
+          ).catch((err) => {
+            console.error("Failed to create reply notification", err);
+          }),
+        );
+        defer(broadcastNewComment(env, parent[0].videoId, responseComment));
 
         return { comment: responseComment };
       },
@@ -1615,13 +1614,13 @@ export const server = {
           name: user.name,
         });
 
-        await broadcastCommentReactions(env, comment[0].videoId, {
+        defer(broadcastCommentReactions(env, comment[0].videoId, {
           commentId,
           reactions: reactions.map((reaction) => ({
             ...reaction,
             reactedByMe: false,
           })),
-        });
+        }));
 
         return { commentId, reactions };
       },
@@ -1894,17 +1893,14 @@ export const server = {
           });
         }
 
-        // If the invitee already has an account, push a real-time signal to
-        // their open tabs so the header badge increments — pending invites
-        // count toward the unread badge (see Layout.astro).
         if (existingUser.length > 0) {
-          await broadcastNotification(env, existingUser[0].id, {
+          defer(broadcastNotification(env, existingUser[0].id, {
             kind: "invite",
             id: invite.id,
             title: `${user.name} invited you to ${space[0].name}`,
             href: "/notifications",
             createdAt: new Date().toISOString(),
-          });
+          }));
         }
 
         const created = await db
@@ -2102,7 +2098,7 @@ export const server = {
         const ids = await markNotificationsReadByVideoTab(db, user.id, videoId, tab);
 
         if (ids.length > 0) {
-          await broadcastNotificationsRead(env, user.id, ids);
+          defer(broadcastNotificationsRead(env, user.id, ids));
         }
 
         return { ids, count: ids.length };

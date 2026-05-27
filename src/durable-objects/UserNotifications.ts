@@ -46,6 +46,15 @@ type ServerMessage =
  * up the correct count from the SSR'd value.
  */
 export class UserNotifications extends DurableObject<Env> {
+	constructor(ctx: DurableObjectState, env: Env) {
+		super(ctx, env);
+		// Cheap ping/pong handled by the runtime so client heartbeats never
+		// wake a hibernating DO.
+		this.ctx.setWebSocketAutoResponse(
+			new WebSocketRequestResponsePair("ping", "pong"),
+		);
+	}
+
 	/**
 	 * Handle the WebSocket upgrade. The route handler authenticates the
 	 * user, then forwards the upgrade Request to this DO, which accepts

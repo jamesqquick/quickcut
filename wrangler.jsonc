@@ -4,6 +4,10 @@
   "main": "./src/worker.ts",
   "account_id": "4426cbeacb457b1ca1b865d6c36ced0d",
   "compatibility_date": "2026-04-21",
+  // better-auth pulls in node:async_hooks and tus-js-client pulls in
+  // node:fs/http/stream/etc. Removing nodejs_compat causes Vite to surface
+  // these as build warnings and the Worker fails at runtime. Keep the flag
+  // until upstream packages are workerd-native.
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "binding": "ASSETS",
