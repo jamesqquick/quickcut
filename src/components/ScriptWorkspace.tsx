@@ -699,8 +699,8 @@ export function ScriptWorkspace({
                             </span>
                           )}
                         </div>
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary"><LinkifiedText text={comment.text} /></p>
                       </button>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-text-secondary"><LinkifiedText text={comment.text} /></p>
                       <div className="mt-2 flex flex-wrap gap-3">
                         {canComment && (
                           <button
