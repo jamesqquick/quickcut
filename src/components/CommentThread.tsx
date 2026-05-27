@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { actions } from "astro:actions";
 import { formatTimecode, relativeTime } from "../lib/time";
+import { LinkifiedText } from "../lib/linkify";
 import { connectVideoRoom } from "../lib/realtime";
 import type { Viewer } from "../lib/realtime";
 import { PresenceBar } from "./PresenceBar";
@@ -950,7 +951,7 @@ export function CommentThread({
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-text-secondary whitespace-pre-wrap">
-                      {comment.text}
+                      <LinkifiedText text={comment.text} />
                     </p>
                     <ReactionBar
                       comment={comment}
@@ -1012,7 +1013,7 @@ export function CommentThread({
                             </span>
                           </div>
                           <p className="mt-0.5 text-sm text-text-secondary whitespace-pre-wrap">
-                            {reply.text}
+                            <LinkifiedText text={reply.text} />
                           </p>
                           <ReactionBar
                             comment={reply}
