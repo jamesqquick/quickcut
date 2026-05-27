@@ -156,7 +156,7 @@ export function VideoDetailView({
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { iframeRef, currentTime, videoDuration, setVideoDuration, handleSeek } = useStreamPlayer({
+  const { iframeRef, currentTime, videoDuration, setVideoDuration, handleSeek, handlePause } = useStreamPlayer({
     status: processingStatus,
     streamVideoId,
     initialDuration: duration || 0,
@@ -376,6 +376,7 @@ export function VideoDetailView({
       anonymousName={isShareMode ? currentUserName : undefined}
       liveEnabled={isShareMode || processingStatus === "ready"}
       onSeek={handleSeek}
+      onPause={handlePause}
       onCommentsChange={setLiveComments}
       focusRequest={focusRequest}
       pendingAnnotation={pendingAnnotation}

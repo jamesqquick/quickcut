@@ -367,6 +367,7 @@ interface CommentThreadProps {
   /** When true, open a WebSocket to the per-video room for live updates. */
   liveEnabled?: boolean;
   onSeek?: (time: number) => void;
+  onPause?: () => void;
   onNameRequired?: () => void;
   onCommentsChange?: (comments: Comment[]) => void;
   focusRequest?: FocusRequest | null;
@@ -407,6 +408,7 @@ export function CommentThread({
   anonymousName,
   liveEnabled = false,
   onSeek,
+  onPause,
   onNameRequired,
   onCommentsChange,
   focusRequest,
@@ -427,12 +429,22 @@ export function CommentThread({
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [lockedTimestamp, setLockedTimestamp] = useState<number | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [viewers, setViewers] = useState<Viewer[]>([]);
   const [presenceLoading, setPresenceLoading] = useState(!!liveEnabled);
   const lastFetchRef = useRef<string>(new Date().toISOString());
   const threadRef = useRef<HTMLDivElement>(null);
   const commentRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+
+  const effectiveTime = lockedTimestamp ?? currentTime;
+
+  const handleComposeFocus = useCallback(() => {
+    if (videoStatus === "ready") {
+      onPause?.();
+      setLockedTimestamp(currentTime);
+    }
+  }, [videoStatus, onPause, currentTime]);
 
   // Notify parent when comments change
   useEffect(() => {
@@ -588,7 +600,7 @@ export function CommentThread({
     setError("");
 
     try {
-      const timestamp = videoStatus === "ready" ? currentTime : null;
+      const timestamp = videoStatus === "ready" ? effectiveTime : null;
 
       if (shareToken) {
         // Anonymous share flow stays on the dedicated share endpoint.
@@ -614,6 +626,7 @@ export function CommentThread({
           });
           setNewComment("");
           setNewCommentUrgency("suggestion");
+          setLockedTimestamp(null);
           onAnnotationClear?.();
           lastFetchRef.current = new Date().toISOString();
         } else {
@@ -638,6 +651,7 @@ export function CommentThread({
           });
           setNewComment("");
           setNewCommentUrgency("suggestion");
+          setLockedTimestamp(null);
           onAnnotationClear?.();
           lastFetchRef.current = new Date().toISOString();
         }
@@ -1121,7 +1135,7 @@ export function CommentThread({
             <>
               <AnnotationToolbar activeTool={activeTool} onToolChange={onToolChange} />
               <span className="rounded bg-bg-tertiary px-2 py-1 font-mono text-xs text-accent-primary">
-                {formatTC(currentTime)}
+                {formatTC(effectiveTime)}
               </span>
             </>
           )}
@@ -1135,6 +1149,7 @@ export function CommentThread({
             type="text"
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
+            onFocus={handleComposeFocus}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
@@ -1145,7 +1160,7 @@ export function CommentThread({
               pendingAnnotation
                 ? "Describe what you see here..."
                 : videoStatus === "ready"
-                  ? `Add a comment at ${formatTC(currentTime)}...`
+                  ? `Add a comment at ${formatTC(effectiveTime)}...`
                   : "Add a comment..."
             }
             className="min-w-0 flex-1 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
