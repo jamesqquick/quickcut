@@ -367,6 +367,7 @@ interface CommentThreadProps {
   /** When true, open a WebSocket to the per-video room for live updates. */
   liveEnabled?: boolean;
   onSeek?: (time: number) => void;
+  onPause?: () => void;
   onNameRequired?: () => void;
   onCommentsChange?: (comments: Comment[]) => void;
   focusRequest?: FocusRequest | null;
@@ -407,6 +408,7 @@ export function CommentThread({
   anonymousName,
   liveEnabled = false,
   onSeek,
+  onPause,
   onNameRequired,
   onCommentsChange,
   focusRequest,
