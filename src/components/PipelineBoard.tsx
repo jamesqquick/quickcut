@@ -11,8 +11,6 @@ interface PipelineBoardProps {
 }
 
 const phaseStyles: Record<VideoPhase, string> = {
-  creating_script: "border-accent-primary/30 bg-accent-primary/10 text-accent-primary",
-  reviewing_script: "border-accent-info/30 bg-accent-info/10 text-accent-info",
   reviewing_video: "border-accent-warning/30 bg-accent-warning/10 text-accent-warning",
   video_approved: "border-accent-secondary/30 bg-accent-secondary/10 text-accent-secondary",
   published: "border-accent-secondary/30 bg-accent-secondary/10 text-accent-secondary",
@@ -105,11 +103,6 @@ export function PipelineBoard({ initialVideos, spaceId }: PipelineBoardProps) {
                           <div className="min-w-0 flex-1">
                             <h3 className="truncate text-sm font-semibold text-text-primary">{video.title}</h3>
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-tertiary">
-                              {(video.phase === "creating_script" || video.phase === "reviewing_script") && video.scriptStatus && (
-                                <span className="rounded-full bg-bg-tertiary px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
-                                  {video.scriptStatus === "review" ? "In Review" : "Writing"}
-                                </span>
-                              )}
                               {formatDate(video.targetDate) && <span>Launch {formatDate(video.targetDate)}</span>}
                               {video.commentCount > 0 && <span>{video.commentCount} comments</span>}
                               {video.requiredApprovals > 0 && (

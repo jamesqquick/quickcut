@@ -4,6 +4,10 @@ All notable changes to QuickCut are listed here, newest first.
 
 ---
 
+## June 9, 2026
+
+- Script collaboration now happens outside QuickCut, so the Script tab and all script-related labels and statuses have been removed from projects. Your existing comments and videos are unaffected. (#213)
+
 ## May 27, 2026
 
 - URLs in comments and replies are now clickable links. (#210)

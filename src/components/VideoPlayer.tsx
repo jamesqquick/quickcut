@@ -15,7 +15,7 @@ export function VideoPlayer({ status, streamVideoId, iframeRef, overlay }: Video
         <div className="max-w-sm text-center">
           <p className="text-lg font-semibold text-text-primary">No video uploaded yet</p>
           <p className="mt-1 text-sm text-text-secondary">
-            This project is still in the script phase. Upload the first cut when the script is ready.
+            Upload the first cut to start collecting feedback.
           </p>
         </div>
       </div>

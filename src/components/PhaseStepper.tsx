@@ -1,10 +1,9 @@
-import { normalizeVideoPhase, type VideoPhase } from "../types";
+import { type VideoPhase } from "../types";
 
-export type PipelineStep = "overview" | "script" | "review";
+export type PipelineStep = "overview" | "review";
 
 const PIPELINE_STEPS: Array<{ key: PipelineStep; label: string }> = [
   { key: "overview", label: "Overview" },
-  { key: "script", label: "Script" },
   { key: "review", label: "Video" },
 ];
 
@@ -18,19 +17,12 @@ interface PhaseStepperProps {
 
 function getStepHref(videoId: string, step: PipelineStep) {
   if (step === "overview") return `/videos/${videoId}`;
-  if (step === "script") return `/videos/${videoId}/script`;
   return `/videos/${videoId}/review`;
-}
-
-function getStepForPhase(phase: VideoPhase): PipelineStep {
-  const normalizedPhase = normalizeVideoPhase(phase);
-  if (normalizedPhase === "creating_script" || normalizedPhase === "reviewing_script") return "script";
-  return "review";
 }
 
 export function PhaseStepper({ currentPhase, currentStep, enabledSteps, lockedStepMessages, videoId }: PhaseStepperProps) {
   const visibleSteps = PIPELINE_STEPS;
-  const statusStep = getStepForPhase(currentPhase);
+  const statusStep: PipelineStep = "review";
   const statusIdx = currentPhase === "published" ? visibleSteps.length : visibleSteps.findIndex((step) => step.key === statusStep);
   const activeStep = currentStep ?? (currentPhase === "published" ? "review" : statusStep);
   const activeIdx = visibleSteps.findIndex((step) => step.key === activeStep);

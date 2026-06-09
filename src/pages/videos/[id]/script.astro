@@ -1,7 +1,5 @@
 ---
 const { id } = Astro.params;
 if (!id) return Astro.redirect("/dashboard");
-const params = new URLSearchParams(Astro.url.searchParams);
-params.set("tab", "script");
-return Astro.redirect(`/videos/${id}?${params.toString()}`);
+return Astro.redirect(`/videos/${id}`);
 ---

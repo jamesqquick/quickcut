@@ -14,8 +14,6 @@ interface CalendarViewProps {
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const phaseDot: Record<VideoPhase, string> = {
-  creating_script: "bg-accent-primary",
-  reviewing_script: "bg-accent-info",
   reviewing_video: "bg-accent-warning",
   video_approved: "bg-accent-secondary",
   published: "bg-accent-secondary",

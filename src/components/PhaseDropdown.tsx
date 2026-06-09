@@ -119,7 +119,7 @@ export function PhaseDropdown({
           className="absolute right-0 z-30 mt-1 w-48 rounded-lg border border-border-default bg-bg-secondary p-3 shadow-lg"
         >
           <p className="text-xs text-text-secondary">
-            Marking this project as published locks the script, comments, and versions. This assumes
+            Marking this project as published locks comments and versions. This assumes
             you have published the video manually elsewhere.
           </p>
           <div className="mt-2 flex gap-2">
