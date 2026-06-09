@@ -43,18 +43,12 @@ interface VideoCardItemProps {
 }
 
 const phaseStyles: Record<string, string> = {
-  creating_script: "bg-accent-primary/15 text-accent-primary",
-  reviewing_script: "bg-accent-info/15 text-accent-info",
   reviewing_video: "bg-accent-warning/15 text-accent-warning",
   video_approved: "bg-accent-secondary/15 text-accent-secondary",
   published: "bg-accent-secondary/15 text-accent-secondary",
 };
 
 const phaseLabels: Record<string, string> = {
-  script: "Creating Script",
-  review: "Reviewing Video",
-  creating_script: "Creating Script",
-  reviewing_script: "Reviewing Script",
   reviewing_video: "Reviewing Video",
   video_approved: "Video Approved",
   published: "Published",

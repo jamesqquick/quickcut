@@ -10,6 +10,7 @@ import { folders, comments, spaceMembers, approvals, users } from "../db/schema"
 import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getUserSpaces } from "../lib/spaces";
+import { normalizeVideoPhase } from "../types";
 import {
   getCurrentVideoCountsByFolder,
   getCurrentVideoThumbnailsByFolder,
@@ -176,7 +177,7 @@ const memberCount = memberCountRows[0]?.count ?? 0;
 const emptyHeading = currentFolderRecord ? "This folder is empty" : "No videos yet";
 const emptyDescription = currentFolderRecord
   ? "Create a project or nested folder here."
-  : "Create a project to start writing a script or upload a video.";
+  : "Create a project to upload and review a video.";
 
 const folderItems: FolderCardItemData[] = childFolders.map((folder) => ({
   id: folder.id,
@@ -204,7 +205,7 @@ const videoItems: VideoCardItemData[] = userVideos.map((video) => {
     versionCount: versionCounts[video.projectId ?? ""] || 1,
     requiredApprovals: selectedSpace.requiredApprovals,
     approvalCount: approvalCountsByVideo[video.id] || 0,
-    phase: video.phase,
+    phase: normalizeVideoPhase(video.phase),
     creatorName: creator?.name ?? null,
     creatorImageUrl: creator?.image ?? null,
   };

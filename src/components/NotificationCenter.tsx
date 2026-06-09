@@ -30,7 +30,6 @@ function formatDate(value: string): string {
 
 function getNotificationLabel(type: UserNotification["type"]): string {
   if (type === "approval.requested") return "Approval requested";
-  if (type.startsWith("script_comment")) return "Script feedback";
   if (type.endsWith("reply")) return "Reply";
   return "Video comment";
 }

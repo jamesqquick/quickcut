@@ -51,8 +51,7 @@ export function VideoDetailsPanel({
   return (
     <div className="space-y-6">
       <p className="text-sm text-text-secondary">
-        Document your video&apos;s intent. These notes guide your script and
-        review.
+        Document your video&apos;s intent. These notes guide your review.
       </p>
 
       <Section title="Overview">

@@ -1,6 +1,6 @@
 import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
 import type { Database } from "../db";
-import { folders, projects, scripts, videos } from "../db/schema";
+import { folders, projects, videos } from "../db/schema";
 import { logProjectActivity } from "./activity";
 
 export type ProjectRow = typeof projects.$inferSelect;
@@ -247,10 +247,10 @@ export interface CreateProjectInSpaceResult {
 }
 
 /**
- * Creates a project + initial video version + empty script row in one
- * logical operation. Validates that `folderId`, when set, belongs to the
- * target space. Throws on validation failures so callers can convert to
- * the appropriate user-facing error.
+ * Creates a project + initial video version in one logical operation.
+ * Validates that `folderId`, when set, belongs to the target space. Throws
+ * on validation failures so callers can convert to the appropriate
+ * user-facing error.
  */
 export async function createProjectInSpace(
   db: Database,
@@ -282,7 +282,7 @@ export async function createProjectInSpace(
     folderId,
     title,
     description,
-    phase: "creating_script",
+    phase: "reviewing_video",
     targetDate: null,
     createdAt: now,
     updatedAt: now,
@@ -296,17 +296,6 @@ export async function createProjectInSpace(
     status: "draft",
     versionNumber: 1,
     isCurrentVersion: true,
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  await db.insert(scripts).values({
-    id: crypto.randomUUID(),
-    videoId,
-    content: "",
-    plainText: "",
-    status: "writing",
-    createdBy: user.id,
     createdAt: now,
     updatedAt: now,
   });

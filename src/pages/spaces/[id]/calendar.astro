@@ -3,11 +3,11 @@ import Layout from "../../../layouts/Layout.astro";
 import { CalendarView } from "../../../components/CalendarView";
 import type { DashboardVideo } from "../../../components/dashboard-types";
 import { createDb } from "../../../db";
-import { projects, spaces, videos, scripts, users } from "../../../db/schema";
+import { projects, spaces, videos, users } from "../../../db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { verifySpaceAccess } from "../../../lib/spaces";
-import { normalizeVideoPhase, type ScriptStatus } from "../../../types";
+import { normalizeVideoPhase } from "../../../types";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -23,8 +23,7 @@ if (!role) return Astro.redirect("/dashboard");
 const space = await db.select().from(spaces).where(eq(spaces.id, id)).limit(1);
 if (space.length === 0) return Astro.redirect("/dashboard");
 
-// Pull every current-version video in the space. Joining scripts so PipelineBoard-style
-// consumers of DashboardVideo could reuse this data, even though CalendarView only needs
+// Pull every current-version video in the space. CalendarView only needs
 // targetDate and phase.
 const rows = await db
   .select({
@@ -36,12 +35,10 @@ const rows = await db
     duration: videos.duration,
     createdAt: videos.createdAt,
     targetDate: projects.targetDate,
-    scriptStatus: scripts.status,
     ownerName: users.name,
   })
   .from(videos)
   .innerJoin(projects, eq(projects.id, videos.projectId))
-  .leftJoin(scripts, eq(scripts.videoId, videos.id))
   .leftJoin(users, eq(users.id, videos.uploadedBy))
   .where(and(eq(videos.spaceId, id), eq(videos.isCurrentVersion, true)))
   .orderBy(desc(videos.createdAt));
@@ -51,7 +48,6 @@ const calendarVideos: DashboardVideo[] = rows.map((row) => ({
   title: row.title,
   status: row.status as DashboardVideo["status"],
   phase: normalizeVideoPhase(row.phase),
-  scriptStatus: (row.scriptStatus as ScriptStatus | null) ?? null,
   thumbnailUrl: row.thumbnailUrl,
   duration: row.duration,
   createdAt: row.createdAt,

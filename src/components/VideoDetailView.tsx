@@ -111,7 +111,6 @@ export function VideoDetailView({
   const isProjectCreator = projectOwnerId === currentUserId;
   const canChangePhase = !isShareMode && pipelineEnabled && (isSpaceOwner || isProjectCreator);
   const isOwner = isSpaceOwner;
-  const scriptLockedMessage = "This script is read-only because a video has been uploaded. Use the Video step for feedback on the cut.";
   const requiresApproval =
     !!approvalStatus && approvalStatus.requiredApprovals > 0;
   const isApprovalBlocked =
@@ -131,7 +130,7 @@ export function VideoDetailView({
         label: "Mark as Published",
         phase: "published",
         confirmMessage:
-          "Marking this project as published locks the script, comments, and versions. This assumes you have published the video manually elsewhere.",
+          "Marking this project as published locks comments and versions. This assumes you have published the video manually elsewhere.",
       };
     } else if (isOwner) {
       primaryAction = {
@@ -256,7 +255,6 @@ export function VideoDetailView({
         initialPhase={currentPhase}
         currentStep={currentStep}
         enabledSteps={enabledSteps}
-        lockedStepMessages={streamVideoId ? { script: scriptLockedMessage } : undefined}
         onPhaseChange={setCurrentPhase}
         primaryAction={primaryAction}
       />

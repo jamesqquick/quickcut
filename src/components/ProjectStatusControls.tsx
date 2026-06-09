@@ -209,7 +209,7 @@ export function ProjectStatusControls({
       <ConfirmDialog
         isOpen={publishConfirmOpen}
         title="Mark project as published?"
-        description="Publishing locks the project. Script, comments, and video versions become read-only."
+        description="Publishing locks the project. Comments and video versions become read-only."
         confirmLabel="Mark as published"
         variant="primary"
         loading={saving}

@@ -172,7 +172,7 @@ export function NewProjectDialog({
           Create video project
         </h2>
         <p className="mt-1 text-sm text-text-secondary">
-          Create a workspace with an empty script and an optional video upload.
+          Create a workspace for your video and an optional upload.
         </p>
 
         <form onSubmit={handleCreate} className="mt-5 space-y-4">

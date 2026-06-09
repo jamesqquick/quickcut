@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { NamePromptModal } from "./NamePromptModal";
-import { ScriptWorkspace } from "./ScriptWorkspace";
 import { VideoDetailsPanel } from "./VideoDetailsPanel";
 import { VideoDetailView } from "./VideoDetailView";
 import type { ApprovalStatus } from "./ApprovalSection";
@@ -37,9 +36,8 @@ interface ShareViewCurrentUser {
 }
 
 interface ShareViewProps {
-  activeTab: "details" | "script" | "video";
+  activeTab: "details" | "video";
   video: Video;
-  initialScriptContent: string;
   initialComments: Comment[];
   shareToken: string;
   initialApprovalStatus: ApprovalStatus | null;
@@ -67,7 +65,6 @@ function writeGuestNameCookie(name: string) {
 export function ShareView({
   activeTab,
   video,
-  initialScriptContent,
   initialComments,
   shareToken,
   initialApprovalStatus,
@@ -138,21 +135,6 @@ export function ShareView({
         outro={video.outro}
         targetDate={video.targetDate}
         canSetTargetDate={false}
-      />
-    );
-  }
-
-  if (activeTab === "script") {
-    return (
-      <ScriptWorkspace
-        videoId={video.id}
-        spaceId={video.spaceId}
-        initialContent={initialScriptContent}
-        initialComments={initialComments}
-        currentUserName={viewerName}
-        readOnly={video.phase === "published"}
-        shareToken={shareToken}
-        anonymousName={viewerName}
       />
     );
   }

@@ -405,7 +405,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
     <ConfirmDialog
       isOpen={confirmDeleteOpen}
       title="Delete this project?"
-      description="This action cannot be undone. The project, all versions, scripts, comments, activity, approvals, transcripts, and share links will be permanently deleted."
+      description="This action cannot be undone. The project, all versions, comments, activity, approvals, transcripts, and share links will be permanently deleted."
       confirmLabel="Delete project"
       variant="danger"
       loading={deleting}
