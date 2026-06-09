@@ -11,7 +11,7 @@ import { getApprovalStatus, type ApprovalStatus } from "../../lib/approvals";
 import { getProjectActivity } from "../../lib/activity";
 import { loadTranscriptPanelData, type TranscriptPanelData } from "../../lib/transcripts";
 import { getMergedVideoById, type MergedVideo } from "../../lib/projects";
-import { normalizeVideoPhase } from "../../types";
+
 
 const { token } = Astro.params;
 if (!token) return Astro.redirect("/");
@@ -102,7 +102,7 @@ const tabHref = (tab: "details" | "video") => {
   params.set("tab", tab);
   return `/s/${token}?${params.toString()}`;
 };
-const phase = video ? normalizeVideoPhase(video.phase) : "reviewing_video";
+const phase = video?.phase ?? "reviewing_video";
 const isPublished = phase === "published";
 ---
 

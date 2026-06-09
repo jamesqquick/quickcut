@@ -14,12 +14,6 @@ export interface RectAnnotation {
 
 export type Annotation = PointAnnotation | RectAnnotation;
 
-export interface TextRange {
-  from: number;
-  to: number;
-  quote: string;
-}
-
 export type CommentUrgency =
   | "idea"
   | "suggestion"
@@ -57,8 +51,6 @@ export interface Comment {
   resolvedReason: "manual" | "text_edited" | null;
   annotation: Annotation | null;
   urgency: CommentUrgency;
-  phase: "script" | "review";
-  textRange: TextRange | null;
   createdAt: string;
   name: string;
   reactions: CommentReactionSummary[];
@@ -80,9 +72,6 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 export const VIDEO_PHASES = PROJECT_STATUSES;
 export type VideoPhase = ProjectStatus;
 
-export const SCRIPT_STATUSES = ["writing", "review"] as const;
-export type ScriptStatus = (typeof SCRIPT_STATUSES)[number];
-
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   reviewing_video: "Reviewing Video",
   video_approved: "Video Approved",
@@ -90,14 +79,6 @@ export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
 };
 
 export const PHASE_LABELS = PROJECT_STATUS_LABELS;
-
-// Script-stage phases ("creating_script", "reviewing_script") are retained in
-// the persisted enum but are no longer surfaced in the UI. Existing rows in
-// those phases collapse to the first video stage so they display correctly.
-export function normalizeVideoPhase(phase: string | null | undefined): VideoPhase {
-  if (PROJECT_STATUSES.includes(phase as ProjectStatus)) return phase as ProjectStatus;
-  return "reviewing_video";
-}
 
 export const BRAINSTORM_REACTION_EMOJIS = ["👍", "❤️", "🚀", "💡", "🎬"] as const;
 export type BrainstormReactionEmoji = (typeof BRAINSTORM_REACTION_EMOJIS)[number];

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { actions } from "astro:actions";
-import { VIDEO_PHASES, PHASE_LABELS, normalizeVideoPhase, type VideoPhase } from "../types";
+import { VIDEO_PHASES, PHASE_LABELS, type VideoPhase } from "../types";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 import { friendlyActionErrorMessage } from "../lib/errors";
 
@@ -22,7 +22,7 @@ export function PhaseDropdown({
   const [saving, setSaving] = useState(false);
   const [confirmPublish, setConfirmPublish] = useState(false);
   const confirmRef = useRef<HTMLDivElement>(null);
-  const normalizedPhase = normalizeVideoPhase(currentPhase);
+  const normalizedPhase = currentPhase;
   const enabledPhaseSet = new Set(enabledPhases ?? VIDEO_PHASES);
 
   // Close publish confirmation on outside click
