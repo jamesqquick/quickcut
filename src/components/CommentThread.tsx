@@ -1146,17 +1146,11 @@ export function CommentThread({
           />
         </div>
         <div className="flex min-w-0 items-center gap-2">
-          <input
-            type="text"
+          <textarea
+            rows={2}
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             onFocus={handleComposeFocus}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                submitComment();
-              }
-            }}
             placeholder={
               pendingAnnotation
                 ? "Describe what you see here..."
