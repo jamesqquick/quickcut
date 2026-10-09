@@ -1145,7 +1145,7 @@ export function CommentThread({
             onChange={setNewCommentUrgency}
           />
         </div>
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <textarea
             rows={2}
             value={newComment}
@@ -1158,12 +1158,12 @@ export function CommentThread({
                   ? `Add a comment at ${formatTC(effectiveTime)}...`
                   : "Add a comment..."
             }
-            className="min-w-0 flex-1 rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
+            className="min-w-0 w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
           />
           <button
             onClick={submitComment}
             disabled={submitting || !newComment.trim()}
-            className="shrink-0 rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+            className="shrink-0 self-end rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
           >
             Comment
           </button>
