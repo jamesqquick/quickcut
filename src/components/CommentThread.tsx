@@ -590,7 +590,7 @@ export function CommentThread({
   const resolvedCount = rootComments.filter((c) => c.isResolved).length;
 
   const submitComment = async () => {
-    if (!newComment.trim()) return;
+    if (submitting || !newComment.trim()) return;
 
     if (shareToken && !anonymousName) {
       onNameRequired?.();
@@ -1151,6 +1151,12 @@ export function CommentThread({
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             onFocus={handleComposeFocus}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && e.metaKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submitComment();
+              }
+            }}
             placeholder={
               pendingAnnotation
                 ? "Describe what you see here..."
@@ -1158,12 +1164,12 @@ export function CommentThread({
                   ? `Add a comment at ${formatTC(effectiveTime)}...`
                   : "Add a comment..."
             }
-            className="min-w-0 w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
+            className="min-h-[calc(2lh+1rem+2px)] min-w-0 w-full rounded-lg border border-border-default bg-bg-input px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:border-accent-primary focus:outline-none"
           />
           <button
             onClick={submitComment}
             disabled={submitting || !newComment.trim()}
-            className="shrink-0 self-end rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+            className="w-full shrink-0 self-end rounded-lg bg-accent-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50 sm:w-auto"
           >
             Comment
           </button>
