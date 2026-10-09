@@ -467,13 +467,11 @@ export function CommentThread({
           if (data.comments && data.comments.length > 0) {
             setComments((prev) => {
               const existingIds = new Set(prev.map((c) => c.id));
-              const reviewComments = data.comments.filter((c: Comment) => c.phase !== "script");
               const newOnes = data.comments.filter(
-                (c: Comment) => c.phase !== "script" && !existingIds.has(c.id),
+                (c: Comment) => !existingIds.has(c.id),
               );
-              // Also update resolved status for existing comments
               const updated = prev.map((existing) => {
-                const updatedComment = reviewComments.find(
+                const updatedComment = data.comments.find(
                   (c: Comment) => c.id === existing.id,
                 );
                 return updatedComment || existing;
@@ -508,7 +506,6 @@ export function CommentThread({
       },
       {
         onComment: (incoming) => {
-          if (incoming.phase === "script") return;
           setComments((prev) => {
             if (prev.some((c) => c.id === incoming.id)) return prev;
             return sortComments([...prev, incoming as unknown as Comment]);

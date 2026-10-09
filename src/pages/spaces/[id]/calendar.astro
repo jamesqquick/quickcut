@@ -7,7 +7,7 @@ import { projects, spaces, videos, users } from "../../../db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { verifySpaceAccess } from "../../../lib/spaces";
-import { normalizeVideoPhase } from "../../../types";
+
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -47,7 +47,7 @@ const calendarVideos: DashboardVideo[] = rows.map((row) => ({
   id: row.id,
   title: row.title,
   status: row.status as DashboardVideo["status"],
-  phase: normalizeVideoPhase(row.phase),
+  phase: row.phase,
   thumbnailUrl: row.thumbnailUrl,
   duration: row.duration,
   createdAt: row.createdAt,
