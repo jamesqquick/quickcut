@@ -87,6 +87,7 @@ const tabHref = (tab: "video" | "details") => {
       spaceName={videoSpace.name}
       versions={versions}
       canManageProject={canManageProject}
+      canDownloadVideo={activeTab === "video" && hasVideo}
       uploadVersion={hasVideo && !isPublished && canManageProject ? {
         transcriptsEnabled,
       } : null}
