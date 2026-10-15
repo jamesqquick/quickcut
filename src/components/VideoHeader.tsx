@@ -5,6 +5,8 @@ import { UploadVersionModal } from "./UploadVersionModal";
 import { VersionSwitcher } from "./VersionSwitcher";
 import { ToastViewport, useToast } from "./Toast";
 import { friendlyActionErrorMessage } from "../lib/errors";
+import { useVideoDownload } from "../hooks/useVideoDownload";
+import { VideoDownloadMenuItem } from "./VideoDownloadMenu";
 
 interface ShareLink {
   id: string;
@@ -34,9 +36,10 @@ interface VideoHeaderProps {
   versions: VersionSummary[];
   uploadVersion?: UploadVersionConfig | null;
   canManageProject?: boolean;
+  canDownloadVideo?: boolean;
 }
 
-export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to Dashboard", spaceName, versions, uploadVersion = null, canManageProject = false }: VideoHeaderProps) {
+export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, backHref, backLabel = "Back to Dashboard", spaceName, versions, uploadVersion = null, canManageProject = false, canDownloadVideo = false }: VideoHeaderProps) {
   const [shareLink, setShareLink] = useState(initialLink);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -51,6 +54,11 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
   const popoverRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const { preparingDownload, downloadVideo } = useVideoDownload({
+    videoId,
+    onDownloaded: () => setMoreMenuOpen(false),
+    onError: (message) => showToast(message, "error"),
+  });
 
   const shareUrl = shareLink ? `${appUrl}/s/${shareLink.token}` : null;
 
@@ -226,7 +234,7 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
           </>
         )}
 
-        {canManageProject && (
+        {(canManageProject || canDownloadVideo) && (
         <div className="relative" ref={moreMenuRef}>
           <button
             onClick={() => setMoreMenuOpen((o) => !o)}
@@ -246,21 +254,30 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
               role="menu"
               className="fixed left-1/2 top-24 z-50 w-48 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-lg border border-border-default bg-bg-secondary py-1 shadow-lg sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:translate-x-0"
             >
-              <button
-                role="menuitem"
-                type="button"
-                onClick={handleShareClick}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="18" cy="5" r="3" />
-                  <circle cx="6" cy="12" r="3" />
-                  <circle cx="18" cy="19" r="3" />
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                </svg>
-                Share
-              </button>
+              {canManageProject && (
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={handleShareClick}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-text-primary transition-colors hover:bg-bg-tertiary"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  Share
+                </button>
+              )}
+              {canDownloadVideo && (
+                <VideoDownloadMenuItem
+                  preparingDownload={preparingDownload}
+                  onClick={downloadVideo}
+                  disabled={deleting}
+                />
+              )}
               {uploadVersion && (
                 <button
                   role="menuitem"
@@ -279,21 +296,23 @@ export function VideoHeader({ videoId, shareLink: initialLink, appUrl, spaceId, 
                   Upload new version
                 </button>
               )}
-              <button
-                role="menuitem"
-                onClick={requestDeleteVideo}
-                disabled={deleting}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-accent-danger transition-colors hover:bg-bg-tertiary disabled:opacity-50"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                </svg>
-                Delete project
-              </button>
+              {canManageProject && (
+                <button
+                  role="menuitem"
+                  onClick={requestDeleteVideo}
+                  disabled={deleting}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-accent-danger transition-colors hover:bg-bg-tertiary disabled:opacity-50"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                  Delete project
+                </button>
+              )}
             </div>
           )}
 
-          {popoverOpen && (
+          {canManageProject && popoverOpen && (
           <div
             ref={popoverRef}
             role="dialog"

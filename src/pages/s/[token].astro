@@ -2,6 +2,7 @@
 import Layout from "../../layouts/Layout.astro";
 import GuestHeader from "../../components/GuestHeader.astro";
 import { ShareView, GUEST_NAME_MAX_LENGTH } from "../../components/ShareView";
+import { VideoDownloadMenu } from "../../components/VideoDownloadMenu";
 import { createDb } from "../../db";
 import { shareLinks, spaces, videos } from "../../db/schema";
 import { count, eq } from "drizzle-orm";
@@ -147,7 +148,7 @@ const isPublished = phase === "published";
         </section>
 
         <!-- Tab navigation -->
-        <div class="border-b border-border-default">
+        <div class="flex items-center justify-between border-b border-border-default">
           <nav class="flex gap-2" aria-label="Project sections">
             <a
               href={tabHref("details")}
@@ -164,6 +165,9 @@ const isPublished = phase === "published";
               Video
             </a>
           </nav>
+          {activeTab === "video" && hasVideo && (
+            <VideoDownloadMenu client:load videoId={video.id} shareToken={token} />
+          )}
         </div>
 
         <!-- Tab content. Details doesn't require an uploaded cut, so only the

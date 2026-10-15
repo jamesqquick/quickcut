@@ -143,10 +143,68 @@ export interface StreamAudioDownload {
   percentComplete?: number;
 }
 
+export interface StreamVideoDownload {
+  status: "inprogress" | "ready" | "error" | string;
+  url: string | null;
+  percentComplete?: number;
+}
+
 interface StreamDownloadsResponse {
   result?: {
     audio?: StreamAudioDownload;
+    default?: StreamVideoDownload;
   };
+}
+
+export class StreamVideoDownloadError extends Error {
+  constructor(public readonly streamVideoId: string, message: string) {
+    super(message);
+    this.name = "StreamVideoDownloadError";
+  }
+}
+
+export async function getVideoDownload(
+  accountId: string,
+  apiToken: string,
+  streamVideoId: string,
+): Promise<StreamVideoDownload | null> {
+  const response = await streamFetch(
+    `${STREAM_API_BASE}/${accountId}/stream/${streamVideoId}/downloads`,
+    { headers: { Authorization: `Bearer ${apiToken}` } },
+  );
+
+  if (!response.ok) {
+    throw new StreamVideoDownloadError(streamVideoId, `Stream downloads lookup failed: ${response.status}`);
+  }
+
+  const data = (await response.json()) as StreamDownloadsResponse;
+  return data.result?.default ?? null;
+}
+
+export async function requestVideoDownload(
+  accountId: string,
+  apiToken: string,
+  streamVideoId: string,
+): Promise<StreamVideoDownload> {
+  const response = await streamFetch(
+    `${STREAM_API_BASE}/${accountId}/stream/${streamVideoId}/downloads`,
+    { method: "POST", headers: { Authorization: `Bearer ${apiToken}` } },
+  );
+
+  if (response.status === 409) {
+    const existing = await getVideoDownload(accountId, apiToken, streamVideoId);
+    if (existing) return existing;
+  }
+
+  if (!response.ok) {
+    throw new StreamVideoDownloadError(streamVideoId, `Stream video download request failed: ${response.status}`);
+  }
+
+  const data = (await response.json()) as StreamDownloadsResponse;
+  if (!data.result?.default) {
+    throw new StreamVideoDownloadError(streamVideoId, "Stream response did not include video download details");
+  }
+  return data.result.default;
 }
 
 export async function requestAudioDownload(

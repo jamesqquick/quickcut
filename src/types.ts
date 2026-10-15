@@ -69,6 +69,11 @@ export interface FocusRequest {
   nonce: number;
 }
 
+export interface VideoDownloadResponse {
+  status: "inprogress" | "ready";
+  url: string | null;
+}
+
 export const PROJECT_STATUSES = [
   "reviewing_video",
   "video_approved",
