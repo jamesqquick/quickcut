@@ -24,7 +24,6 @@ export interface CommentNotificationInput {
   actorDisplayName: string;
   text: string;
   parentCommentId: string | null;
-  phase: "script" | "review";
 }
 
 export interface EmailConfig {
@@ -54,10 +53,6 @@ function snippet(text: string): string {
 }
 
 function getNotificationType(input: CommentNotificationInput): NotificationType {
-  if (input.phase === "script") {
-    return input.parentCommentId ? "script_comment.reply" : "script_comment.created";
-  }
-
   return input.parentCommentId ? "comment.reply" : "comment.created";
 }
 
@@ -130,7 +125,7 @@ export async function createCommentNotifications(
   if (recipientIds.length === 0) return;
 
   const type = getNotificationType(input);
-  const href = `/videos/${video.id}?tab=${input.phase === "script" ? "script" : "video"}&comment=${input.commentId}`;
+  const href = `/videos/${video.id}?tab=video&comment=${input.commentId}`;
   const copy = getNotificationCopy(type, input.actorDisplayName, video.title);
   const body = snippet(input.text);
 
@@ -480,29 +475,25 @@ export async function markNotificationRead(
   return true;
 }
 
-export type VideoNotificationTab = "video" | "script";
-
-const TAB_NOTIFICATION_TYPES: Record<VideoNotificationTab, NotificationType[]> = {
-  video: ["comment.created", "comment.reply", "approval.requested"],
-  script: ["script_comment.created", "script_comment.reply"],
-};
+const VIDEO_NOTIFICATION_TYPES: NotificationType[] = [
+  "comment.created",
+  "comment.reply",
+  "approval.requested",
+];
 
 /**
- * Bulk mark all of a user's unread notifications for a given video+tab as
- * read. Returns the ids of rows that were transitioned from unread to read,
- * so callers can broadcast that subset to other open tabs/devices.
+ * Bulk mark all of a user's unread notifications for a given video as read.
+ * Returns the ids of rows that were transitioned from unread to read, so
+ * callers can broadcast that subset to other open tabs/devices.
  *
  * Caller is responsible for checking access to the video (via
  * `verifySpaceAccess` on the video's space) before invoking this helper.
  */
-export async function markNotificationsReadByVideoTab(
+export async function markNotificationsReadByVideo(
   db: Database,
   userId: string,
   videoId: string,
-  tab: VideoNotificationTab,
 ): Promise<string[]> {
-  const types = TAB_NOTIFICATION_TYPES[tab];
-
   const unreadRows = await db
     .select({ id: notifications.id })
     .from(notifications)
@@ -510,7 +501,7 @@ export async function markNotificationsReadByVideoTab(
       and(
         eq(notifications.userId, userId),
         eq(notifications.videoId, videoId),
-        inArray(notifications.type, types),
+        inArray(notifications.type, VIDEO_NOTIFICATION_TYPES),
         isNull(notifications.readAt),
       ),
     );

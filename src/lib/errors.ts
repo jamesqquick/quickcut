@@ -5,7 +5,7 @@
 
 const RAW_ERROR_PATTERNS = [
   /^failed query:/i,
-  /\b(select|insert|update|delete)\b\s+(into|from|videos|users|spaces|comments|approvals|scripts)/i,
+  /\b(select|insert|update|delete)\b\s+(into|from|videos|users|spaces|comments|approvals)/i,
   /\bsqlite\b/i,
   /\bD1_\w+\b/,
   /\bdrizzle\b/i,

@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import type { Annotation, CommentReactionSummary, CommentUrgency, TextRange } from "../types";
+import type { Annotation, CommentReactionSummary, CommentUrgency } from "../types";
 
 /**
  * Shape of comments broadcast to connected clients.
@@ -19,8 +19,6 @@ export interface BroadcastComment {
 	resolvedAt: string | null;
 	annotation: Annotation | null;
 	urgency: CommentUrgency;
-	phase: "script" | "review";
-	textRange: TextRange | null;
 	createdAt: string;
 	name: string;
 	reactions: CommentReactionSummary[];

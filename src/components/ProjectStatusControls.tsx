@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { actions } from "astro:actions";
-import { PROJECT_STATUS_LABELS, PROJECT_STATUSES, normalizeVideoPhase, type ProjectStatus } from "../types";
+import { PROJECT_STATUS_LABELS, PROJECT_STATUSES, type ProjectStatus } from "../types";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 import { ToastViewport, useToast } from "./Toast";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -31,7 +31,7 @@ export function ProjectStatusControls({
   isOwner = false,
   onStatusChange,
 }: ProjectStatusControlsProps) {
-  const [status, setStatus] = useState<ProjectStatus>(() => normalizeVideoPhase(initialStatus));
+  const [status, setStatus] = useState<ProjectStatus>(initialStatus as ProjectStatus);
   const [saving, setSaving] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus | null>(initialApprovalStatus);
   const [overrideOpen, setOverrideOpen] = useState(false);

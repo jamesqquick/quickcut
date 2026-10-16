@@ -17,7 +17,6 @@ import {
   comments,
   commentReactions,
   projects,
-  scripts,
   shareLinks,
   transcripts,
 } from "../db/schema";
@@ -37,7 +36,6 @@ import {
   folderUpdateSchema,
   projectCreateSchema,
   uploadSchema,
-  scriptUpdateSchema,
   notificationsMarkReadByContextSchema,
 } from "../lib/validation";
 import { verifySpaceAccess, getDefaultSpaceForUser } from "../lib/spaces";
@@ -75,7 +73,7 @@ import {
   createTargetedApprovalRequestNotifications,
   resolveApprovalRequestsForApprover,
   markNotificationRead,
-  markNotificationsReadByVideoTab,
+  markNotificationsReadByVideo,
 } from "../lib/notifications";
 import { buildInviteAuthPath, buildInviteEmail } from "../lib/email";
 import { sendEmail } from "../lib/send-email";
@@ -1147,106 +1145,6 @@ export const server = {
     }),
   },
 
-  script: {
-    update: defineAction({
-      input: scriptUpdateSchema.extend({
-        videoId: z.string().min(1),
-      }),
-      handler: async ({ videoId, content, plainText: plainTextInput }, context) => {
-        const user = requireUser(context);
-        const db = createDb(env.DB);
-
-        const video = await getMergedVideoById(db, videoId);
-
-        if (!video) {
-          throw new ActionError({ code: "NOT_FOUND", message: "Project not found" });
-        }
-
-        if (video.phase === "published") {
-          throw new ActionError({
-            code: "FORBIDDEN",
-            message: "Cannot edit published scripts",
-          });
-        }
-
-        const perms = await getProjectPermissions(db, user.id, video);
-        requireProjectManage(perms);
-
-        const now = new Date().toISOString();
-        const plainText = (plainTextInput ?? content).replace(/\s+/g, " ").trim();
-
-        const existing = await db
-          .select({ id: scripts.id })
-          .from(scripts)
-          .where(eq(scripts.videoId, videoId))
-          .limit(1);
-
-        const openScriptComments = await db
-          .select({ id: comments.id, textRange: comments.textRange })
-          .from(comments)
-          .where(
-            and(
-              eq(comments.videoId, videoId),
-              eq(comments.phase, "script"),
-              eq(comments.isResolved, false),
-            ),
-          );
-
-        const outdatedCommentIds = openScriptComments
-          .filter((comment) => {
-            if (!comment.textRange) return false;
-            try {
-              const textRange = JSON.parse(comment.textRange) as { quote?: string };
-              return (
-                !!textRange.quote &&
-                !plainText.includes(textRange.quote.replace(/\s+/g, " ").trim())
-              );
-            } catch {
-              return false;
-            }
-          })
-          .map((comment) => comment.id);
-
-        if (existing[0]) {
-          await db
-            .update(scripts)
-            .set({ content, plainText, updatedAt: now })
-            .where(eq(scripts.videoId, videoId));
-        } else {
-          await db.insert(scripts).values({
-            id: crypto.randomUUID(),
-            videoId,
-            content,
-            plainText,
-            createdBy: user.id,
-            createdAt: now,
-            updatedAt: now,
-          });
-        }
-
-        for (const commentId of outdatedCommentIds) {
-          await db
-            .update(comments)
-            .set({
-              isResolved: true,
-              resolvedBy: user.id,
-              resolvedAt: now,
-              resolvedReason: "text_edited",
-            })
-            .where(eq(comments.id, commentId));
-        }
-
-        const scriptRows = await db
-          .select()
-          .from(scripts)
-          .where(eq(scripts.videoId, videoId))
-          .limit(1);
-
-        return { script: scriptRows[0], resolvedCommentIds: outdatedCommentIds };
-      },
-    }),
-  },
-
   comment: {
     create: defineAction({
       input: commentSchema.extend({
@@ -1254,7 +1152,7 @@ export const server = {
       }),
       handler: async (input, context) => {
         const user = requireUser(context);
-        const { videoId, text, timestamp, annotation, urgency, phase, textRange } = input;
+        const { videoId, text, timestamp, annotation, urgency } = input;
         const db = createDb(env.DB);
 
         const video = await getMergedVideoById(db, videoId);
@@ -1292,8 +1190,8 @@ export const server = {
           resolvedReason: null,
           annotation: annotation ? JSON.stringify(annotation) : null,
           urgency,
-          phase,
-          textRange: textRange ? JSON.stringify(textRange) : null,
+          phase: "review" as const,
+          textRange: null,
         };
 
         await db.insert(comments).values(newComment);
@@ -1301,7 +1199,6 @@ export const server = {
         const responseComment = {
           ...newComment,
           annotation: annotation ?? null,
-          textRange: textRange ?? null,
           createdAt: now,
           name: user.name,
           reactions: [],
@@ -1317,7 +1214,6 @@ export const server = {
               actorDisplayName: user.name,
               text: newComment.text,
               parentCommentId: null,
-              phase,
             },
             {
               send: (msg) => sendEmail(env, msg),
@@ -1519,7 +1415,7 @@ export const server = {
           resolvedReason: null,
           annotation: null,
           urgency: "suggestion" as const,
-          phase: parent[0].phase,
+          phase: "review" as const,
           textRange: null,
         };
 
@@ -1542,7 +1438,6 @@ export const server = {
               actorDisplayName: user.name,
               text: newReply.text,
               parentCommentId: parentId,
-              phase: parent[0].phase,
             },
             {
               send: (msg) => sendEmail(env, msg),
@@ -2076,7 +1971,7 @@ export const server = {
 
     markReadByContext: defineAction({
       input: notificationsMarkReadByContextSchema,
-      handler: async ({ videoId, tab }, context) => {
+      handler: async ({ videoId }, context) => {
         const user = requireUser(context);
         const db = createDb(env.DB);
 
@@ -2095,7 +1990,7 @@ export const server = {
           throw new ActionError({ code: "FORBIDDEN", message: "Forbidden" });
         }
 
-        const ids = await markNotificationsReadByVideoTab(db, user.id, videoId, tab);
+        const ids = await markNotificationsReadByVideo(db, user.id, videoId);
 
         if (ids.length > 0) {
           defer(broadcastNotificationsRead(env, user.id, ids));
