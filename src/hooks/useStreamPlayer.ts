@@ -74,6 +74,9 @@ export function useStreamPlayer({
   const playerRef = useRef<StreamPlayer | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState(initialDuration);
+  const positionStorageKey = streamVideoId
+    ? `quickcut:video-position:${streamVideoId}`
+    : null;
 
   useEffect(() => {
     if (!enabled) return;
@@ -83,15 +86,56 @@ export function useStreamPlayer({
 
     let cancelled = false;
     let player: StreamPlayer | null = null;
+    let positionRestored = false;
+
+    const savePosition = (time: number) => {
+      if (!positionStorageKey || !Number.isFinite(time) || time < 0) return;
+      try {
+        window.sessionStorage.setItem(positionStorageKey, String(time));
+      } catch {
+        // Browser storage may be unavailable in private or restricted contexts.
+      }
+    };
+
+    const restorePosition = () => {
+      if (positionRestored || !player || !positionStorageKey) return;
+      positionRestored = true;
+
+      try {
+        const stored = window.sessionStorage.getItem(positionStorageKey);
+        if (!stored) return;
+
+        const time = Number(stored);
+        if (!Number.isFinite(time) || time < 0) return;
+
+        const duration = player.duration || 0;
+        const restoredTime = duration > 0 ? Math.min(time, duration) : time;
+        player.currentTime = restoredTime;
+        setCurrentTime(restoredTime);
+      } catch {
+        // A stale position or unavailable player should not block playback.
+      }
+    };
 
     const handleTimeUpdate = () => {
-      if (player) setCurrentTime(player.currentTime || 0);
+      if (player) {
+        const time = player.currentTime || 0;
+        setCurrentTime(time);
+        savePosition(time);
+      }
     };
     const handleDurationChange = () => {
-      if (player) setVideoDuration(player.duration || 0);
+      if (player) {
+        setVideoDuration(player.duration || 0);
+        restorePosition();
+      }
     };
     const handlePause = () => {
-      if (player) setCurrentTime(player.currentTime || 0);
+      if (player) {
+        const time = player.currentTime || 0;
+        setCurrentTime(time);
+        savePosition(time);
+      }
     };
 
     waitForStream()
@@ -107,6 +151,7 @@ export function useStreamPlayer({
         if (player.duration) {
           setVideoDuration(player.duration);
         }
+        restorePosition();
       })
       .catch((err) => {
         console.error("Failed to initialize Stream SDK:", err);
@@ -116,6 +161,7 @@ export function useStreamPlayer({
       cancelled = true;
       if (player) {
         try {
+          savePosition(player.currentTime || 0);
           player.removeEventListener("timeupdate", handleTimeUpdate);
           player.removeEventListener("durationchange", handleDurationChange);
           player.removeEventListener("pause", handlePause);
@@ -125,7 +171,7 @@ export function useStreamPlayer({
       }
       playerRef.current = null;
     };
-  }, [enabled, status, streamVideoId]);
+  }, [enabled, positionStorageKey, status, streamVideoId]);
 
   const handleSeek = useCallback((time: number) => {
     if (playerRef.current) {
