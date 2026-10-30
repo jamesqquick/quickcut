@@ -18,11 +18,12 @@ Update the shared `useStreamPlayer` hook rather than changing either tab page.
 When a Stream player is active, use a `sessionStorage` entry keyed by its
 `streamVideoId`:
 
-- Save the current time from Stream `timeupdate` and `pause` events.
+- Save the current time from Stream `timeupdate` and `pause` events, explicit
+  timeline seeks, and `pagehide` navigation events.
 - Save once more during hook cleanup so a tab navigation captures the latest
   position.
 - Read the saved value after Stream initializes and restore it through the
-  player `currentTime` setter.
+  player `currentTime` setter once Stream reports a usable duration.
 - Ignore missing, non-numeric, negative, or otherwise invalid stored values.
 - Ignore storage failures so private browsing or restricted storage does not
   break playback.

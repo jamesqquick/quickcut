@@ -19,7 +19,7 @@
 ### Task 1: Add Per-Video Position Storage
 
 **Files:**
-- Modify: `src/hooks/useStreamPlayer.ts:1-142`
+- Modify: `src/hooks/useStreamPlayer.ts:1-209`
 
 - [ ] **Step 1: Define the storage key from `streamVideoId`**
 
@@ -35,46 +35,63 @@ The key must be null when there is no Stream video so draft, processing, and fai
 
 - [ ] **Step 2: Add guarded position read and write helpers inside the player effect**
 
-Within the existing `useEffect`, add a `savePosition` function and a `restorePosition` function. Both must catch storage or player errors so restricted browser storage cannot break playback. `savePosition` must reject non-finite and negative values. `restorePosition` must reject missing, non-finite, and negative values, clamp values past a known duration, set the hook's `currentTime` state, and only attempt restoration once.
+Inside the hook, add a memoized `savePosition` function and within the existing `useEffect` add a `restorePosition` function. Both must catch storage or player errors so restricted browser storage cannot break playback. `savePosition` must reject non-finite and negative values. `restorePosition` must reject missing, non-finite, and negative values, wait for a usable player or initial duration, clamp values past the known duration, set the hook's `currentTime` state, and only complete restoration once.
 
 Use this exact behavior:
 
 ```ts
-let positionRestored = false;
-
-const savePosition = (time: number) => {
+const positionStorageKey = streamVideoId
+  ? `quickcut:video-position:${streamVideoId}`
+  : null;
+const savePosition = useCallback((time: number) => {
   if (!positionStorageKey || !Number.isFinite(time) || time < 0) return;
   try {
     window.sessionStorage.setItem(positionStorageKey, String(time));
   } catch {
     // Browser storage may be unavailable in private or restricted contexts.
   }
-};
+}, [positionStorageKey]);
+
+let positionRestored = false;
 
 const restorePosition = () => {
   if (positionRestored || !player || !positionStorageKey) return;
-  positionRestored = true;
+
+  let stored: string | null;
+  try {
+    stored = window.sessionStorage.getItem(positionStorageKey);
+  } catch {
+    positionRestored = true;
+    return;
+  }
+  if (!stored) {
+    positionRestored = true;
+    return;
+  }
+
+  const time = Number(stored);
+  if (!Number.isFinite(time) || time < 0) {
+    positionRestored = true;
+    return;
+  }
+
+  const duration = player.duration || initialDuration;
+  if (duration <= 0) return;
 
   try {
-    const stored = window.sessionStorage.getItem(positionStorageKey);
-    if (!stored) return;
-
-    const time = Number(stored);
-    if (!Number.isFinite(time) || time < 0) return;
-
-    const duration = player.duration || 0;
-    const restoredTime = duration > 0 ? Math.min(time, duration) : time;
+    const restoredTime = Math.min(time, duration);
     player.currentTime = restoredTime;
     setCurrentTime(restoredTime);
+    positionRestored = true;
   } catch {
-    // A stale position or unavailable player should not block playback.
+    // Wait for Stream to report its duration before trying again.
   }
 };
 ```
 
 - [ ] **Step 3: Save on Stream playback events and restore after initialization**
 
-Update the existing handlers so `timeupdate` and `pause` both save the current player time. After registering the listeners and reading the initial duration, call `restorePosition()` once. Also call it from `handleDurationChange()` so a saved position is restored after Stream reports its duration when the initial player duration is not ready yet.
+Update the existing handlers so `timeupdate` and `pause` both save the current player time. Save explicit timeline/comment seeks immediately, and register a `pagehide` handler so full-document tab navigation captures the latest native-player position. After registering the listeners and reading the initial duration, call `restorePosition()` once. Also call it from `handleDurationChange()` so a saved position is restored after Stream reports its duration when the initial player duration is not ready yet.
 
 The resulting event handlers and initialization sequence should be:
 
@@ -99,6 +116,11 @@ const handlePause = () => {
     savePosition(time);
   }
 };
+const handlePageHide = () => {
+  if (player) savePosition(player.currentTime || 0);
+};
+
+window.addEventListener("pagehide", handlePageHide);
 
 player = StreamFn(iframeRef.current);
 playerRef.current = player;
@@ -115,16 +137,17 @@ restorePosition();
 
 - [ ] **Step 4: Save the final position during cleanup and update dependencies**
 
-Before removing the listeners in the existing cleanup, save `player.currentTime`. Add `positionStorageKey` to the effect dependency list so a changed Stream video gets its own restore cycle.
+Before removing the listeners in the existing cleanup, remove the `pagehide` listener and save `player.currentTime`. Add `initialDuration`, `positionStorageKey`, and `savePosition` to the effect dependency list so a changed Stream video gets its own restore cycle and seeks use the current storage key.
 
 The cleanup and dependency list should include:
 
 ```ts
 return () => {
   cancelled = true;
+  window.removeEventListener("pagehide", handlePageHide);
   if (player) {
-    savePosition(player.currentTime || 0);
     try {
+      savePosition(player.currentTime || 0);
       player.removeEventListener("timeupdate", handleTimeUpdate);
       player.removeEventListener("durationchange", handleDurationChange);
       player.removeEventListener("pause", handlePause);
@@ -136,7 +159,7 @@ return () => {
 };
 ```
 
-The effect dependency list must be `[enabled, status, streamVideoId, positionStorageKey]`.
+The effect dependency list must be `[enabled, initialDuration, positionStorageKey, savePosition, status, streamVideoId]`. The `handleSeek` callback must also depend on `savePosition` and call it immediately after setting `player.currentTime`.
 
 - [ ] **Step 5: Run the focused build verification**
 

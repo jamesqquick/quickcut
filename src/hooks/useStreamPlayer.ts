@@ -77,6 +77,14 @@ export function useStreamPlayer({
   const positionStorageKey = streamVideoId
     ? `quickcut:video-position:${streamVideoId}`
     : null;
+  const savePosition = useCallback((time: number) => {
+    if (!positionStorageKey || !Number.isFinite(time) || time < 0) return;
+    try {
+      window.sessionStorage.setItem(positionStorageKey, String(time));
+    } catch {
+      // Browser storage may be unavailable in private or restricted contexts.
+    }
+  }, [positionStorageKey]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -88,32 +96,38 @@ export function useStreamPlayer({
     let player: StreamPlayer | null = null;
     let positionRestored = false;
 
-    const savePosition = (time: number) => {
-      if (!positionStorageKey || !Number.isFinite(time) || time < 0) return;
-      try {
-        window.sessionStorage.setItem(positionStorageKey, String(time));
-      } catch {
-        // Browser storage may be unavailable in private or restricted contexts.
-      }
-    };
-
     const restorePosition = () => {
       if (positionRestored || !player || !positionStorageKey) return;
-      positionRestored = true;
+
+      let stored: string | null;
+      try {
+        stored = window.sessionStorage.getItem(positionStorageKey);
+      } catch {
+        positionRestored = true;
+        return;
+      }
+
+      if (!stored) {
+        positionRestored = true;
+        return;
+      }
+
+      const time = Number(stored);
+      if (!Number.isFinite(time) || time < 0) {
+        positionRestored = true;
+        return;
+      }
+
+      const duration = player.duration || initialDuration;
+      if (duration <= 0) return;
 
       try {
-        const stored = window.sessionStorage.getItem(positionStorageKey);
-        if (!stored) return;
-
-        const time = Number(stored);
-        if (!Number.isFinite(time) || time < 0) return;
-
-        const duration = player.duration || 0;
-        const restoredTime = duration > 0 ? Math.min(time, duration) : time;
+        const restoredTime = Math.min(time, duration);
         player.currentTime = restoredTime;
         setCurrentTime(restoredTime);
+        positionRestored = true;
       } catch {
-        // A stale position or unavailable player should not block playback.
+        // Wait for Stream to report its duration before trying again.
       }
     };
 
@@ -137,6 +151,11 @@ export function useStreamPlayer({
         savePosition(time);
       }
     };
+    const handlePageHide = () => {
+      if (player) savePosition(player.currentTime || 0);
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
 
     waitForStream()
       .then((StreamFn) => {
@@ -159,6 +178,7 @@ export function useStreamPlayer({
 
     return () => {
       cancelled = true;
+      window.removeEventListener("pagehide", handlePageHide);
       if (player) {
         try {
           savePosition(player.currentTime || 0);
@@ -171,14 +191,15 @@ export function useStreamPlayer({
       }
       playerRef.current = null;
     };
-  }, [enabled, positionStorageKey, status, streamVideoId]);
+  }, [enabled, initialDuration, positionStorageKey, savePosition, status, streamVideoId]);
 
   const handleSeek = useCallback((time: number) => {
     if (playerRef.current) {
       playerRef.current.currentTime = time;
       setCurrentTime(time);
+      savePosition(time);
     }
-  }, []);
+  }, [savePosition]);
 
   const handlePause = useCallback(() => {
     playerRef.current?.pause();
