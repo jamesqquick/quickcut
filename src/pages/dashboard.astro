@@ -10,7 +10,7 @@ import { folders, comments, spaceMembers, approvals, users } from "../db/schema"
 import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { env } from "cloudflare:workers";
 import { getUserSpaces } from "../lib/spaces";
-import { normalizeVideoPhase } from "../types";
+
 import {
   getCurrentVideoCountsByFolder,
   getCurrentVideoThumbnailsByFolder,
@@ -205,7 +205,7 @@ const videoItems: VideoCardItemData[] = userVideos.map((video) => {
     versionCount: versionCounts[video.projectId ?? ""] || 1,
     requiredApprovals: selectedSpace.requiredApprovals,
     approvalCount: approvalCountsByVideo[video.id] || 0,
-    phase: normalizeVideoPhase(video.phase),
+    phase: video.phase,
     creatorName: creator?.name ?? null,
     creatorImageUrl: creator?.image ?? null,
   };

@@ -19,7 +19,7 @@ import { verifySpaceAccess } from "../../../lib/spaces";
 import { loadTranscriptPanelData } from "../../../lib/transcripts";
 import { getMergedVideoById } from "../../../lib/projects";
 import { getVideoVersions } from "../../../lib/versions";
-import { normalizeVideoPhase } from "../../../types";
+
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -53,7 +53,7 @@ const transcriptsEnabled = await isTranscriptGenerationEnabled(env, user);
 const initialTranscriptData = await loadTranscriptPanelData(env, db, video.id, user);
 const versions = await getVideoVersions(db, video);
 const backHref = `/dashboard?space=${video.spaceId}${video.folderId ? `&folderId=${video.folderId}` : ""}`;
-const phase = normalizeVideoPhase(video.phase);
+const phase = video.phase;
 const isPublished = phase === "published";
 const hasVideo = !!video.streamVideoId;
 const isSpaceOwner = role === "owner";

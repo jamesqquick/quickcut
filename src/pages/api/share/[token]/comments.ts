@@ -160,10 +160,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   const commentId = crypto.randomUUID();
 
-  let commentPhase: "script" | "review" = input.phase;
   if (isReply && input.parentId) {
     const parentRows = await db
-      .select({ phase: comments.phase })
+      .select({ id: comments.id })
       .from(comments)
       .where(and(eq(comments.id, input.parentId), eq(comments.videoId, videoId)))
       .limit(1);
@@ -174,11 +173,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         headers: { "Content-Type": "application/json" },
       });
     }
-    commentPhase = parentRows[0].phase;
   }
 
   const annotation = input.annotation ?? null;
-  const textRange = input.textRange ?? null;
   const timestampValue = input.timestamp ?? null;
 
   const newComment = sessionUser
@@ -197,8 +194,8 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         resolvedReason: null,
         annotation: annotation ? JSON.stringify(annotation) : null,
         urgency: commentUrgency,
-        phase: commentPhase,
-        textRange: textRange ? JSON.stringify(textRange) : null,
+        phase: "review" as const,
+        textRange: null,
       }
     : {
         id: commentId,
@@ -215,8 +212,8 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         resolvedReason: null,
         annotation: annotation ? JSON.stringify(annotation) : null,
         urgency: commentUrgency,
-        phase: commentPhase,
-        textRange: textRange ? JSON.stringify(textRange) : null,
+        phase: "review" as const,
+        textRange: null,
       };
 
   await db.insert(comments).values(newComment);
@@ -226,7 +223,6 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const responseComment = {
     ...newComment,
     annotation: annotation || null,
-    textRange: textRange || null,
     createdAt: new Date().toISOString(),
     name: displayName,
     reactions: [],
@@ -242,7 +238,6 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         actorDisplayName: displayName,
         text: newComment.text,
         parentCommentId: newComment.parentId,
-        phase: newComment.phase,
       },
       {
         send: (msg) => sendEmail(env, msg),

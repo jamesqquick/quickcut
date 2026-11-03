@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import { actions } from "astro:actions";
 import { FullscreenOverlay } from "./FullscreenOverlay";
 import { PhaseStepper, type PipelineStep } from "./PhaseStepper";
-import { normalizeVideoPhase, type VideoPhase } from "../types";
+import { type VideoPhase } from "../types";
 import { PublishOverrideDialog } from "./PublishOverrideDialog";
 import { friendlyActionErrorMessage } from "../lib/errors";
 import type { ApprovalStatus } from "./ApprovalSection";
@@ -43,7 +43,7 @@ export function ProjectPhaseControls({
   primaryAction,
 }: ProjectPhaseControlsProps) {
   const confirmHeadingId = useId();
-  const [currentPhase, setCurrentPhase] = useState(() => normalizeVideoPhase(initialPhase));
+  const [currentPhase, setCurrentPhase] = useState(initialPhase);
   const [savingPrimaryAction, setSavingPrimaryAction] = useState(false);
   const [confirmPhaseOpen, setConfirmPhaseOpen] = useState(false);
   const [overrideOpen, setOverrideOpen] = useState(false);

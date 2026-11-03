@@ -14,12 +14,6 @@ const rectAnnotationSchema = z.object({
   h: z.number().min(0).max(1),
 });
 
-export const textRangeSchema = z.object({
-  from: z.number().int().min(0),
-  to: z.number().int().min(0),
-  quote: z.string().max(1000),
-});
-
 export const annotationSchema = z.discriminatedUnion("type", [
   pointAnnotationSchema,
   rectAnnotationSchema,
@@ -49,8 +43,6 @@ export const commentSchema = z.object({
   timestamp: z.number().nullable().optional(),
   annotation: annotationSchema.nullable().optional(),
   urgency: urgencySchema.optional().default("suggestion"),
-  phase: z.enum(["script", "review"]).optional().default("review"),
-  textRange: textRangeSchema.nullable().optional(),
 });
 
 export const anonymousCommentSchema = z.object({
@@ -64,8 +56,6 @@ export const anonymousCommentSchema = z.object({
   parentId: z.string().min(1).max(100).optional(),
   annotation: annotationSchema.nullable().optional(),
   urgency: urgencySchema.optional().default("suggestion"),
-  phase: z.enum(["script", "review"]).optional().default("review"),
-  textRange: textRangeSchema.nullable().optional(),
 });
 
 // Project-level update payload. After issue #121 these fields all live
@@ -96,8 +86,6 @@ export const videoVersionSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export const VIDEO_PHASES = [
-  "creating_script",
-  "reviewing_script",
   "reviewing_video",
   "video_approved",
   "published",
@@ -110,24 +98,12 @@ export const phaseUpdateSchema = z.object({
   phase: phaseSchema,
 });
 
-export const SCRIPT_STATUSES = ["writing", "review"] as const;
-export const scriptStatusSchema = z.enum(SCRIPT_STATUSES);
-
-export const scriptStatusUpdateSchema = z.object({
-  status: scriptStatusSchema,
-});
-
 export const projectCreateSchema = z.object({
   title: z.string().trim().min(1, "Project title is required").max(200),
   description: z.string().trim().max(2000).optional(),
   spaceId: z.string().uuid(),
   folderId: z.string().uuid().nullable().optional(),
   targetDate: z.string().date().nullable().optional(),
-});
-
-export const scriptUpdateSchema = z.object({
-  content: z.string().max(200_000),
-  plainText: z.string().max(200_000).optional(),
 });
 
 export const folderCreateSchema = z.object({
@@ -178,7 +154,6 @@ export const approveVideoSchema = z.object({
 
 export const notificationsMarkReadByContextSchema = z.object({
   videoId: z.string().min(1),
-  tab: z.enum(["video", "script"]),
 });
 
 // ---------------------------------------------------------------------------

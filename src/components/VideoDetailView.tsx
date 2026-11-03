@@ -11,7 +11,7 @@ import { ApprovalSection, type ApprovalStatus } from "./ApprovalSection";
 import { ProjectPhaseControls } from "./ProjectPhaseControls";
 import { ProjectActivityTimeline } from "./ProjectActivityTimeline";
 import { useStreamPlayer } from "../hooks/useStreamPlayer";
-import { normalizeVideoPhase, PROJECT_STATUS_LABELS, type Annotation, type Comment, type VideoPhase } from "../types";
+import { PROJECT_STATUS_LABELS, type Annotation, type Comment, type VideoPhase } from "../types";
 import type { AnnotationTool } from "./AnnotationOverlay";
 import type { PipelineStep } from "./PhaseStepper";
 import type { ProjectActivityItem } from "../lib/activity";
@@ -101,11 +101,10 @@ export function VideoDetailView({
   projectOwnerId = null,
 }: VideoDetailViewProps) {
   const isShareMode = !!shareToken;
-  const initialReviewComments = initialComments.filter((comment) => comment.phase !== "script");
   const [processingStatus, setProcessingStatus] = useState(status);
-  const [currentPhase, setCurrentPhase] = useState<VideoPhase>(() => normalizeVideoPhase(initialPhase));
+  const [currentPhase, setCurrentPhase] = useState<VideoPhase>(initialPhase);
   const [approvalStatus, setApprovalStatus] = useState(initialApprovalStatus);
-  const [liveComments, setLiveComments] = useState(initialReviewComments);
+  const [liveComments, setLiveComments] = useState(initialComments);
   const isPublished = currentPhase === "published";
   const isSpaceOwner = userRole === "owner";
   const isProjectCreator = projectOwnerId === currentUserId;
@@ -186,7 +185,6 @@ export function VideoDetailView({
       try {
         const { data, error } = await actions.notification.markReadByContext({
           videoId,
-          tab: "video",
         });
         if (cancelled || error || !data || data.count === 0) return;
         window.dispatchEvent(

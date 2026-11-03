@@ -101,7 +101,7 @@ export const projects = sqliteTable("projects", {
   title: text("title").notNull(),
   description: text("description"),
   phase: text("phase", {
-    enum: ["creating_script", "reviewing_script", "reviewing_video", "video_approved", "published"],
+    enum: ["reviewing_video", "video_approved", "published"],
   })
     .notNull()
     .default("reviewing_video"),
@@ -149,28 +149,6 @@ export const videos = sqliteTable("videos", {
     .notNull()
     .default(false),
   versionNotes: text("version_notes"),
-  createdAt: text("created_at")
-    .notNull()
-    .default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at")
-    .notNull()
-    .default(sql`(datetime('now'))`),
-});
-
-export const scripts = sqliteTable("scripts", {
-  id: text("id").primaryKey(),
-  videoId: text("video_id")
-    .notNull()
-    .unique()
-    .references(() => videos.id, { onDelete: "cascade" }),
-  content: text("content").notNull().default(""),
-  plainText: text("plain_text").notNull().default(""),
-  status: text("status", { enum: ["writing", "review"] })
-    .notNull()
-    .default("writing"),
-  createdBy: text("created_by").references(() => users.id, {
-    onDelete: "set null",
-  }),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(datetime('now'))`),
@@ -402,7 +380,7 @@ export const comments = sqliteTable("comments", {
     .notNull()
     .default("suggestion"),
   phase: text("comment_phase", {
-    enum: ["script", "review"],
+    enum: ["review"],
   })
     .notNull()
     .default("review"),
@@ -427,8 +405,6 @@ export const notifications = sqliteTable(
       enum: [
         "comment.created",
         "comment.reply",
-        "script_comment.created",
-        "script_comment.reply",
         "approval.requested",
       ],
     }).notNull(),
